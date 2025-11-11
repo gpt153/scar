@@ -10,6 +10,7 @@ import { GitHubAdapter } from './adapters/github';
 import { ClaudeClient } from './clients/claude';
 import { handleMessage } from './orchestrator/orchestrator';
 import { pool } from './db/connection';
+import { ConversationLockManager } from './utils/conversation-lock';
 
 // Load environment variables
 dotenv.config();
@@ -45,6 +46,11 @@ async function main(): Promise<void> {
 
   // Initialize AI assistant client (Claude)
   const claude = new ClaudeClient();
+
+  // Initialize conversation lock manager
+  const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_CONVERSATIONS || '10');
+  const lockManager = new ConversationLockManager(maxConcurrent);
+  console.log(`[App] Lock manager initialized (max concurrent: ${maxConcurrent})`);
 
   // Initialize test adapter
   const testAdapter = new TestAdapter();
@@ -106,6 +112,18 @@ async function main(): Promise<void> {
     }
   });
 
+  app.get('/health/concurrency', (_req, res) => {
+    try {
+      const stats = lockManager.getStats();
+      res.json({
+        status: 'ok',
+        ...stats
+      });
+    } catch (_error) {
+      res.status(500).json({ status: 'error', reason: 'Failed to get stats' });
+    }
+  });
+
   // Test adapter endpoints
   app.post('/test/message', async (req, res) => {
     try {
@@ -116,10 +134,14 @@ async function main(): Promise<void> {
 
       await testAdapter.receiveMessage(conversationId, message);
 
-      // Process the message through orchestrator
-      handleMessage(testAdapter, claude, conversationId, message).catch(error => {
-        console.error('[Test] Message handling error:', error);
-      });
+      // Process the message through orchestrator (non-blocking)
+      lockManager
+        .acquireLock(conversationId, async () => {
+          await handleMessage(testAdapter, claude, conversationId, message);
+        })
+        .catch(error => {
+          console.error('[Test] Message handling error:', error);
+        });
 
       return res.json({ success: true, conversationId, message });
     } catch (error) {
@@ -151,9 +173,16 @@ async function main(): Promise<void> {
     const conversationId = telegram.getConversationId(ctx);
     const message = ctx.message.text;
 
-    if (message) {
-      await handleMessage(telegram, claude, conversationId, message);
-    }
+    if (!message) return;
+
+    // Fire-and-forget: handler returns immediately, processing happens async
+    lockManager
+      .acquireLock(conversationId, async () => {
+        await handleMessage(telegram, claude, conversationId, message);
+      })
+      .catch(error => {
+        console.error('[Telegram] Failed to process message:', error);
+      });
   });
 
   // Start bot
