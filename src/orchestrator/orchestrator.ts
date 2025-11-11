@@ -16,7 +16,8 @@ export async function handleMessage(
   platform: IPlatformAdapter,
   aiClient: IAssistantClient,
   conversationId: string,
-  message: string
+  message: string,
+  issueContext?: string // Optional GitHub issue/PR context to append AFTER command loading
 ): Promise<void> {
   try {
     console.log(`[Orchestrator] Handling message for conversation ${conversationId}`);
@@ -84,6 +85,12 @@ export async function handleMessage(
 
         // Substitute variables (no metadata needed - file-based workflow)
         promptToSend = substituteVariables(commandText, args);
+
+        // Append issue/PR context AFTER command loading (if provided)
+        if (issueContext) {
+          promptToSend = promptToSend + '\n\n---\n\n' + issueContext;
+          console.log(`[Orchestrator] Appended issue/PR context to command prompt`);
+        }
 
         console.log(`[Orchestrator] Executing '${commandName}' with ${args.length} args`);
       } catch (error) {

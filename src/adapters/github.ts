@@ -8,6 +8,7 @@ import { IPlatformAdapter, IAssistantClient } from '../types';
 import { handleMessage } from '../orchestrator/orchestrator';
 import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
+import * as sessionDb from '../db/sessions';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { readdir, access } from 'fs/promises';
@@ -430,11 +431,43 @@ ${userComment}`;
       });
     }
 
-    // 11. Build message with context if new
+    // 11. Build message with context
     const strippedComment = this.stripMention(comment);
     let finalMessage = strippedComment;
+    let contextToAppend: string | undefined;
 
-    if (isNewConversation) {
+    // IMPORTANT: Slash commands must be processed deterministically (not by AI)
+    // Extract only the first line if it's a slash command
+    const isSlashCommand = strippedComment.trim().startsWith('/');
+    const isCommandInvoke = strippedComment.trim().startsWith('/command-invoke');
+
+    if (isSlashCommand) {
+      // For slash commands, use only the first line to avoid mixing commands with instructions
+      const firstLine = strippedComment.split('\n')[0].trim();
+      finalMessage = firstLine;
+      console.log(`[GitHub] Processing slash command: ${firstLine}`);
+
+      // For /command-invoke, pass just the issue/PR number (not full description)
+      // This avoids tempting the AI to implement before planning
+      if (isCommandInvoke) {
+        const activeSession = await sessionDb.getActiveSession(existingConv.id);
+        const isFirstCommandInvoke = !activeSession;
+
+        if (isFirstCommandInvoke) {
+          console.log('[GitHub] Adding issue/PR reference for first /command-invoke');
+          if (eventType === 'issue' && issue) {
+            contextToAppend = `GitHub Issue #${issue.number}: "${issue.title}"\nUse 'gh issue view ${issue.number}' for full details if needed.`;
+          } else if (eventType === 'issue_comment' && issue) {
+            contextToAppend = `GitHub Issue #${issue.number}: "${issue.title}"\nUse 'gh issue view ${issue.number}' for full details if needed.`;
+          } else if (eventType === 'pull_request' && pullRequest) {
+            contextToAppend = `GitHub Pull Request #${pullRequest.number}: "${pullRequest.title}"\nUse 'gh pr view ${pullRequest.number}' for full details if needed.`;
+          } else if (eventType === 'issue_comment' && pullRequest) {
+            contextToAppend = `GitHub Pull Request #${pullRequest.number}: "${pullRequest.title}"\nUse 'gh pr view ${pullRequest.number}' for full details if needed.`;
+          }
+        }
+      }
+    } else if (isNewConversation) {
+      // For non-command messages, add issue/PR context directly
       if (eventType === 'issue' && issue) {
         finalMessage = this.buildIssueContext(issue, strippedComment);
       } else if (eventType === 'issue_comment' && issue) {
@@ -448,7 +481,7 @@ ${userComment}`;
 
     // 12. Route to orchestrator
     try {
-      await handleMessage(this, aiClient, conversationId, finalMessage);
+      await handleMessage(this, aiClient, conversationId, finalMessage, contextToAppend);
     } catch (error) {
       console.error('[GitHub] Message handling error:', error);
       await this.sendMessage(
