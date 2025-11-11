@@ -4,6 +4,8 @@
  */
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { readFile, writeFile, readdir, access } from 'fs/promises';
+import { join, basename } from 'path';
 import { Conversation, CommandResult } from '../types';
 import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
@@ -12,11 +14,24 @@ import * as sessionDb from '../db/sessions';
 const execAsync = promisify(exec);
 
 export function parseCommand(text: string): { command: string; args: string[] } {
-  const parts = text.trim().split(/\s+/);
-  return {
-    command: parts[0].substring(1), // Remove leading '/'
-    args: parts.slice(1)
-  };
+  // Match quoted strings or non-whitespace sequences
+  const matches = text.match(/"[^"]+"|'[^']+'|\S+/g) || [];
+
+  if (matches.length === 0 || !matches[0]) {
+    return { command: '', args: [] };
+  }
+
+  const command = matches[0].substring(1); // Remove leading '/'
+  const args = matches.slice(1).map(arg => {
+    // Remove surrounding quotes if present
+    if ((arg.startsWith('"') && arg.endsWith('"')) ||
+        (arg.startsWith("'") && arg.endsWith("'"))) {
+      return arg.slice(1, -1);
+    }
+    return arg;
+  });
+
+  return { command, args };
 }
 
 export async function handleCommand(
@@ -30,12 +45,22 @@ export async function handleCommand(
       return {
         success: true,
         message: `Available Commands:
-/help - Show this help message
-/status - Show conversation state
-/getcwd - Show current working directory
-/setcwd <path> - Set working directory
-/clone <repo-url> - Clone GitHub repository
-/reset - Clear active session`
+
+Command Management:
+  /command-set <name> <path> [text] - Register command
+  /load-commands <folder> - Bulk load
+  /command-invoke <name> [args] - Execute
+  /commands - List registered
+
+Codebase:
+  /clone <repo-url> - Clone repository
+  /getcwd - Show working directory
+  /setcwd <path> - Set directory
+
+Session:
+  /status - Show state
+  /reset - Clear session
+  /help - Show help`
       };
 
     case 'status': {
@@ -159,9 +184,25 @@ export async function handleCommand(
           console.log(`[Command] Deactivated session after clone`);
         }
 
+        // Detect command folders
+        let commandFolder: string | null = null;
+        for (const folder of ['.claude/commands', '.agents/commands']) {
+          try {
+            await access(join(targetPath, folder));
+            commandFolder = folder;
+            break;
+          } catch { /* ignore */ }
+        }
+
+        let responseMessage = `Repository cloned successfully!\n\nCodebase: ${repoName}\nPath: ${targetPath}\n\nSession reset - starting fresh on next message.\n\nYou can now start asking questions about the code.`;
+
+        if (commandFolder) {
+          responseMessage += `\n\n📁 Found: ${commandFolder}/\nUse /load-commands ${commandFolder} to register commands.`;
+        }
+
         return {
           success: true,
-          message: `Repository cloned successfully!\n\nCodebase: ${repoName}\nPath: ${targetPath}\n\nSession reset - starting fresh on next message.\n\nYou can now start asking questions about the code.`,
+          message: responseMessage,
           modified: true
         };
       } catch (error) {
@@ -172,6 +213,98 @@ export async function handleCommand(
           message: `Failed to clone repository: ${err.message}`
         };
       }
+    }
+
+    case 'command-set': {
+      if (args.length < 2) {
+        return { success: false, message: 'Usage: /command-set <name> <path> [text]' };
+      }
+      if (!conversation.codebase_id) {
+        return { success: false, message: 'No codebase configured. Use /clone first.' };
+      }
+
+      const [commandName, commandPath, ...textParts] = args;
+      const commandText = textParts.join(' ');
+      const fullPath = join(conversation.cwd || '/workspace', commandPath);
+
+      try {
+        if (commandText) {
+          await writeFile(fullPath, commandText, 'utf-8');
+        } else {
+          await readFile(fullPath, 'utf-8'); // Validate exists
+        }
+        await codebaseDb.registerCommand(conversation.codebase_id, commandName, {
+          path: commandPath,
+          description: `Custom: ${commandName}`
+        });
+        return {
+          success: true,
+          message: `Command '${commandName}' registered!\nPath: ${commandPath}`
+        };
+      } catch (error) {
+        const err = error as Error;
+        console.error('[Command] command-set failed:', err);
+        return { success: false, message: `Failed: ${err.message}` };
+      }
+    }
+
+    case 'load-commands': {
+      if (!args.length) {
+        return { success: false, message: 'Usage: /load-commands <folder>' };
+      }
+      if (!conversation.codebase_id) {
+        return { success: false, message: 'No codebase configured.' };
+      }
+
+      const folderPath = args.join(' ');
+      const fullPath = join(conversation.cwd || '/workspace', folderPath);
+
+      try {
+        const files = (await readdir(fullPath)).filter(f => f.endsWith('.md'));
+        if (!files.length) {
+          return { success: false, message: `No .md files in ${folderPath}` };
+        }
+
+        const commands = await codebaseDb.getCodebaseCommands(conversation.codebase_id);
+        files.forEach(file => {
+          commands[basename(file, '.md')] = {
+            path: join(folderPath, file),
+            description: `From ${folderPath}`
+          };
+        });
+        await codebaseDb.updateCodebaseCommands(conversation.codebase_id, commands);
+
+        return {
+          success: true,
+          message: `Loaded ${files.length} commands: ${files.map(f => basename(f, '.md')).join(', ')}`
+        };
+      } catch (error) {
+        const err = error as Error;
+        console.error('[Command] load-commands failed:', err);
+        return { success: false, message: `Failed: ${err.message}` };
+      }
+    }
+
+    case 'commands': {
+      if (!conversation.codebase_id) {
+        return { success: false, message: 'No codebase configured.' };
+      }
+
+      const codebase = await codebaseDb.getCodebase(conversation.codebase_id);
+      const commands = codebase?.commands || {};
+
+      if (!Object.keys(commands).length) {
+        return {
+          success: true,
+          message: `No commands registered.\n\nUse /command-set or /load-commands.`
+        };
+      }
+
+      let msg = `Registered Commands:\n\n`;
+      for (const [name, def] of Object.entries(commands)) {
+        msg += `${name} - ${def.path}\n`;
+      }
+      return { success: true, message: msg };
     }
 
     case 'reset': {

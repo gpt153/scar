@@ -37,3 +37,13 @@ export async function deactivateSession(id: string): Promise<void> {
     [id]
   );
 }
+
+export async function updateSessionMetadata(
+  id: string,
+  metadata: Record<string, any>
+): Promise<void> {
+  await pool.query(
+    'UPDATE remote_agent_sessions SET metadata = metadata || $1::jsonb WHERE id = $2',
+    [JSON.stringify(metadata), id]
+  );
+}

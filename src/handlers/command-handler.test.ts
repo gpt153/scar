@@ -46,5 +46,35 @@ describe('CommandHandler', () => {
       expect(result.command).toBe('getcwd');
       expect(result.args).toEqual([]);
     });
+
+    test('should parse quoted arguments', () => {
+      const result = parseCommand('/command-invoke plan "Add dark mode"');
+      expect(result.command).toBe('command-invoke');
+      expect(result.args).toEqual(['plan', 'Add dark mode']);
+    });
+
+    test('should parse mixed quoted and unquoted args', () => {
+      const result = parseCommand('/command-set test .test.md "Task: $1"');
+      expect(result.command).toBe('command-set');
+      expect(result.args).toEqual(['test', '.test.md', 'Task: $1']);
+    });
+
+    test('should parse /command-set', () => {
+      const result = parseCommand('/command-set prime .claude/prime.md');
+      expect(result.command).toBe('command-set');
+      expect(result.args).toEqual(['prime', '.claude/prime.md']);
+    });
+
+    test('should parse /load-commands', () => {
+      const result = parseCommand('/load-commands .claude/commands');
+      expect(result.command).toBe('load-commands');
+      expect(result.args).toEqual(['.claude/commands']);
+    });
+
+    test('should handle single quotes', () => {
+      const result = parseCommand("/command-invoke plan 'Add dark mode'");
+      expect(result.command).toBe('command-invoke');
+      expect(result.args).toEqual(['plan', 'Add dark mode']);
+    });
   });
 });
