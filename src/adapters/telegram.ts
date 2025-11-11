@@ -82,8 +82,12 @@ export class TelegramAdapter implements IPlatformAdapter {
    * Start the bot (begins polling)
    */
   async start(): Promise<void> {
-    await this.bot.launch();
-    console.log('[Telegram] Bot started (polling mode)');
+    // Drop pending updates on startup to prevent reprocessing messages after container restart
+    // This ensures a clean slate - old unprocessed messages won't be handled
+    await this.bot.launch({
+      dropPendingUpdates: true
+    });
+    console.log('[Telegram] Bot started (polling mode, pending updates dropped)');
   }
 
   /**
