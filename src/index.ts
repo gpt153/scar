@@ -6,6 +6,7 @@ import * as dotenv from 'dotenv';
 import express from 'express';
 import { TelegramAdapter } from './adapters/telegram';
 import { TestAdapter } from './adapters/test';
+import { GitHubAdapter } from './adapters/github';
 import { ClaudeClient } from './clients/claude';
 import { handleMessage } from './orchestrator/orchestrator';
 import { pool } from './db/connection';
@@ -49,11 +50,49 @@ async function main(): Promise<void> {
   const testAdapter = new TestAdapter();
   await testAdapter.start();
 
+  // Initialize GitHub adapter (conditional)
+  let github: GitHubAdapter | null = null;
+  if (process.env.GITHUB_TOKEN && process.env.WEBHOOK_SECRET) {
+    github = new GitHubAdapter(process.env.GITHUB_TOKEN, process.env.WEBHOOK_SECRET);
+    await github.start();
+  } else {
+    console.log('[GitHub] Adapter not initialized (missing GITHUB_TOKEN or WEBHOOK_SECRET)');
+  }
+
   // Setup Express server
   const app = express();
-  app.use(express.json());
   const port = process.env.PORT || 3000;
 
+  // GitHub webhook endpoint (must use raw body for signature verification)
+  // IMPORTANT: Register BEFORE express.json() to prevent body parsing
+  if (github) {
+    app.post('/webhooks/github', express.raw({ type: 'application/json' }), async (req, res) => {
+      try {
+        const signature = req.headers['x-hub-signature-256'] as string;
+        if (!signature) {
+          return res.status(400).json({ error: 'Missing signature header' });
+        }
+
+        const payload = (req.body as Buffer).toString('utf-8');
+
+        // Process async (fire-and-forget for fast webhook response)
+        github.handleWebhook(payload, signature, claude).catch(error => {
+          console.error('[GitHub] Webhook processing error:', error);
+        });
+
+        return res.status(200).send('OK');
+      } catch (error) {
+        console.error('[GitHub] Webhook endpoint error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+    console.log('[Express] GitHub webhook endpoint registered');
+  }
+
+  // JSON parsing for all other endpoints
+  app.use(express.json());
+
+  // Health check endpoints
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });

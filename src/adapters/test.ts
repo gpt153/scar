@@ -34,6 +34,10 @@ export class TestAdapter implements IPlatformAdapter {
     return this.streamingMode;
   }
 
+  getPlatformType(): string {
+    return 'test';
+  }
+
   async start(): Promise<void> {
     console.log('[Test] Test adapter ready');
   }

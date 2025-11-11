@@ -22,7 +22,7 @@ export async function handleMessage(
     console.log(`[Orchestrator] Handling message for conversation ${conversationId}`);
 
     // Get or create conversation
-    let conversation = await db.getOrCreateConversation('telegram', conversationId);
+    let conversation = await db.getOrCreateConversation(platform.getPlatformType(), conversationId);
 
     // Handle slash commands (except /command-invoke which needs AI)
     if (message.startsWith('/')) {
@@ -33,7 +33,7 @@ export async function handleMessage(
 
         // Reload conversation if modified
         if (result.modified) {
-          conversation = await db.getOrCreateConversation('telegram', conversationId);
+          conversation = await db.getOrCreateConversation(platform.getPlatformType(), conversationId);
         }
         return;
       }
@@ -153,26 +153,63 @@ export async function handleMessage(
         }
       }
     } else {
-      // Batch mode: Accumulate chunks, send final response
-      const buffer: string[] = [];
+      // Batch mode: Accumulate all chunks for logging, send only final clean summary
+      const allChunks: { type: string; content: string }[] = [];
+      const assistantMessages: string[] = [];
+
       for await (const msg of aiClient.sendQuery(
         promptToSend,
         cwd,
         session.assistant_session_id || undefined
       )) {
         if (msg.type === 'assistant' && msg.content) {
-          buffer.push(msg.content);
+          assistantMessages.push(msg.content);
+          allChunks.push({ type: 'assistant', content: msg.content });
         } else if (msg.type === 'tool' && msg.toolName) {
-          // Format and add tool call notification to buffer
+          // Format and log tool call for observability
           const toolMessage = formatToolCall(msg.toolName, msg.toolInput);
-          buffer.push(toolMessage);
+          allChunks.push({ type: 'tool', content: toolMessage });
+          console.log(`[Orchestrator] Tool call: ${msg.toolName}`);
         } else if (msg.type === 'result' && msg.sessionId) {
           await sessionDb.updateSession(session.id, msg.sessionId);
         }
       }
 
-      if (buffer.length > 0) {
-        await platform.sendMessage(conversationId, buffer.join('\n\n'));
+      // Log all chunks for observability
+      console.log(`[Orchestrator] Received ${allChunks.length} chunks total`);
+      console.log(`[Orchestrator] Assistant messages: ${assistantMessages.length}`);
+
+      // Extract clean summary from the last message
+      // Tool indicators from Claude Code: 🔧, 💭, etc.
+      // These appear at the start of lines showing tool usage
+      let finalMessage = '';
+
+      if (assistantMessages.length > 0) {
+        const lastMessage = assistantMessages[assistantMessages.length - 1];
+
+        // Split by double newlines to separate tool sections from summary
+        const sections = lastMessage.split('\n\n');
+
+        // Filter out sections that start with tool indicators
+        // Using alternation for emojis with variation selectors
+        const toolIndicatorRegex = /^(?:\u{1F527}|\u{1F4AD}|\u{1F4DD}|\u{270F}\u{FE0F}|\u{1F5D1}\u{FE0F}|\u{1F4C2}|\u{1F50D})/u;
+        const cleanSections = sections.filter(section => {
+          const trimmed = section.trim();
+          return !toolIndicatorRegex.exec(trimmed);
+        });
+
+        // Join remaining sections (this is the summary without tool indicators)
+        finalMessage = cleanSections.join('\n\n').trim();
+
+        // If we filtered everything out, fall back to last message
+        if (!finalMessage) {
+          finalMessage = lastMessage;
+        }
+      }
+
+      if (finalMessage) {
+        console.log(`[Orchestrator] Sending final message (${finalMessage.length} chars)`);
+        await platform.sendMessage(conversationId, finalMessage);
       }
     }
 

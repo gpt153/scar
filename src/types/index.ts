@@ -58,6 +58,11 @@ export interface IPlatformAdapter {
   getStreamingMode(): 'stream' | 'batch';
 
   /**
+   * Get the platform type identifier (e.g., 'telegram', 'github', 'slack')
+   */
+  getPlatformType(): string;
+
+  /**
    * Start the platform adapter (e.g., begin polling, start webhook server)
    */
   start(): Promise<void>;

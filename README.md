@@ -160,6 +160,102 @@ Once your bot is running, message it on Telegram:
 | `/setcwd <path>` | Change working directory | `/setcwd /workspace/repo` |
 | `/reset` | Clear active session | `/reset` |
 
+## GitHub Integration
+
+### Prerequisites
+
+- GitHub repository with issues enabled
+- GitHub personal access token with `repo` scope
+- Public endpoint for webhooks (ngrok for development, or deployed server)
+
+### Setup
+
+**1. Create GitHub Personal Access Token**
+
+Visit [GitHub Settings > Personal Access Tokens](https://github.com/settings/tokens)
+- Click "Generate new token (classic)"
+- Select scopes: `repo` (full control of private repositories)
+- Copy token (starts with `ghp_...`)
+
+**2. Expose Local Server (for local development)**
+
+If running locally, start ngrok first to get your public URL:
+
+```bash
+# Install ngrok (https://ngrok.com/download)
+# Or: choco install ngrok (Windows)
+# Or: brew install ngrok (Mac)
+
+# Create a tunnel
+ngrok http 3000
+
+# You'll get a URL like: https://abc123.ngrok.io
+# Keep this terminal open and note the URL for step 3
+```
+
+**Note**: Free ngrok URLs change on restart. For persistent URLs, consider ngrok's paid plan or alternatives like Cloudflare Tunnel.
+
+**3. Configure GitHub Webhook**
+
+**For a single repository:**
+- Go to Repository Settings > Webhooks > Add webhook
+- **Note**: For multiple personal repositories, you'll need to add the webhook to each repo individually
+- **Tip**: You can use the same `WEBHOOK_SECRET` for all repositories
+
+**For all repositories in an organization:**
+- Go to Organization Settings > Webhooks > Add webhook
+- This webhook will apply to all current and future repos in the org (one-time setup!)
+
+**Webhook configuration:**
+- **Payload URL**:
+  - **Local dev**: `https://abc123.ngrok.io/webhooks/github` (your ngrok URL from step 2)
+  - **Production**: `https://your-domain.com/webhooks/github`
+- **Content type**: `application/json`
+- **Secret**: Generate a random secret string (e.g., `openssl rand -hex 32`)
+- **Events**: Select "Let me select individual events"
+  - ✓ Issues
+  - ✓ Issue comments
+  - ✓ Pull requests
+- Click "Add webhook"
+- **Save the secret you entered** - you'll need it for step 4
+
+**4. Configure Environment Variables**
+
+```env
+# .env
+GITHUB_TOKEN=ghp_your_token_here
+WEBHOOK_SECRET=your_secret_from_step_3
+```
+
+**Important**: The `WEBHOOK_SECRET` must match exactly what you entered in GitHub's webhook configuration.
+
+**5. Start the Application**
+
+```bash
+docker-compose up -d
+```
+
+### Usage
+
+**Interact with AI by @mentioning in issues or PRs:**
+
+```
+@remote-agent can you analyze this bug?
+@remote-agent /status
+@remote-agent review this implementation
+```
+
+**First mention in an issue/PR**:
+- Automatically clones repository
+- Detects and loads commands from `.claude/commands` or `.agents/commands`
+- Injects issue/PR context for Claude
+
+**Subsequent mentions**:
+- Resumes conversation
+- No context re-injection
+
+**Response Mode**: Batch (single comment, no streaming)
+
 ## Usage Example
 
 ```

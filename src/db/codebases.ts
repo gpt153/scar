@@ -51,3 +51,11 @@ export async function registerCommand(
   commands[name] = command;
   await updateCodebaseCommands(id, commands);
 }
+
+export async function findCodebaseByRepoUrl(repoUrl: string): Promise<Codebase | null> {
+  const result = await pool.query<Codebase>(
+    'SELECT * FROM remote_agent_codebases WHERE repository_url = $1',
+    [repoUrl]
+  );
+  return result.rows[0] || null;
+}

@@ -69,6 +69,13 @@ export class TelegramAdapter implements IPlatformAdapter {
   }
 
   /**
+   * Get platform type
+   */
+  getPlatformType(): string {
+    return 'telegram';
+  }
+
+  /**
    * Extract conversation ID from Telegram context
    */
   getConversationId(ctx: Context): string {

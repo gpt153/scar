@@ -443,14 +443,12 @@ SLACK_STREAMING_MODE=stream  # stream (default) | batch
 
 **Environment Variables:**
 ```env
-# GitHub Token - Used by GitHub CLI for repo operations
-# (clone, commit, push, PR creation, issue management)
+# GitHub Personal Access Token - Used for all operations
+# (webhooks, clone, commit, push, PR creation, issue management)
 GITHUB_TOKEN=ghp_...
 GH_TOKEN=ghp_...  # Same token, used by gh CLI
 
-# GitHub App - Used for webhooks only
-GITHUB_APP_ID=12345
-GITHUB_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----...
+# Webhook Secret - For verifying webhook signatures
 WEBHOOK_SECRET=<random string for webhook verification>
 
 GITHUB_STREAMING_MODE=batch  # stream | batch (default)
@@ -461,14 +459,12 @@ GITHUB_STREAMING_MODE=batch  # stream | batch (default)
 - **stream**: Send each chunk as separate comment (NOT recommended - creates noise)
 
 **Authentication Strategy:**
-- **GitHub CLI operations**: Use `GITHUB_TOKEN` for cloning repos, making commits, creating PRs/issues
-- **Webhooks**: Use GitHub App credentials for receiving webhook events
+- Uses **Personal Access Token** for all GitHub operations (webhooks, CLI, API)
+- Simple setup: Generate token with `repo` scope, add to webhooks manually
+- Per-repository webhooks (or organization-level for all repos in an org)
 
-**Required GitHub App Permissions:**
-- **Issues**: Read & write
-- **Pull requests**: Read & write
-- **Contents**: Read & write (for commits/pushes)
-- **Metadata**: Read (automatic)
+**Required Token Scopes:**
+- **repo**: Full control of private repositories (includes issues, PRs, contents)
 
 **Trigger Phrases Required:**
 ```
@@ -483,7 +479,7 @@ GITHUB_STREAMING_MODE=batch  # stream | batch (default)
 
 **Workflow:**
 1. User creates issue/PR or comments
-2. GitHub sends webhook to `/webhooks/github` (via GitHub App)
+2. GitHub sends webhook to `/webhooks/github` (configured per-repo or org-wide)
 3. Scan comment for `@coding-assistant <action>`
 4. Process command using GitHub CLI for operations
 5. Reply via GitHub REST API
@@ -613,9 +609,6 @@ CODEX_ACCOUNT_ID=...
 TELEGRAM_BOT_TOKEN=<from @BotFather>
 SLACK_BOT_TOKEN=xoxb-...
 GITHUB_TOKEN=ghp_...
-# OR GitHub App:
-# GITHUB_APP_ID=12345
-# GITHUB_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----...
 WEBHOOK_SECRET=<random string for GitHub webhook verification>
 
 # Platform Streaming Mode (stream | batch)
@@ -918,7 +911,7 @@ Bot: Creating git commit...
 8. `README.md` with setup instructions:
    - Creating Telegram bot with BotFather
    - Creating Slack app and getting bot token
-   - Creating GitHub app and configuring webhooks
+   - Creating GitHub personal access token and configuring webhooks
    - Environment variable configuration
    - Docker deployment steps
 9. End-to-end testing
