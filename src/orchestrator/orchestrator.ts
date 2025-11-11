@@ -114,7 +114,8 @@ export async function handleMessage(
     const cwd = conversation.cwd || codebase?.default_cwd || '/workspace';
 
     // Check for plan→execute transition (requires NEW session per PRD)
-    const needsNewSession = commandName === 'execute' && session?.metadata?.lastCommand === 'plan';
+    // Note: The planning command is named 'plan-feature', not 'plan'
+    const needsNewSession = commandName === 'execute' && session?.metadata?.lastCommand === 'plan-feature';
 
     if (needsNewSession) {
       console.log('[Orchestrator] Plan→Execute transition: creating new session');
