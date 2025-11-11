@@ -336,7 +336,18 @@ Execute every command to ensure zero regressions and 100% feature correctness.
 
 ### Level 1: Syntax & Style
 
-<Project-specific linting and formatting commands>
+```bash
+# TypeScript type checking
+npm run type-check
+
+# ESLint (must pass with 0 errors)
+npm run lint
+
+# Prettier formatting check
+npm run format:check
+```
+
+**Expected**: All commands pass with exit code 0
 
 ### Level 2: Unit Tests
 
@@ -376,11 +387,18 @@ Execute every command to ensure zero regressions and 100% feature correctness.
 
 - [ ] All tasks completed in order
 - [ ] Each task validation passed immediately
-- [ ] All validation commands executed successfully
+- [ ] All validation commands executed successfully:
+  - [ ] Level 1: type-check, lint, format:check
+  - [ ] Level 2: test, test with coverage
+  - [ ] Level 3: build, dist/ verification
+  - [ ] Level 4: Manual script testing
+  - [ ] Level 5: Config validation
 - [ ] Full test suite passes (unit + integration)
-- [ ] No linting or type checking errors
-- [ ] Manual testing confirms feature works
-- [ ] Acceptance criteria all met
+- [ ] No linting errors (npm run lint)
+- [ ] No formatting errors (npm run format:check)
+- [ ] No type checking errors (npm run type-check)
+- [ ] Build succeeds (npm run build)
+- [ ] All acceptance criteria met
 - [ ] Code reviewed for quality and maintainability
 
 ---

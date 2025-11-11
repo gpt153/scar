@@ -87,7 +87,16 @@ npm run lint:fix
 
 # Format code
 npm run format
+
+# Check formatting (CI-safe)
+npm run format:check
 ```
+
+**Code Quality Setup:**
+- **ESLint**: Flat config with TypeScript-ESLint (strict rules, 0 errors enforced)
+- **Prettier**: Opinionated formatter (single quotes, semicolons, 2-space indent)
+- **Integration**: ESLint + Prettier configured to work together (no conflicts)
+- **Validation**: All PRs must pass `lint` and `format:check` before merge
 
 ### Database
 
