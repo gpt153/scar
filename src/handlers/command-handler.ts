@@ -75,9 +75,27 @@ export async function handleCommand(
       }
       const newCwd = args.join(' ');
       await db.updateConversation(conversation.id, { cwd: newCwd });
+
+      // Add this directory to git safe.directory if it's a git repository
+      // This prevents "dubious ownership" errors when working with existing repos
+      try {
+        await execAsync(`git config --global --add safe.directory ${newCwd}`);
+        console.log(`[Command] Added ${newCwd} to git safe.directory`);
+      } catch (error) {
+        // Ignore errors - directory might not be a git repo
+        console.log(`[Command] Could not add ${newCwd} to safe.directory (might not be a git repo)`);
+      }
+
+      // Reset session when changing working directory
+      const session = await sessionDb.getActiveSession(conversation.id);
+      if (session) {
+        await sessionDb.deactivateSession(session.id);
+        console.log(`[Command] Deactivated session after cwd change`);
+      }
+
       return {
         success: true,
-        message: `Working directory set to: ${newCwd}`,
+        message: `Working directory set to: ${newCwd}\n\nSession reset - starting fresh on next message.`,
         modified: true
       };
     }
@@ -95,7 +113,33 @@ export async function handleCommand(
 
       try {
         console.log(`[Clone] Cloning ${repoUrl} to ${targetPath}`);
-        await execAsync(`git clone ${repoUrl} ${targetPath}`);
+
+        // Build clone command with authentication if GitHub token is available
+        let cloneCommand = `git clone ${repoUrl} ${targetPath}`;
+        const ghToken = process.env.GH_TOKEN;
+
+        if (ghToken && repoUrl.includes('github.com')) {
+          // Inject token into GitHub URL for private repo access
+          // Convert: https://github.com/user/repo.git -> https://token@github.com/user/repo.git
+          let authenticatedUrl = repoUrl;
+          if (repoUrl.startsWith('https://github.com')) {
+            authenticatedUrl = repoUrl.replace('https://github.com', `https://${ghToken}@github.com`);
+          } else if (repoUrl.startsWith('http://github.com')) {
+            authenticatedUrl = repoUrl.replace('http://github.com', `https://${ghToken}@github.com`);
+          } else if (!repoUrl.startsWith('http')) {
+            // Handle github.com/user/repo format
+            authenticatedUrl = `https://${ghToken}@${repoUrl}`;
+          }
+          cloneCommand = `git clone ${authenticatedUrl} ${targetPath}`;
+          console.log(`[Clone] Using authenticated GitHub clone`);
+        }
+
+        await execAsync(cloneCommand);
+
+        // Add the cloned repository to git safe.directory to prevent ownership errors
+        // This is needed because we run as non-root user but git might see different ownership
+        await execAsync(`git config --global --add safe.directory ${targetPath}`);
+        console.log(`[Clone] Added ${targetPath} to git safe.directory`);
 
         const codebase = await codebaseDb.createCodebase({
           name: repoName,
@@ -108,9 +152,16 @@ export async function handleCommand(
           cwd: targetPath
         });
 
+        // Reset session when cloning a new repository
+        const session = await sessionDb.getActiveSession(conversation.id);
+        if (session) {
+          await sessionDb.deactivateSession(session.id);
+          console.log(`[Command] Deactivated session after clone`);
+        }
+
         return {
           success: true,
-          message: `Repository cloned successfully!\n\nCodebase: ${repoName}\nPath: ${targetPath}\n\nYou can now start asking questions about the code.`,
+          message: `Repository cloned successfully!\n\nCodebase: ${repoName}\nPath: ${targetPath}\n\nSession reset - starting fresh on next message.\n\nYou can now start asking questions about the code.`,
           modified: true
         };
       } catch (error) {

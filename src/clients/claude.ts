@@ -26,6 +26,31 @@ export class ClaudeClient implements IAssistantClient {
       env: {
         PATH: process.env.PATH,
         ...process.env
+      },
+      permissionMode: 'bypassPermissions',  // YOLO mode - auto-approve all tools
+      stderr: (data: Buffer) => {
+        // Capture and log Claude Code stderr - but filter out informational messages
+        const output = data.toString().trim();
+        if (!output) return;
+
+        // Only log actual errors, not informational messages
+        // Filter out: "Spawning Claude Code process:", debug info, etc.
+        const isError =
+          output.toLowerCase().includes('error') ||
+          output.toLowerCase().includes('fatal') ||
+          output.toLowerCase().includes('failed') ||
+          output.toLowerCase().includes('exception') ||
+          output.includes('at ') ||  // Stack trace lines
+          output.includes('Error:');
+
+        const isInfoMessage =
+          output.includes('Spawning Claude Code') ||
+          output.includes('--output-format') ||
+          output.includes('--permission-mode');
+
+        if (isError && !isInfoMessage) {
+          console.error(`[Claude stderr] ${output}`);
+        }
       }
     };
 

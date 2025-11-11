@@ -12,9 +12,13 @@ export class TelegramAdapter implements IPlatformAdapter {
   private streamingMode: 'stream' | 'batch';
 
   constructor(token: string, mode: 'stream' | 'batch' = 'stream') {
-    this.bot = new Telegraf(token);
+    // Disable handler timeout to support long-running AI operations
+    // Default is 90 seconds which is too short for complex coding tasks
+    this.bot = new Telegraf(token, {
+      handlerTimeout: Infinity
+    });
     this.streamingMode = mode;
-    console.log(`[Telegram] Adapter initialized (mode: ${mode})`);
+    console.log(`[Telegram] Adapter initialized (mode: ${mode}, timeout: disabled)`);
   }
 
   /**
