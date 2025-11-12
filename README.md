@@ -52,7 +52,36 @@ If you don't have a subscription or prefer using API credits:
 - Create a new key (starts with `sk-ant-`)
 - Use this as `CLAUDE_API_KEY`
 
-### 3. Environment Setup
+### 3. Get Codex Authentication (Optional)
+
+If you want to use Codex as your AI assistant:
+
+```bash
+# Login to Codex CLI
+codex login
+
+# Copy credentials from auth file
+# On Linux/Mac:
+cat ~/.codex/auth.json
+
+# On Windows:
+type %USERPROFILE%\.codex\auth.json
+
+# Copy the values to your .env file:
+# - idToken → CODEX_ID_TOKEN
+# - accessToken → CODEX_ACCESS_TOKEN
+# - refreshToken → CODEX_REFRESH_TOKEN
+# - accountId → CODEX_ACCOUNT_ID
+```
+
+**Using Multiple AI Assistants**
+
+- **Claude**: Default assistant, works with `.claude/commands/` folders
+- **Codex**: Auto-detected when cloning repos with `.codex/` folders
+- **Switching**: Assistant type is set per codebase and locked at conversation start
+- **Environment Default**: Set `DEFAULT_AI_ASSISTANT=codex` to prefer Codex for new conversations
+
+### 4. Environment Setup
 
 ```bash
 # Copy example environment file

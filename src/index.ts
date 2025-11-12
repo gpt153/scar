@@ -7,7 +7,6 @@ import express from 'express';
 import { TelegramAdapter } from './adapters/telegram';
 import { TestAdapter } from './adapters/test';
 import { GitHubAdapter } from './adapters/github';
-import { ClaudeClient } from './clients/claude';
 import { handleMessage } from './orchestrator/orchestrator';
 import { pool } from './db/connection';
 import { ConversationLockManager } from './utils/conversation-lock';
@@ -27,12 +26,20 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Validate Claude credentials (API key or OAuth token)
-  if (!process.env.CLAUDE_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-    console.error(
-      '[App] Missing Claude credentials. Set either CLAUDE_API_KEY or CLAUDE_CODE_OAUTH_TOKEN'
-    );
+  // Validate AI assistant credentials (warn if missing, don't fail)
+  const hasClaudeCredentials = process.env.CLAUDE_API_KEY || process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  const hasCodexCredentials = process.env.CODEX_ID_TOKEN && process.env.CODEX_ACCESS_TOKEN;
+
+  if (!hasClaudeCredentials && !hasCodexCredentials) {
+    console.error('[App] No AI assistant credentials found. Set Claude or Codex credentials.');
     process.exit(1);
+  }
+
+  if (!hasClaudeCredentials) {
+    console.warn('[App] Claude credentials not found. Claude assistant will be unavailable.');
+  }
+  if (!hasCodexCredentials) {
+    console.warn('[App] Codex credentials not found. Codex assistant will be unavailable.');
   }
 
   // Test database connection
@@ -43,9 +50,6 @@ async function main(): Promise<void> {
     console.error('[Database] Connection failed:', error);
     process.exit(1);
   }
-
-  // Initialize AI assistant client (Claude)
-  const claude = new ClaudeClient();
 
   // Initialize conversation lock manager
   const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_CONVERSATIONS || '10');
@@ -82,7 +86,7 @@ async function main(): Promise<void> {
         const payload = (req.body as Buffer).toString('utf-8');
 
         // Process async (fire-and-forget for fast webhook response)
-        github.handleWebhook(payload, signature, claude).catch(error => {
+        github.handleWebhook(payload, signature).catch(error => {
           console.error('[GitHub] Webhook processing error:', error);
         });
 
@@ -137,7 +141,7 @@ async function main(): Promise<void> {
       // Process the message through orchestrator (non-blocking)
       lockManager
         .acquireLock(conversationId, async () => {
-          await handleMessage(testAdapter, claude, conversationId, message);
+          await handleMessage(testAdapter, conversationId, message);
         })
         .catch(error => {
           console.error('[Test] Message handling error:', error);
@@ -178,7 +182,7 @@ async function main(): Promise<void> {
     // Fire-and-forget: handler returns immediately, processing happens async
     lockManager
       .acquireLock(conversationId, async () => {
-        await handleMessage(telegram, claude, conversationId, message);
+        await handleMessage(telegram, conversationId, message);
       })
       .catch(error => {
         console.error('[Telegram] Failed to process message:', error);

@@ -4,7 +4,7 @@
  */
 import { Octokit } from '@octokit/rest';
 import { createHmac } from 'crypto';
-import { IPlatformAdapter, IAssistantClient } from '../types';
+import { IPlatformAdapter } from '../types';
 import { handleMessage } from '../orchestrator/orchestrator';
 import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
@@ -377,8 +377,7 @@ ${userComment}`;
    */
   async handleWebhook(
     payload: string,
-    signature: string,
-    aiClient: IAssistantClient
+    signature: string
   ): Promise<void> {
     // 1. Verify signature
     if (!this.verifySignature(payload, signature)) {
@@ -481,7 +480,7 @@ ${userComment}`;
 
     // 12. Route to orchestrator
     try {
-      await handleMessage(this, aiClient, conversationId, finalMessage, contextToAppend);
+      await handleMessage(this, conversationId, finalMessage, contextToAppend);
     } catch (error) {
       console.error('[GitHub] Message handling error:', error);
       await this.sendMessage(

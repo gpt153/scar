@@ -174,10 +174,31 @@ Session:
         await execAsync(`git config --global --add safe.directory ${targetPath}`);
         console.log(`[Clone] Added ${targetPath} to git safe.directory`);
 
+        // Auto-detect assistant type based on folder structure
+        let suggestedAssistant = 'claude';
+        const codexFolder = join(targetPath, '.codex');
+        const claudeFolder = join(targetPath, '.claude');
+
+        try {
+          await access(codexFolder);
+          suggestedAssistant = 'codex';
+          console.log('[Clone] Detected .codex folder - using Codex assistant');
+        } catch {
+          try {
+            await access(claudeFolder);
+            suggestedAssistant = 'claude';
+            console.log('[Clone] Detected .claude folder - using Claude assistant');
+          } catch {
+            // Default to claude
+            console.log('[Clone] No assistant folder detected - defaulting to Claude');
+          }
+        }
+
         const codebase = await codebaseDb.createCodebase({
           name: repoName,
           repository_url: repoUrl,
           default_cwd: targetPath,
+          ai_assistant_type: suggestedAssistant,
         });
 
         await db.updateConversation(conversation.id, {

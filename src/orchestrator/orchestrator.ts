@@ -4,17 +4,17 @@
  */
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { IPlatformAdapter, IAssistantClient } from '../types';
+import { IPlatformAdapter } from '../types';
 import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
 import * as sessionDb from '../db/sessions';
 import * as commandHandler from '../handlers/command-handler';
 import { formatToolCall } from '../utils/tool-formatter';
 import { substituteVariables } from '../utils/variable-substitution';
+import { getAssistantClient } from '../clients/factory';
 
 export async function handleMessage(
   platform: IPlatformAdapter,
-  aiClient: IAssistantClient,
   conversationId: string,
   message: string,
   issueContext?: string // Optional GitHub issue/PR context to append AFTER command loading
@@ -89,7 +89,7 @@ export async function handleMessage(
         // Append issue/PR context AFTER command loading (if provided)
         if (issueContext) {
           promptToSend = promptToSend + '\n\n---\n\n' + issueContext;
-          console.log(`[Orchestrator] Appended issue/PR context to command prompt`);
+          console.log('[Orchestrator] Appended issue/PR context to command prompt');
         }
 
         console.log(`[Orchestrator] Executing '${commandName}' with ${args.length} args`);
@@ -107,6 +107,10 @@ export async function handleMessage(
     }
 
     console.log('[Orchestrator] Starting AI conversation');
+
+    // Dynamically get the appropriate AI client based on conversation's assistant type
+    const aiClient = getAssistantClient(conversation.ai_assistant_type);
+    console.log(`[Orchestrator] Using ${conversation.ai_assistant_type} assistant`);
 
     // Get or create session (handle plan→execute transition)
     let session = await sessionDb.getActiveSession(conversation.id);
@@ -127,12 +131,14 @@ export async function handleMessage(
       session = await sessionDb.createSession({
         conversation_id: conversation.id,
         codebase_id: conversation.codebase_id,
+        ai_assistant_type: conversation.ai_assistant_type,
       });
     } else if (!session) {
       console.log('[Orchestrator] Creating new session');
       session = await sessionDb.createSession({
         conversation_id: conversation.id,
         codebase_id: conversation.codebase_id,
+        ai_assistant_type: conversation.ai_assistant_type,
       });
     } else {
       console.log(`[Orchestrator] Resuming session ${session.id}`);

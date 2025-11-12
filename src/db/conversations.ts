@@ -6,7 +6,8 @@ import { Conversation } from '../types';
 
 export async function getOrCreateConversation(
   platformType: string,
-  platformId: string
+  platformId: string,
+  codebaseId?: string
 ): Promise<Conversation> {
   const existing = await pool.query<Conversation>(
     'SELECT * FROM remote_agent_conversations WHERE platform_type = $1 AND platform_conversation_id = $2',
@@ -17,9 +18,21 @@ export async function getOrCreateConversation(
     return existing.rows[0];
   }
 
+  // Determine assistant type from codebase or environment
+  let assistantType = process.env.DEFAULT_AI_ASSISTANT || 'claude';
+  if (codebaseId) {
+    const codebase = await pool.query<{ ai_assistant_type: string }>(
+      'SELECT ai_assistant_type FROM remote_agent_codebases WHERE id = $1',
+      [codebaseId]
+    );
+    if (codebase.rows[0]) {
+      assistantType = codebase.rows[0].ai_assistant_type;
+    }
+  }
+
   const created = await pool.query<Conversation>(
-    'INSERT INTO remote_agent_conversations (platform_type, platform_conversation_id) VALUES ($1, $2) RETURNING *',
-    [platformType, platformId]
+    'INSERT INTO remote_agent_conversations (platform_type, platform_conversation_id, ai_assistant_type) VALUES ($1, $2, $3) RETURNING *',
+    [platformType, platformId, assistantType]
   );
 
   return created.rows[0];

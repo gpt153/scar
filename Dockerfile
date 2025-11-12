@@ -45,6 +45,9 @@ RUN chown -R appuser:appuser /app
 # Switch to non-root user
 USER appuser
 
+# Create .codex directory for Codex authentication
+RUN mkdir -p /home/appuser/.codex
+
 # Configure git to trust /workspace directory
 # This prevents "fatal: detected dubious ownership" errors when git operations
 # are performed in mounted volumes or repos cloned by different users
@@ -54,4 +57,5 @@ RUN git config --global --add safe.directory /workspace && \
 # Expose port
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Setup Codex authentication from environment variables, then start app
+CMD ["sh", "-c", "npm run setup-auth && npm start"]
