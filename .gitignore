@@ -25,6 +25,9 @@ yarn-error.log*
 .env
 .env.local
 
+# Caddy configuration (keep Caddyfile.example)
+Caddyfile
+
 # Session files
 sessions/
 api_sessions/

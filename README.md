@@ -27,6 +27,10 @@ Control AI coding assistants (Claude Code, Codex) remotely from Telegram, GitHub
 
 ---
 
+**🌐 Production Deployment:** This guide covers local development setup. To deploy remotely for 24/7 operation on a cloud VPS (DigitalOcean, AWS, Linode, etc.), see the **[Cloud Deployment Guide](docs/cloud-deployment.md)**.
+
+---
+
 ## Setup Guide
 
 ### 1. Core Configuration (Required)
@@ -49,10 +53,8 @@ cp .env.example .env
 **GitHub Personal Access Token Setup:**
 
 1. Visit [GitHub Settings > Personal Access Tokens](https://github.com/settings/tokens)
-2. Click "Generate new token (classic)"
-3. Select scopes: **`repo`** (full control of private repositories)
-4. Copy token (starts with `ghp_...`)
-5. Set both `GH_TOKEN` and `GITHUB_TOKEN` to this value
+2. Click "Generate new token (classic)" → Select scope: **`repo`**
+3. Copy token (starts with `ghp_...`) and set both variables:
 
 ```env
 # .env
@@ -63,7 +65,7 @@ GITHUB_TOKEN=ghp_your_token_here  # Same value
 **Database Setup - Choose One:**
 
 <details>
-<summary><b>Option A: Remote PostgreSQL (Supabase, Neon, AWS RDS, etc.)</b></summary>
+<summary><b>Option A: Remote PostgreSQL (Supabase, Neon)</b></summary>
 
 Set your remote connection string:
 
@@ -94,7 +96,7 @@ Use the `with-db` profile for automatic PostgreSQL setup:
 DATABASE_URL=postgresql://postgres:postgres@postgres:5432/remote_coding_agent
 ```
 
-Database will be created automatically when you start with `docker-compose --profile with-db`.
+Database will be created automatically when you start with `docker compose --profile with-db`.
 
 </details>
 
@@ -219,11 +221,7 @@ TELEGRAM_BOT_TOKEN=123456789:ABCdefGHI...
 TELEGRAM_STREAMING_MODE=stream  # stream (default) | batch
 ```
 
-**Streaming behavior:**
-- **`stream`** (default): Messages sent in real-time as AI generates responses
-- **`batch`**: Only the final summary message is sent at completion
-
-Use `stream` for interactive chat experience.
+**For streaming mode details, see [Advanced Configuration](#advanced-configuration).**
 
 </details>
 
@@ -319,18 +317,16 @@ WEBHOOK_SECRET=your_secret_from_step_1
 GITHUB_STREAMING_MODE=batch  # batch (default) | stream
 ```
 
-**Streaming behavior:**
-- **`batch`** (default, recommended): Only the final summary message is sent as a single comment
-- **`stream`**: Messages sent in real-time as AI works - creates many comments (not recommended)
+**For streaming mode details, see [Advanced Configuration](#advanced-configuration).**
 
 **Usage:**
 
-Interact by @mentioning your bot in issues or PRs:
+Interact by @mentioning `@remote-agent` in issues or PRs:
 
 ```
-@your-bot-name can you analyze this bug?
-@your-bot-name /command-invoke prime
-@your-bot-name review this implementation
+@remote-agent can you analyze this bug?
+@remote-agent /command-invoke prime
+@remote-agent review this implementation
 ```
 
 **First mention behavior:**
@@ -356,10 +352,10 @@ Starts only the app container (requires `DATABASE_URL` set to remote database):
 
 ```bash
 # Start app container
-docker-compose up -d --build
+docker compose up -d --build
 
 # View logs
-docker-compose logs -f app
+docker compose logs -f app
 ```
 
 **Option B: With Local PostgreSQL**
@@ -368,10 +364,10 @@ Starts both the app and PostgreSQL containers:
 
 ```bash
 # Start containers
-docker-compose --profile with-db up -d --build
+docker compose --profile with-db up -d --build
 
 # Wait for startup (watch logs)
-docker-compose logs -f app
+docker compose logs -f app
 
 # Database tables are created automatically via init script
 ```
@@ -379,7 +375,7 @@ docker-compose logs -f app
 **Stop the application:**
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ---
@@ -705,7 +701,8 @@ Commands are version-controlled with your codebase, not stored in the database.
 
 ### Database Schema
 
-**3 tables with `remote_agent_` prefix:**
+<details>
+<summary><b>3 tables with `remote_agent_` prefix</b></summary>
 
 1. **`remote_agent_codebases`** - Repository metadata
    - Commands stored as JSONB: `{command_name: {path, description}}`
@@ -722,6 +719,8 @@ Commands are version-controlled with your codebase, not stored in the database.
    - Session ID for resume capability
    - Metadata JSONB for command context
 
+</details>
+
 ---
 
 ## Troubleshooting
@@ -730,13 +729,13 @@ Commands are version-controlled with your codebase, not stored in the database.
 
 **Check if application is running:**
 ```bash
-docker-compose ps
+docker compose ps
 # Should show 'app' with state 'Up'
 ```
 
 **Check application logs:**
 ```bash
-docker-compose logs -f app
+docker compose logs -f app
 # Look for error messages or startup issues
 ```
 
@@ -763,13 +762,13 @@ curl http://localhost:3000/health/db
 **For local PostgreSQL (`with-db` profile):**
 ```bash
 # Check if postgres container is running
-docker-compose ps postgres
+docker compose ps postgres
 
 # Check postgres logs
-docker-compose logs -f postgres
+docker compose logs -f postgres
 
 # Test direct connection
-docker-compose exec postgres psql -U postgres -c "SELECT 1"
+docker compose exec postgres psql -U postgres -c "SELECT 1"
 ```
 
 **For remote PostgreSQL:**
@@ -784,7 +783,7 @@ psql $DATABASE_URL -c "SELECT 1"
 **Verify tables exist:**
 ```bash
 # For local postgres
-docker-compose exec postgres psql -U postgres -d remote_coding_agent -c "\dt"
+docker compose exec postgres psql -U postgres -d remote_coding_agent -c "\dt"
 
 # Should show: remote_agent_codebases, remote_agent_conversations, remote_agent_sessions
 ```
@@ -805,13 +804,13 @@ curl -H "Authorization: token $GH_TOKEN" https://api.github.com/user
 
 **Check workspace permissions:**
 ```bash
-docker-compose exec app ls -la /workspace
+docker compose exec app ls -la /workspace
 # Should be readable/writable
 ```
 
 **Try manual clone:**
 ```bash
-docker-compose exec app git clone https://github.com/user/repo /workspace/test-repo
+docker compose exec app git clone https://github.com/user/repo /workspace/test-repo
 ```
 
 ### GitHub Webhook Not Triggering
@@ -837,7 +836,7 @@ curl http://localhost:4040/api/tunnels
 
 **Check application logs for webhook processing:**
 ```bash
-docker-compose logs -f app | grep GitHub
+docker compose logs -f app | grep GitHub
 ```
 
 ### TypeScript Compilation Errors
@@ -845,7 +844,7 @@ docker-compose logs -f app | grep GitHub
 **Clean and rebuild:**
 ```bash
 # Stop containers
-docker-compose down
+docker compose down
 
 # Clean build
 rm -rf dist node_modules
@@ -853,7 +852,7 @@ npm install
 npm run build
 
 # Restart
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 **Check for type errors:**
@@ -865,19 +864,19 @@ npm run type-check
 
 **Check logs for specific errors:**
 ```bash
-docker-compose logs app
+docker compose logs app
 ```
 
 **Verify environment variables:**
 ```bash
 # Check if .env is properly formatted
-docker-compose config
+docker compose config
 ```
 
 **Rebuild without cache:**
 ```bash
-docker-compose build --no-cache
-docker-compose up -d
+docker compose build --no-cache
+docker compose up -d
 ```
 
 **Check port conflicts:**

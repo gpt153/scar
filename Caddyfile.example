@@ -1,0 +1,29 @@
+# Caddy configuration for Remote Coding Agent
+# Copy this file to 'Caddyfile' and update with your domain
+
+# Replace 'bot.yourdomain.com' with your actual domain or subdomain
+bot.yourdomain.com {
+    # Reverse proxy to app container
+    reverse_proxy app:3000
+
+    # Optional: Access logs
+    log {
+        output file /data/access.log
+    }
+
+    # Optional: Enable compression
+    encode gzip
+
+    # Automatic HTTPS via Let's Encrypt
+    # No additional configuration needed - Caddy handles it automatically
+}
+
+# Alternative configuration with multiple domains:
+# bot.yourdomain.com, alternative.domain.com {
+#     reverse_proxy app:3000
+# }
+
+# Alternative: HTTP only (for testing, not recommended for production)
+# http://bot.yourdomain.com {
+#     reverse_proxy app:3000
+# }

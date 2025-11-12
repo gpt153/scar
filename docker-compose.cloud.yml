@@ -1,0 +1,39 @@
+# Cloud deployment configuration with Caddy reverse proxy
+# Usage: docker compose -f docker-compose.yml -f docker-compose.cloud.yml up -d
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: remote-agent-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - remote-agent-network
+    depends_on:
+      - app
+
+  app:
+    # Override ports - Caddy proxies internally, no need to expose 3000
+    ports: []
+    expose:
+      - "3000"
+    restart: unless-stopped
+    networks:
+      - remote-agent-network
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  remote-agent-network:
+    driver: bridge
