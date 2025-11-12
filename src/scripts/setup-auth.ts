@@ -62,11 +62,34 @@ function setupAuth(): void {
   try {
     fs.writeFileSync(authPath, JSON.stringify(authData, null, 2));
     console.log(`✅ Successfully created auth.json at: ${authPath}`);
-    console.log('✅ Codex authentication configured');
   } catch (error) {
     console.error(`❌ Failed to write auth.json: ${error}`);
     process.exit(1);
   }
+
+  // Create config.toml with YOLO mode (approval_policy="never", sandbox_mode="danger-full-access")
+  const configPath = path.join(codexHome, 'config.toml');
+  const configContent = `# Codex Configuration - YOLO Mode (Full Automation)
+# approval_policy = "never" - No approval prompts
+# sandbox_mode = "danger-full-access" - Full system access
+
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+
+[sandbox_workspace_write]
+network_access = true
+`;
+
+  try {
+    fs.writeFileSync(configPath, configContent);
+    console.log(`✅ Successfully created config.toml at: ${configPath}`);
+    console.log('✅ Codex YOLO mode enabled (approval_policy="never", sandbox_mode="danger-full-access")');
+  } catch (error) {
+    console.error(`❌ Failed to write config.toml: ${error}`);
+    process.exit(1);
+  }
+
+  console.log('✅ Codex authentication and configuration complete');
 }
 
 // Run the setup

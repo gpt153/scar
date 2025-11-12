@@ -10,10 +10,11 @@ type Codex = InstanceType<CodexSDK['Codex']>;
 
 // Singleton Codex instance
 let codexInstance: Codex | null = null;
-let CodexClass: CodexSDK['Codex'] | null = null;
+let codexClass: CodexSDK['Codex'] | null = null;
 
 // Dynamic import that bypasses TypeScript transpilation
 // This prevents TS from converting import() to require() when module=commonjs
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
 const importDynamic = new Function('modulePath', 'return import(modulePath)');
 
 /**
@@ -21,12 +22,14 @@ const importDynamic = new Function('modulePath', 'return import(modulePath)');
  */
 async function getCodex(): Promise<Codex> {
   if (!codexInstance) {
-    if (!CodexClass) {
+    if (!codexClass) {
       // Dynamic import to handle ESM-only package (bypasses TS transpilation)
+      // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-unsafe-call
       const { Codex: ImportedCodex } = await importDynamic('@openai/codex-sdk') as CodexSDK;
-      CodexClass = ImportedCodex;
+      codexClass = ImportedCodex;
     }
-    codexInstance = new CodexClass();
+     
+    codexInstance = new codexClass();
   }
   return codexInstance;
 }

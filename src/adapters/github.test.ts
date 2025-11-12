@@ -3,6 +3,30 @@
  */
 import { GitHubAdapter } from './github';
 
+// Mock orchestrator to avoid loading Claude Agent SDK (ESM module)
+jest.mock('../orchestrator/orchestrator', () => ({
+  handleMessage: jest.fn().mockResolvedValue(undefined),
+}));
+
+// Mock database modules
+jest.mock('../db/conversations', () => ({
+  getConversation: jest.fn(),
+  createConversation: jest.fn(),
+  updateConversation: jest.fn(),
+}));
+
+jest.mock('../db/codebases', () => ({
+  getCodebase: jest.fn(),
+  createCodebase: jest.fn(),
+  getCodebaseByRepo: jest.fn(),
+}));
+
+jest.mock('../db/sessions', () => ({
+  getActiveSession: jest.fn(),
+  createSession: jest.fn(),
+  endSession: jest.fn(),
+}));
+
 // Mock Octokit to avoid ESM import issues in Jest
 jest.mock('@octokit/rest', () => ({
   Octokit: jest.fn().mockImplementation(() => ({
