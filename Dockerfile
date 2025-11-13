@@ -31,13 +31,18 @@ RUN useradd -m -u 1001 -s /bin/bash appuser \
 
 # Copy package files
 COPY package*.json ./
-RUN npm ci --production
+
+# Install ALL dependencies (including devDependencies for build)
+RUN npm ci
 
 # Copy application code
 COPY . .
 
 # Build TypeScript
 RUN npm run build
+
+# Remove devDependencies to reduce image size
+RUN npm prune --production
 
 # Fix permissions for appuser
 RUN chown -R appuser:appuser /app
