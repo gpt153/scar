@@ -65,7 +65,7 @@ npm run build
 
 Create a private GitHub repository from a minimal Next.js template for end-to-end testing.
 
-### 2.0 Clean Workspace (CRITICAL)
+### 2.0 Clean Workspace and Database (CRITICAL)
 ```bash
 # IMPORTANT: The workspace directory is mounted as a Docker volume
 # We must clean it on the HOST to avoid "directory already exists" errors
@@ -74,11 +74,19 @@ Create a private GitHub repository from a minimal Next.js template for end-to-en
 # Remove any previous test repositories
 rm -rf workspace/remote-coding-test-*
 
+# Clean up test adapter conversations from database
+# This ensures test-e2e conversation uses current DEFAULT_AI_ASSISTANT setting
+source .env
+docker exec remote-coding-agent-app-1 sh -c "psql '$DATABASE_URL' -c \"DELETE FROM remote_agent_conversations WHERE platform_conversation_id LIKE 'test-%';\""
+
 # Verify cleanup
 ls -la workspace/
+echo "✅ Workspace and database cleaned"
 ```
 
-**Why this is needed:** The workspace is mounted from the host into the Docker container. If a directory exists on the host, git clone inside the container will fail with "directory already exists".
+**Why this is needed:**
+1. **Workspace cleanup:** The workspace is mounted from the host into the Docker container. If a directory exists on the host, git clone inside the container will fail with "directory already exists".
+2. **Database cleanup:** Test adapter conversations (e.g., `test-e2e`) persist across validation runs. Without cleanup, old conversations retain their original `ai_assistant_type` even if `DEFAULT_AI_ASSISTANT` environment variable has changed. This causes the test to use the wrong AI assistant.
 
 ### 2.1 Store ngrok URL
 ```bash
@@ -340,8 +348,9 @@ curl http://localhost:3000/health/concurrency | jq
 
 Test full orchestrator flow using HTTP API endpoints (no external platforms needed).
 
-### 4.1 Clear Test Adapter State
+### 4.1 Clear Test Adapter Message History
 ```bash
+# Clear in-memory message history (database conversation already cleaned in Phase 2.0)
 curl -X DELETE http://localhost:3000/test/messages/test-e2e
 ```
 
@@ -1332,6 +1341,9 @@ The validation extensively tests database state throughout:
 
 **Problem**: "Directory already exists" during clone
 **Solution**: Workspace cleanup in Phase 2.0 handles this automatically
+
+**Problem**: Test adapter using wrong AI assistant (e.g., using Claude when DEFAULT_AI_ASSISTANT=codex)
+**Solution**: Database cleanup in Phase 2.0 handles this automatically. Old test conversations persist across runs and retain their original ai_assistant_type. The cleanup step deletes test-% conversations so they recreate with current environment settings.
 
 **Problem**: Webhook not triggering
 **Solution**: Verify ngrok URL is correct and matches what you passed as argument
