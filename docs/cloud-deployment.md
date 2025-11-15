@@ -2,7 +2,7 @@
 
 Deploy the Remote Coding Agent to a cloud VPS for 24/7 operation with automatic HTTPS and persistent uptime.
 
-**Navigation:** [Prerequisites](#prerequisites) • [Server Setup](#1-server-provisioning--initial-setup) • [DNS Configuration](#2-dns-configuration) • [Repository Setup](#3-clone-repository) • [Environment Config](#4-environment-configuration) • [Caddy Setup](#5-caddy-configuration) • [Start Services](#6-start-services) • [Verify](#7-verify-deployment)
+**Navigation:** [Prerequisites](#prerequisites) • [Server Setup](#1-server-provisioning--initial-setup) • [DNS Configuration](#2-dns-configuration) • [Repository Setup](#3-clone-repository) • [Environment Config](#4-environment-configuration) • [Database Migration](#5-database-migration) • [Caddy Setup](#6-caddy-configuration) • [Start Services](#7-start-services) • [Verify](#8-verify-deployment)
 
 ---
 
@@ -20,6 +20,25 @@ Deploy the Remote Coding Agent to a cloud VPS for 24/7 operation with automatic 
 - **Storage:** 20GB SSD
 - **OS:** Ubuntu 22.04 LTS
 
+### Generate SSH Key (Required)
+
+**Before creating your VPS**, generate an SSH key pair on your local machine:
+
+```bash
+# Generate SSH key (ed25519 recommended)
+ssh-keygen -t ed25519 -C "remote-coding-agent"
+
+# When prompted:
+# - File location: Press Enter (uses default ~/.ssh/id_ed25519)
+# - Passphrase: Optional but recommended
+
+# View your public key (you'll need this for VPS setup)
+cat ~/.ssh/id_ed25519.pub
+# Windows: type %USERPROFILE%\.ssh\id_ed25519.pub
+```
+
+**Copy the public key output** - you'll add this to your VPS during creation.
+
 ---
 
 ## 1. Server Provisioning & Initial Setup
@@ -35,7 +54,7 @@ Deploy the Remote Coding Agent to a cloud VPS for 24/7 operation with automatic 
    - **Image:** Ubuntu 22.04 LTS
    - **Plan:** Basic ($12/month - 2GB RAM recommended)
    - **Datacenter:** Choose closest to your users
-   - **Authentication:** SSH keys (recommended) or password
+   - **Authentication:** SSH keys → "New SSH Key" → Paste your public key from Prerequisites
 4. Click "Create Droplet"
 5. Note the public IP address
 
@@ -49,7 +68,7 @@ Deploy the Remote Coding Agent to a cloud VPS for 24/7 operation with automatic 
 3. Choose:
    - **AMI:** Ubuntu Server 22.04 LTS
    - **Instance Type:** t3.small (2GB RAM)
-   - **Key Pair:** Create or select existing
+   - **Key Pair:** "Create new key pair" or import your public key from Prerequisites
    - **Security Group:** Allow SSH (22), HTTP (80), HTTPS (443)
 4. Launch instance
 5. Note the public IP address
@@ -65,7 +84,8 @@ Deploy the Remote Coding Agent to a cloud VPS for 24/7 operation with automatic 
    - **Image:** Ubuntu 22.04 LTS
    - **Region:** Choose closest to your users
    - **Plan:** Nanode 2GB ($12/month)
-   - **Root Password:** Set strong password
+   - **SSH Keys:** Add your public key from Prerequisites
+   - **Root Password:** Set strong password (backup access)
 4. Click "Create Linode"
 5. Note the public IP address
 
@@ -76,7 +96,7 @@ Deploy the Remote Coding Agent to a cloud VPS for 24/7 operation with automatic 
 **Connect to your server:**
 
 ```bash
-# Replace with your server IP
+# Replace with your server IP (uses SSH key from Prerequisites)
 ssh root@your-server-ip
 ```
 
@@ -87,27 +107,22 @@ ssh root@your-server-ip
 adduser deploy
 usermod -aG sudo deploy
 
-# Switch to deploy user
-su - deploy
+# Copy root's SSH authorized keys to deploy user
+mkdir -p /home/deploy/.ssh
+cp /root/.ssh/authorized_keys /home/deploy/.ssh/
+chown -R deploy:deploy /home/deploy/.ssh
+chmod 700 /home/deploy/.ssh
+chmod 600 /home/deploy/.ssh/authorized_keys
+
+# Test connection in a new terminal before proceeding:
+# ssh deploy@your-server-ip
 ```
 
-**Set up SSH key authentication (recommended):**
-
-From your **local machine**:
+**Disable password authentication for security:**
 
 ```bash
-# Generate SSH key if you don't have one
-ssh-keygen -t ed25519 -C "your_email@example.com"
-
-# Copy SSH key to server
-ssh-copy-id deploy@your-server-ip
-```
-
-Back on the **server** (as root):
-
-```bash
-# Disable password authentication for security
-sudo nano /etc/ssh/sshd_config
+# Edit SSH config
+nano /etc/ssh/sshd_config
 ```
 
 Find and change:
@@ -117,7 +132,10 @@ PasswordAuthentication no
 
 Restart SSH:
 ```bash
-sudo systemctl restart ssh
+systemctl restart ssh
+
+# Switch to deploy user for remaining steps
+su - deploy
 ```
 
 **Configure firewall:**
@@ -135,7 +153,7 @@ sudo ufw --force enable
 sudo ufw status
 ```
 
-### Install Dependencies (if not already on your machine)
+### Install Dependencies
 
 **Install Docker:**
 
@@ -263,12 +281,6 @@ Use a managed database service for easier backups and scaling.
 1. Create project at [neon.tech](https://neon.tech)
 2. Copy connection string from dashboard
 3. Set as `DATABASE_URL`
-
-**Run migrations (do this BEFORE starting the application in Section 6):**
-```bash
-# Initialize database tables
-psql $DATABASE_URL < migrations/001_initial_schema.sql
-```
 
 </details>
 
@@ -427,7 +439,7 @@ WEBHOOK_SECRET=your_generated_secret_here
 GITHUB_STREAMING_MODE=batch  # batch (default) | stream
 ```
 
-**GitHub webhook configuration happens in Section 8 after services are running.**
+**GitHub webhook configuration happens in Section 9 after services are running.**
 
 </details>
 
@@ -435,7 +447,28 @@ GITHUB_STREAMING_MODE=batch  # batch (default) | stream
 
 ---
 
-## 5. Caddy Configuration
+## 5. Database Migration
+
+**IMPORTANT: Run this BEFORE starting the application.**
+
+Initialize the database schema with required tables:
+
+```bash
+# For remote database (Supabase, Neon, etc.)
+psql $DATABASE_URL < migrations/001_initial_schema.sql
+
+# Verify tables were created
+psql $DATABASE_URL -c "\dt"
+# Should show: conversations, codebases, sessions
+```
+
+**If using local PostgreSQL with `with-db` profile:**
+
+You'll run migrations after starting the database in Section 7.
+
+---
+
+## 6. Caddy Configuration
 
 Caddy provides automatic HTTPS with Let's Encrypt certificates.
 
@@ -470,7 +503,7 @@ Replace `bot.yourdomain.com` with your actual domain.
 
 ---
 
-## 6. Start Services
+## 7. Start Services
 
 ### Option A: With Remote PostgreSQL (Recommended)
 
@@ -513,7 +546,7 @@ docker compose logs -f app
 
 ---
 
-## 7. Verify Deployment
+## 8. Verify Deployment
 
 ### Check Health Endpoints
 
@@ -551,7 +584,7 @@ Should receive bot response with available commands.
 
 ---
 
-## 8. Configure GitHub Webhooks
+## 9. Configure GitHub Webhooks
 
 Now that your app has a public URL, configure GitHub webhooks.
 
@@ -595,7 +628,7 @@ Bot should respond with analysis.
 
 ---
 
-## 9. Maintenance & Operations
+## 10. Maintenance & Operations
 
 ### View Logs
 
