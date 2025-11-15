@@ -33,6 +33,12 @@ Control AI coding assistants (Claude Code, Codex) remotely from Telegram, GitHub
 
 ## Setup Guide
 
+**Get started:**
+```bash
+git clone https://github.com/dynamous-community/remote-coding-agent
+cd remote-coding-agent
+```
+
 ### 1. Core Configuration (Required)
 
 **Create environment file:**
