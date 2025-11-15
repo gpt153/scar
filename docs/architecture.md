@@ -14,30 +14,30 @@ The Remote Coding Agent is a **platform-agnostic AI coding assistant orchestrato
 
 ```
 ┌─────────────────────────────────────────────┐
-│   Platform Adapters (Telegram, GitHub)     │
-│   • IPlatformAdapter interface             │
-│   • Handle platform-specific messaging     │
+│   Platform Adapters (Telegram, GitHub)      │
+│   • IPlatformAdapter interface              │
+│   • Handle platform-specific messaging      │
 └──────────────────┬──────────────────────────┘
                    │
                    ▼
 ┌─────────────────────────────────────────────┐
 │            Orchestrator                     │
-│   • Route slash commands → Command Handler │
-│   • Route AI queries → Assistant Clients   │
-│   • Manage session lifecycle               │
-│   • Stream responses back to platforms     │
+│   • Route slash commands → Command Handler  │
+│   • Route AI queries → Assistant Clients    │
+│   • Manage session lifecycle                │
+│   • Stream responses back to platforms      │
 └──────────────┬──────────────────────────────┘
                │
        ┌───────┴────────┐
        │                │
        ▼                ▼
-┌─────────────┐  ┌──────────────────┐
-│  Command    │  │  AI Assistant    │
-│  Handler    │  │  Clients         │
+┌─────────────┐  ┌─────────────────────┐
+│  Command    │  │  AI Assistant       │
+│  Handler    │  │  Clients            │
 │             │  │  • IAssistantClient │
 │  (Slash     │  │  • Factory pattern  │
 │  commands)  │  │  • Streaming API    │
-└─────────────┘  └────────┬─────────┘
+└─────────────┘  └────────┬────────────┘
        │                  │
        └────────┬─────────┘
                 ▼
