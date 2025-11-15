@@ -13,6 +13,40 @@ import * as sessionDb from '../db/sessions';
 
 const execAsync = promisify(exec);
 
+/**
+ * Recursively find all .md files in a directory and its subdirectories
+ */
+async function findMarkdownFilesRecursive(
+  rootPath: string,
+  relativePath = ''
+): Promise<{ commandName: string; relativePath: string }[]> {
+  const results: { commandName: string; relativePath: string }[] = [];
+  const fullPath = join(rootPath, relativePath);
+
+  const entries = await readdir(fullPath, { withFileTypes: true });
+
+  for (const entry of entries) {
+    // Skip hidden directories and common exclusions
+    if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+      continue;
+    }
+
+    if (entry.isDirectory?.()) {
+      // Recurse into subdirectory
+      const subResults = await findMarkdownFilesRecursive(rootPath, join(relativePath, entry.name));
+      results.push(...subResults);
+    } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      // Found a markdown file - use filename as command name
+      results.push({
+        commandName: basename(entry.name, '.md'),
+        relativePath: join(relativePath, entry.name),
+      });
+    }
+  }
+
+  return results;
+}
+
 export function parseCommand(text: string): { command: string; args: string[] } {
   // Match quoted strings or non-whitespace sequences
   const matches = text.match(/"[^"]+"|'[^']+'|\S+/g) || [];
@@ -47,15 +81,17 @@ export async function handleCommand(
 
 Command Management:
   /command-set <name> <path> [text] - Register command
-  /load-commands <folder> - Bulk load
+  /load-commands <folder> - Bulk load (recursive)
   /command-invoke <name> [args] - Execute
   /commands - List registered
+  Note: Commands use relative paths (e.g., .claude/commands)
 
 Codebase:
   /clone <repo-url> - Clone repository
   /repos - List workspace repositories
   /getcwd - Show working directory
   /setcwd <path> - Set directory
+  Note: Codebases use full paths (e.g., /workspace/repo-name)
 
 Session:
   /status - Show state
@@ -68,7 +104,7 @@ Session:
 
       if (conversation.codebase_id) {
         const cb = await codebaseDb.getCodebase(conversation.codebase_id);
-        if (cb) {
+        if (cb?.name) {
           msg += `\n\nCodebase: ${cb.name}`;
           if (cb.repository_url) {
             msg += `\nRepository: ${cb.repository_url}`;
@@ -81,7 +117,7 @@ Session:
       msg += `\n\nCurrent Working Directory: ${conversation.cwd || 'Not set'}`;
 
       const session = await sessionDb.getActiveSession(conversation.id);
-      if (session) {
+      if (session?.id) {
         msg += `\nActive Session: ${session.id.substring(0, 8)}...`;
       }
 
@@ -128,11 +164,11 @@ Session:
     }
 
     case 'clone': {
-      if (args.length === 0) {
+      if (args.length === 0 || !args[0]) {
         return { success: false, message: 'Usage: /clone <repo-url>' };
       }
 
-      const repoUrl = args[0];
+      const repoUrl: string = args[0];
       const repoName = repoUrl.split('/').pop()?.replace('.git', '') || 'unknown';
       // Inside Docker container, always use /workspace (mounted volume)
       const workspacePath = '/workspace';
@@ -291,23 +327,28 @@ Session:
       const fullPath = join(conversation.cwd || '/workspace', folderPath);
 
       try {
-        const files = (await readdir(fullPath)).filter(f => f.endsWith('.md'));
-        if (!files.length) {
-          return { success: false, message: `No .md files in ${folderPath}` };
+        // Recursively find all .md files
+        const markdownFiles = await findMarkdownFilesRecursive(fullPath);
+
+        if (!markdownFiles.length) {
+          return { success: false, message: `No .md files found in ${folderPath} (searched recursively)` };
         }
 
         const commands = await codebaseDb.getCodebaseCommands(conversation.codebase_id);
-        files.forEach(file => {
-          commands[basename(file, '.md')] = {
-            path: join(folderPath, file),
+
+        // Register each command (later files with same name will override earlier ones)
+        markdownFiles.forEach(({ commandName, relativePath }) => {
+          commands[commandName] = {
+            path: join(folderPath, relativePath),
             description: `From ${folderPath}`,
           };
         });
+
         await codebaseDb.updateCodebaseCommands(conversation.codebase_id, commands);
 
         return {
           success: true,
-          message: `Loaded ${files.length} commands: ${files.map(f => basename(f, '.md')).join(', ')}`,
+          message: `Loaded ${markdownFiles.length} commands recursively: ${markdownFiles.map(f => f.commandName).join(', ')}`,
         };
       } catch (error) {
         const err = error as Error;
