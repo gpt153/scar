@@ -97,7 +97,7 @@ cat ~/.ssh/id_ed25519.pub
 
 ```bash
 # Replace with your server IP (uses SSH key from Prerequisites)
-ssh -i ~/.ssh/id_ed25519.pub root@your-server-ip
+ssh -i ~/.ssh/id_ed25519 root@your-server-ip
 ```
 
 **Create deployment user:**
@@ -115,7 +115,7 @@ chmod 700 /home/deploy/.ssh
 chmod 600 /home/deploy/.ssh/authorized_keys
 
 # Test connection in a new terminal before proceeding:
-# ssh -i ~/.ssh/id_ed25519.pub deploy@your-server-ip
+# ssh -i ~/.ssh/id_ed25519 deploy@your-server-ip
 ```
 
 **Disable password authentication for security:**
@@ -169,7 +169,7 @@ sudo usermod -aG docker deploy
 
 # Log out and back in for group changes to take effect
 exit
-ssh -i ~/.ssh/id_ed25519.pub deploy@your-server-ip
+ssh -i ~/.ssh/id_ed25519 deploy@your-server-ip
 ```
 
 **Install Docker Compose, Git, and PostgreSQL Client:**
