@@ -352,19 +352,19 @@ Interact by @mentioning `@remote-agent` in issues or PRs:
 
 Choose the Docker Compose profile based on your database setup:
 
-**Option A: With Remote PostgreSQL**
+**Option A: With Remote PostgreSQL (Supabase, Neon, etc.)**
 
-Starts only the app container (requires `DATABASE_URL` set to remote database):
+Starts only the app container (requires `DATABASE_URL` set to remote database in `.env`):
 
 ```bash
 # Start app container
-docker compose up -d --build
+docker compose --profile external-db up -d --build
 
 # View logs
 docker compose logs -f app
 ```
 
-**Option B: With Local PostgreSQL**
+**Option B: With Local PostgreSQL (Docker)**
 
 Starts both the app and PostgreSQL containers:
 
@@ -373,15 +373,24 @@ Starts both the app and PostgreSQL containers:
 docker compose --profile with-db up -d --build
 
 # Wait for startup (watch logs)
-docker compose logs -f app
+docker compose logs -f app-with-db
 
 # Database tables are created automatically via init script
+```
+
+**Option C: Local Development (No Docker)**
+
+Run directly with Node.js (requires local PostgreSQL or remote `DATABASE_URL` in `.env`):
+
+```bash
+npm run dev
 ```
 
 **Stop the application:**
 
 ```bash
-docker compose down
+docker compose --profile external-db down  # If using Option A
+docker compose --profile with-db down      # If using Option B
 ```
 
 ---
@@ -736,13 +745,13 @@ Commands are version-controlled with your codebase, not stored in the database.
 **Check if application is running:**
 ```bash
 docker compose ps
-# Should show 'app' with state 'Up'
+# Should show 'app' or 'app-with-db' with state 'Up'
 ```
 
 **Check application logs:**
 ```bash
-docker compose logs -f app
-# Look for error messages or startup issues
+docker compose logs -f app          # If using --profile external-db
+docker compose logs -f app-with-db  # If using --profile with-db
 ```
 
 **Verify bot token:**
@@ -810,13 +819,15 @@ curl -H "Authorization: token $GH_TOKEN" https://api.github.com/user
 
 **Check workspace permissions:**
 ```bash
-docker compose exec app ls -la /workspace
-# Should be readable/writable
+# Use the service name matching your profile
+docker compose exec app ls -la /workspace          # --profile external-db
+docker compose exec app-with-db ls -la /workspace  # --profile with-db
 ```
 
 **Try manual clone:**
 ```bash
 docker compose exec app git clone https://github.com/user/repo /workspace/test-repo
+# Or app-with-db if using --profile with-db
 ```
 
 ### GitHub Webhook Not Triggering
@@ -842,23 +853,24 @@ curl http://localhost:4040/api/tunnels
 
 **Check application logs for webhook processing:**
 ```bash
-docker compose logs -f app | grep GitHub
+docker compose logs -f app | grep GitHub          # --profile external-db
+docker compose logs -f app-with-db | grep GitHub  # --profile with-db
 ```
 
 ### TypeScript Compilation Errors
 
 **Clean and rebuild:**
 ```bash
-# Stop containers
-docker compose down
+# Stop containers (use the profile you started with)
+docker compose --profile external-db down  # or --profile with-db
 
 # Clean build
 rm -rf dist node_modules
 npm install
 npm run build
 
-# Restart
-docker compose up -d --build
+# Restart (use the profile you need)
+docker compose --profile external-db up -d --build  # or --profile with-db
 ```
 
 **Check for type errors:**
@@ -870,19 +882,20 @@ npm run type-check
 
 **Check logs for specific errors:**
 ```bash
-docker compose logs app
+docker compose logs app          # If using --profile external-db
+docker compose logs app-with-db  # If using --profile with-db
 ```
 
 **Verify environment variables:**
 ```bash
-# Check if .env is properly formatted
-docker compose config
+# Check if .env is properly formatted (include your profile)
+docker compose --profile external-db config  # or --profile with-db
 ```
 
 **Rebuild without cache:**
 ```bash
-docker compose build --no-cache
-docker compose up -d
+docker compose --profile external-db build --no-cache  # or --profile with-db
+docker compose --profile external-db up -d             # or --profile with-db
 ```
 
 **Check port conflicts:**
