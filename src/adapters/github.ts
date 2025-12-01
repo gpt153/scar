@@ -3,7 +3,7 @@
  * Handles issue and PR comments with @mention detection
  */
 import { Octokit } from '@octokit/rest';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { IPlatformAdapter } from '../types';
 import { handleMessage } from '../orchestrator/orchestrator';
 import * as db from '../db/conversations';
@@ -118,7 +118,19 @@ export class GitHubAdapter implements IPlatformAdapter {
     try {
       const hmac = createHmac('sha256', this.webhookSecret);
       const digest = 'sha256=' + hmac.update(payload).digest('hex');
-      const isValid = digest === signature;
+
+      const digestBuffer = Buffer.from(digest);
+      const signatureBuffer = Buffer.from(signature);
+
+      if (digestBuffer.length !== signatureBuffer.length) {
+        console.error('[GitHub] Signature length mismatch:', {
+          receivedLength: signatureBuffer.length,
+          computedLength: digestBuffer.length,
+        });
+        return false;
+      }
+
+      const isValid = timingSafeEqual(digestBuffer, signatureBuffer);
 
       if (!isValid) {
         console.error('[GitHub] Signature mismatch:', {
