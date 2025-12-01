@@ -2,16 +2,17 @@
  * Command handler for slash commands
  * Handles deterministic operations without AI
  */
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { readFile, writeFile, readdir, access } from 'fs/promises';
-import { join, basename } from 'path';
+import { join, basename, resolve } from 'path';
 import { Conversation, CommandResult } from '../types';
 import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
 import * as sessionDb from '../db/sessions';
+import { isPathWithinWorkspace } from '../utils/path-validation';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * Recursively find all .md files in a directory and its subdirectories
@@ -135,17 +136,25 @@ Session:
         return { success: false, message: 'Usage: /setcwd <path>' };
       }
       const newCwd = args.join(' ');
-      await db.updateConversation(conversation.id, { cwd: newCwd });
+      const resolvedCwd = resolve(newCwd);
+
+      // Validate path is within /workspace to prevent path traversal
+      if (!isPathWithinWorkspace(resolvedCwd)) {
+        return { success: false, message: 'Path must be within /workspace directory' };
+      }
+
+      await db.updateConversation(conversation.id, { cwd: resolvedCwd });
 
       // Add this directory to git safe.directory if it's a git repository
       // This prevents "dubious ownership" errors when working with existing repos
+      // Use execFile instead of execAsync to prevent command injection
       try {
-        await execAsync(`git config --global --add safe.directory ${newCwd}`);
-        console.log(`[Command] Added ${newCwd} to git safe.directory`);
+        await execFileAsync('git', ['config', '--global', '--add', 'safe.directory', resolvedCwd]);
+        console.log(`[Command] Added ${resolvedCwd} to git safe.directory`);
       } catch (_error) {
         // Ignore errors - directory might not be a git repo
         console.log(
-          `[Command] Could not add ${newCwd} to safe.directory (might not be a git repo)`
+          `[Command] Could not add ${resolvedCwd} to safe.directory (might not be a git repo)`
         );
       }
 
@@ -158,7 +167,7 @@ Session:
 
       return {
         success: true,
-        message: `Working directory set to: ${newCwd}\n\nSession reset - starting fresh on next message.`,
+        message: `Working directory set to: ${resolvedCwd}\n\nSession reset - starting fresh on next message.`,
         modified: true,
       };
     }
@@ -270,11 +279,11 @@ Session:
           console.log('[Clone] Using authenticated GitHub clone');
         }
 
-        await execAsync(`git clone ${cloneUrl} ${targetPath}`);
+        await execFileAsync('git', ['clone', cloneUrl, targetPath]);
 
         // Add the cloned repository to git safe.directory to prevent ownership errors
         // This is needed because we run as non-root user but git might see different ownership
-        await execAsync(`git config --global --add safe.directory ${targetPath}`);
+        await execFileAsync('git', ['config', '--global', '--add', 'safe.directory', targetPath]);
         console.log(`[Clone] Added ${targetPath} to git safe.directory`);
 
         // Auto-detect assistant type based on folder structure
@@ -359,7 +368,13 @@ Session:
 
       const [commandName, commandPath, ...textParts] = args;
       const commandText = textParts.join(' ');
-      const fullPath = join(conversation.cwd || '/workspace', commandPath);
+      const basePath = conversation.cwd || '/workspace';
+      const fullPath = resolve(basePath, commandPath);
+
+      // Validate path is within /workspace to prevent path traversal
+      if (!isPathWithinWorkspace(fullPath)) {
+        return { success: false, message: 'Path must be within /workspace directory' };
+      }
 
       try {
         if (commandText) {
@@ -391,7 +406,13 @@ Session:
       }
 
       const folderPath = args.join(' ');
-      const fullPath = join(conversation.cwd || '/workspace', folderPath);
+      const basePath = conversation.cwd || '/workspace';
+      const fullPath = resolve(basePath, folderPath);
+
+      // Validate path is within /workspace to prevent path traversal
+      if (!isPathWithinWorkspace(fullPath)) {
+        return { success: false, message: 'Path must be within /workspace directory' };
+      }
 
       try {
         // Recursively find all .md files
