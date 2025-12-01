@@ -264,15 +264,9 @@ Session:
           // Inject token into GitHub URL for private repo access
           // Convert: https://github.com/user/repo.git -> https://token@github.com/user/repo.git
           if (workingUrl.startsWith('https://github.com')) {
-            cloneUrl = workingUrl.replace(
-              'https://github.com',
-              `https://${ghToken}@github.com`
-            );
+            cloneUrl = workingUrl.replace('https://github.com', `https://${ghToken}@github.com`);
           } else if (workingUrl.startsWith('http://github.com')) {
-            cloneUrl = workingUrl.replace(
-              'http://github.com',
-              `https://${ghToken}@github.com`
-            );
+            cloneUrl = workingUrl.replace('http://github.com', `https://${ghToken}@github.com`);
           } else if (!workingUrl.startsWith('http')) {
             // Handle github.com/user/repo format (bare domain)
             cloneUrl = `https://${ghToken}@${workingUrl}`;

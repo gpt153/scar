@@ -40,7 +40,9 @@ export class TelegramAdapter implements IPlatformAdapter {
       await this.sendFormattedChunk(id, message);
     } else {
       // Long message: split by paragraphs, format each chunk
-      console.log(`[Telegram] Message too long (${String(message.length)}), splitting by paragraphs`);
+      console.log(
+        `[Telegram] Message too long (${String(message.length)}), splitting by paragraphs`
+      );
       const chunks = this.splitIntoParagraphChunks(message, MAX_LENGTH - 200);
 
       for (const chunk of chunks) {
@@ -114,7 +116,10 @@ export class TelegramAdapter implements IPlatformAdapter {
       console.warn('[Telegram] MarkdownV2 failed for chunk, using plain text:', err.message);
       console.warn('[Telegram] Original chunk (first 500 chars):', chunk.substring(0, 500));
       console.warn('[Telegram] Formatted chunk (first 500 chars):', formatted.substring(0, 500));
-      console.warn('[Telegram] Formatted chunk (around byte 4059):', formatted.substring(4000, 4100));
+      console.warn(
+        '[Telegram] Formatted chunk (around byte 4059):',
+        formatted.substring(4000, 4100)
+      );
       await this.bot.telegram.sendMessage(id, stripMarkdown(chunk));
     }
   }

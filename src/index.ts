@@ -3,14 +3,15 @@
  * Telegram + Claude MVP
  */
 
-// Load environment variables FIRST, before any other imports
-import * as dotenv from 'dotenv';
-dotenv.config();
+// Load environment variables FIRST - using 'dotenv/config' ensures
+// it runs during import phase, before other modules are evaluated
+import 'dotenv/config';
 
 import express from 'express';
 import { TelegramAdapter } from './adapters/telegram';
 import { TestAdapter } from './adapters/test';
 import { GitHubAdapter } from './adapters/github';
+import { DiscordAdapter } from './adapters/discord';
 import { handleMessage } from './orchestrator/orchestrator';
 import { pool } from './db/connection';
 import { ConversationLockManager } from './utils/conversation-lock';
@@ -72,6 +73,42 @@ async function main(): Promise<void> {
     await github.start();
   } else {
     console.log('[GitHub] Adapter not initialized (missing GITHUB_TOKEN or WEBHOOK_SECRET)');
+  }
+
+  // Initialize Discord adapter (conditional)
+  let discord: DiscordAdapter | null = null;
+  if (process.env.DISCORD_BOT_TOKEN) {
+    const discordStreamingMode = (process.env.DISCORD_STREAMING_MODE ?? 'batch') as
+      | 'stream'
+      | 'batch';
+    discord = new DiscordAdapter(process.env.DISCORD_BOT_TOKEN, discordStreamingMode);
+
+    // Register message handler
+    discord.onMessage(async message => {
+      const conversationId = discord!.getConversationId(message);
+      const content = message.content;
+
+      if (!content) return;
+
+      // Fire-and-forget: handler returns immediately, processing happens async
+      lockManager
+        .acquireLock(conversationId, async () => {
+          await handleMessage(discord!, conversationId, content);
+        })
+        .catch(async error => {
+          console.error('[Discord] Failed to process message:', error);
+          try {
+            const userMessage = classifyAndFormatError(error as Error);
+            await discord!.sendMessage(conversationId, userMessage);
+          } catch (sendError) {
+            console.error('[Discord] Failed to send error message to user:', sendError);
+          }
+        });
+    });
+
+    await discord.start();
+  } else {
+    console.log('[Discord] Adapter not initialized (missing DISCORD_BOT_TOKEN)');
   }
 
   // Setup Express server
@@ -178,7 +215,7 @@ async function main(): Promise<void> {
     res.json({ conversationId: req.params.conversationId, messages });
   });
 
-// Express 5 optional parameter syntax - handles both /test/messages and /test/messages/:id
+  // Express 5 optional parameter syntax - handles both /test/messages and /test/messages/:id
   app.delete('/test/messages{/:conversationId}', (req, res) => {
     testAdapter.clearMessages(req.params.conversationId);
     res.json({ success: true });
@@ -225,6 +262,7 @@ async function main(): Promise<void> {
   const shutdown = (): void => {
     console.log('[App] Shutting down gracefully...');
     telegram.stop();
+    discord?.stop();
     void pool.end().then(() => {
       console.log('[Database] Connection pool closed');
       process.exit(0);
@@ -236,7 +274,12 @@ async function main(): Promise<void> {
 
   console.log('[App] Remote Coding Agent is ready!');
   console.log('[App] Send messages to your Telegram bot to get started');
-  console.log('[App] Test endpoint available: POST http://localhost:' + String(port) + '/test/message');
+  if (discord) {
+    console.log('[App] Discord bot is also running');
+  }
+  console.log(
+    '[App] Test endpoint available: POST http://localhost:' + String(port) + '/test/message'
+  );
 }
 
 // Run the application
