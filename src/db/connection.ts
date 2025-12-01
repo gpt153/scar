@@ -10,7 +10,10 @@ export const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
-// Handle pool errors
-pool.on('error', err => {
+// Handle pool errors - exit on idle client error per node-postgres best practice
+// See: https://node-postgres.com/features/pooling
+pool.on('error', (err, _client) => {
   console.error('[Database] Unexpected error on idle client', err);
+  console.error('[Database] Exiting process due to pool error');
+  process.exit(1);
 });
