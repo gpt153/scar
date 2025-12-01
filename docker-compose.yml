@@ -5,6 +5,9 @@ services:
     profiles: ["external-db"]
     build: .
     env_file: .env
+    environment:
+      # Override WORKSPACE_PATH for container (host path differs from container path)
+      WORKSPACE_PATH: /workspace
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:
@@ -25,6 +28,8 @@ services:
     environment:
       # Override DATABASE_URL to use Docker service name
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/remote_coding_agent
+      # Override WORKSPACE_PATH for container (host path differs from container path)
+      WORKSPACE_PATH: /workspace
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:
