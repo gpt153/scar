@@ -89,10 +89,11 @@ Command Management:
 
 Codebase:
   /clone <repo-url> - Clone repository
-  /repos - List workspace repositories
+  /repos - List repositories (numbered)
+  /repo <#|name> [pull] - Switch repo (auto-loads commands)
   /getcwd - Show working directory
   /setcwd <path> - Set directory
-  Note: Codebases use full paths (e.g., /workspace/repo-name)
+  Note: Use /repo for quick switching, /setcwd for manual paths
 
 Session:
   /status - Show state
@@ -472,23 +473,30 @@ Session:
 
       try {
         const entries = await readdir(workspacePath, { withFileTypes: true });
-        const folders = entries.filter(entry => entry.isDirectory()).map(entry => entry.name);
+        const folders = entries
+          .filter(entry => entry.isDirectory())
+          .map(entry => entry.name)
+          .sort();
 
         if (!folders.length) {
           return {
             success: true,
-            message: 'No repositories found in /workspace',
+            message: 'No repositories found in /workspace\n\nUse /clone <repo-url> to add one.',
           };
         }
 
         const currentCwd = conversation.cwd ?? '';
-        let msg = 'Workspace Repositories:\n\n';
+        let msg = 'Repositories:\n\n';
 
-        folders.forEach(folder => {
+        for (let i = 0; i < folders.length; i++) {
+          const folder = folders[i];
           const folderPath = join(workspacePath, folder);
           const isActive = currentCwd.startsWith(folderPath);
-          msg += `${folderPath}${isActive ? ' [active]' : ''}\n`;
-        });
+          const marker = isActive ? ' ← active' : '';
+          msg += `${String(i + 1)}. ${folder}${marker}\n`;
+        }
+
+        msg += '\nUse /repo <number|name> to switch';
 
         return { success: true, message: msg };
       } catch (error) {
@@ -512,6 +520,141 @@ Session:
         success: true,
         message: 'No active session to reset.',
       };
+    }
+
+    case 'repo': {
+      if (args.length === 0) {
+        return { success: false, message: 'Usage: /repo <number|name> [pull]' };
+      }
+
+      const workspacePath = process.env.WORKSPACE_PATH ?? '/workspace';
+      const identifier = args[0];
+      const shouldPull = args[1]?.toLowerCase() === 'pull';
+
+      try {
+        // Get sorted list of repos (same as /repos)
+        const entries = await readdir(workspacePath, { withFileTypes: true });
+        const folders = entries
+          .filter(entry => entry.isDirectory())
+          .map(entry => entry.name)
+          .sort();
+
+        if (!folders.length) {
+          return {
+            success: false,
+            message: 'No repositories found. Use /clone <repo-url> first.',
+          };
+        }
+
+        // Find the target folder by number or name
+        let targetFolder: string | undefined;
+        const num = parseInt(identifier, 10);
+        if (!isNaN(num) && num >= 1 && num <= folders.length) {
+          targetFolder = folders[num - 1];
+        } else {
+          // Try exact match first, then prefix match
+          targetFolder =
+            folders.find(f => f === identifier) ?? folders.find(f => f.startsWith(identifier));
+        }
+
+        if (!targetFolder) {
+          return {
+            success: false,
+            message: `Repository not found: ${identifier}\n\nUse /repos to see available repositories.`,
+          };
+        }
+
+        const targetPath = join(workspacePath, targetFolder);
+
+        // Git pull if requested
+        if (shouldPull) {
+          try {
+            await execFileAsync('git', ['-C', targetPath, 'pull']);
+            console.log(`[Command] Pulled latest for ${targetFolder}`);
+          } catch (pullError) {
+            const err = pullError as Error;
+            console.error('[Command] git pull failed:', err);
+            return {
+              success: false,
+              message: `Failed to pull: ${err.message}`,
+            };
+          }
+        }
+
+        // Find or create codebase for this path
+        let codebase = await codebaseDb.findCodebaseByDefaultCwd(targetPath);
+
+        if (!codebase) {
+          // Create new codebase for this directory
+          // Auto-detect assistant type
+          let suggestedAssistant = 'claude';
+          try {
+            await access(join(targetPath, '.codex'));
+            suggestedAssistant = 'codex';
+          } catch {
+            // Default to claude
+          }
+
+          codebase = await codebaseDb.createCodebase({
+            name: targetFolder,
+            default_cwd: targetPath,
+            ai_assistant_type: suggestedAssistant,
+          });
+          console.log(`[Command] Created codebase for ${targetFolder}`);
+        }
+
+        // Link conversation to codebase
+        await db.updateConversation(conversation.id, {
+          codebase_id: codebase.id,
+          cwd: targetPath,
+        });
+
+        // Reset session when switching
+        const session = await sessionDb.getActiveSession(conversation.id);
+        if (session) {
+          await sessionDb.deactivateSession(session.id);
+        }
+
+        // Auto-load commands if found
+        let commandsLoaded = 0;
+        for (const folder of ['.claude/commands', '.agents/commands']) {
+          try {
+            const commandPath = join(targetPath, folder);
+            await access(commandPath);
+
+            const markdownFiles = await findMarkdownFilesRecursive(commandPath);
+            if (markdownFiles.length > 0) {
+              const commands = await codebaseDb.getCodebaseCommands(codebase.id);
+              markdownFiles.forEach(({ commandName, relativePath }) => {
+                commands[commandName] = {
+                  path: join(folder, relativePath),
+                  description: `From ${folder}`,
+                };
+              });
+              await codebaseDb.updateCodebaseCommands(codebase.id, commands);
+              commandsLoaded = markdownFiles.length;
+              break;
+            }
+          } catch {
+            // Folder doesn't exist, try next
+          }
+        }
+
+        let msg = `Switched to: ${targetFolder}`;
+        if (shouldPull) {
+          msg += '\n✓ Pulled latest changes';
+        }
+        if (commandsLoaded > 0) {
+          msg += `\n✓ Loaded ${String(commandsLoaded)} commands`;
+        }
+        msg += '\n\nReady to work!';
+
+        return { success: true, message: msg, modified: true };
+      } catch (error) {
+        const err = error as Error;
+        console.error('[Command] repo switch failed:', err);
+        return { success: false, message: `Failed: ${err.message}` };
+      }
     }
 
     default:

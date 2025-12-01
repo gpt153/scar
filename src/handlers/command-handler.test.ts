@@ -115,6 +115,24 @@ describe('CommandHandler', () => {
       expect(result.args).toEqual([]);
     });
 
+    test('should parse /repo with number', () => {
+      const result = parseCommand('/repo 1');
+      expect(result.command).toBe('repo');
+      expect(result.args).toEqual(['1']);
+    });
+
+    test('should parse /repo with name', () => {
+      const result = parseCommand('/repo dylan');
+      expect(result.command).toBe('repo');
+      expect(result.args).toEqual(['dylan']);
+    });
+
+    test('should parse /repo with pull', () => {
+      const result = parseCommand('/repo 1 pull');
+      expect(result.command).toBe('repo');
+      expect(result.args).toEqual(['1', 'pull']);
+    });
+
     // Bug fix tests: Multi-word quoted arguments should be preserved as single arg
     test('should preserve multi-word quoted string as single argument', () => {
       const result = parseCommand('/command-invoke plan "here is the request"');

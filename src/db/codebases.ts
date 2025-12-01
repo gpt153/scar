@@ -61,3 +61,11 @@ export async function findCodebaseByRepoUrl(repoUrl: string): Promise<Codebase |
   );
   return result.rows[0] || null;
 }
+
+export async function findCodebaseByDefaultCwd(defaultCwd: string): Promise<Codebase | null> {
+  const result = await pool.query<Codebase>(
+    'SELECT * FROM remote_agent_codebases WHERE default_cwd = $1 ORDER BY created_at DESC LIMIT 1',
+    [defaultCwd]
+  );
+  return result.rows[0] || null;
+}

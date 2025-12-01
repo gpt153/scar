@@ -17,6 +17,7 @@ import {
   getCodebaseCommands,
   registerCommand,
   findCodebaseByRepoUrl,
+  findCodebaseByDefaultCwd,
 } from './codebases';
 
 describe('codebases', () => {
@@ -263,6 +264,40 @@ describe('codebases', () => {
 
       const result = await findCodebaseByRepoUrl('https://github.com/other/repo');
 
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findCodebaseByDefaultCwd', () => {
+    test('should find codebase by default_cwd', async () => {
+      mockQuery.mockResolvedValueOnce(
+        createQueryResult([
+          {
+            id: 'cb-123',
+            name: 'test-repo',
+            default_cwd: '/workspace/test-repo',
+            ai_assistant_type: 'claude',
+            repository_url: null,
+            commands: {},
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        ])
+      );
+
+      const result = await findCodebaseByDefaultCwd('/workspace/test-repo');
+      expect(result).toBeDefined();
+      expect(result?.name).toBe('test-repo');
+      expect(mockQuery).toHaveBeenCalledWith(
+        'SELECT * FROM remote_agent_codebases WHERE default_cwd = $1 ORDER BY created_at DESC LIMIT 1',
+        ['/workspace/test-repo']
+      );
+    });
+
+    test('should return null when codebase not found', async () => {
+      mockQuery.mockResolvedValueOnce(createQueryResult([]));
+
+      const result = await findCodebaseByDefaultCwd('/workspace/nonexistent');
       expect(result).toBeNull();
     });
   });
