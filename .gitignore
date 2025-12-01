@@ -40,6 +40,7 @@ api_sessions/
 
 # Local workspace
 workspace/
+workspace
 
 # IDE
 .vscode/
