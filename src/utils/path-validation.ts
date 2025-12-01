@@ -23,10 +23,7 @@ export function isPathWithinWorkspace(
 
   // Check if resolved path starts with workspace root
   // Use trailing slash to prevent matching /workspace-other
-  return (
-    resolvedTarget === resolvedWorkspace ||
-    resolvedTarget.startsWith(resolvedWorkspace + '/')
-  );
+  return resolvedTarget === resolvedWorkspace || resolvedTarget.startsWith(resolvedWorkspace + '/');
 }
 
 /**

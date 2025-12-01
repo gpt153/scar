@@ -101,7 +101,7 @@ export function stripMarkdown(markdown: string): string {
   let result = markdown;
 
   // Remove code blocks first (preserve content)
-  result = result.replace(/```[\s\S]*?```/g, (match) => {
+  result = result.replace(/```[\s\S]*?```/g, match => {
     // Extract content between ``` markers
     const content = match.replace(/```\w*\n?/g, '').replace(/```$/g, '');
     return content.trim();

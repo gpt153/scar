@@ -156,6 +156,12 @@ export async function handleMessage(
     const mode = platform.getStreamingMode();
     console.log(`[Orchestrator] Streaming mode: ${mode}`);
 
+    // Send "starting" message in batch mode to provide feedback
+    if (mode === 'batch') {
+      const botName = process.env.BOT_DISPLAY_NAME ?? 'The agent';
+      await platform.sendMessage(conversationId, `${botName} is on the case...`);
+    }
+
     if (mode === 'stream') {
       // Stream mode: Send each chunk immediately
       for await (const msg of aiClient.sendQuery(

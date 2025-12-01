@@ -361,9 +361,15 @@ describe('orchestrator', () => {
 
       await handleMessage(platform, 'chat-456', '/command-invoke plan');
 
-      // Should only send the final message (batch mode)
-      expect(platform.sendMessage).toHaveBeenCalledTimes(1);
-      expect(platform.sendMessage).toHaveBeenCalledWith(
+      // Batch mode sends: 1) "starting" message, 2) final accumulated message
+      expect(platform.sendMessage).toHaveBeenCalledTimes(2);
+      expect(platform.sendMessage).toHaveBeenNthCalledWith(
+        1,
+        'chat-456',
+        expect.stringContaining('is on the case')
+      );
+      expect(platform.sendMessage).toHaveBeenNthCalledWith(
+        2,
         'chat-456',
         expect.stringContaining('Final summary')
       );
@@ -378,7 +384,8 @@ describe('orchestrator', () => {
 
       await handleMessage(platform, 'chat-456', '/command-invoke plan');
 
-      const sentMessage = platform.sendMessage.mock.calls[0][1];
+      // Second message is the final one (first is "starting" message)
+      const sentMessage = platform.sendMessage.mock.calls[1][1];
       expect(sentMessage).not.toContain('🔧');
       expect(sentMessage).toContain('Clean summary');
     });
