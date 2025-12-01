@@ -3,7 +3,7 @@
  */
 import { resolve } from 'path';
 
-const WORKSPACE_ROOT = '/workspace';
+const WORKSPACE_ROOT = process.env.WORKSPACE_PATH || '/workspace';
 
 /**
  * Validates that a resolved path stays within the allowed workspace directory.
@@ -45,7 +45,7 @@ export function validateAndResolvePath(
   const resolvedPath = resolve(basePath, targetPath);
 
   if (!isPathWithinWorkspace(resolvedPath)) {
-    throw new Error('Path must be within /workspace directory');
+    throw new Error(`Path must be within ${WORKSPACE_ROOT} directory`);
   }
 
   return resolvedPath;

@@ -209,7 +209,7 @@ describe('CommandHandler', () => {
         mockIsPathWithinWorkspace.mockReturnValue(false);
         const result = await handleCommand(baseConversation, '/setcwd ../etc/passwd');
         expect(result.success).toBe(false);
-        expect(result.message).toContain('must be within /workspace');
+        expect(result.message).toContain('Path must be within');
       });
 
       test('should update cwd for valid path', async () => {
@@ -309,7 +309,7 @@ describe('CommandHandler', () => {
 
         const result = await handleCommand(conversation, '/command-set evil ../../../etc/passwd');
         expect(result.success).toBe(false);
-        expect(result.message).toContain('must be within /workspace');
+        expect(result.message).toContain('Path must be within');
       });
     });
 
@@ -337,7 +337,7 @@ describe('CommandHandler', () => {
 
         const result = await handleCommand(conversation, '/load-commands ../../../etc');
         expect(result.success).toBe(false);
-        expect(result.message).toContain('must be within /workspace');
+        expect(result.message).toContain('Path must be within');
       });
     });
 

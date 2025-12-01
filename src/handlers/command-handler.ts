@@ -138,9 +138,10 @@ Session:
       const newCwd = args.join(' ');
       const resolvedCwd = resolve(newCwd);
 
-      // Validate path is within /workspace to prevent path traversal
+      // Validate path is within workspace to prevent path traversal
+      const workspacePath = process.env.WORKSPACE_PATH || '/workspace';
       if (!isPathWithinWorkspace(resolvedCwd)) {
-        return { success: false, message: 'Path must be within /workspace directory' };
+        return { success: false, message: `Path must be within ${workspacePath} directory` };
       }
 
       await db.updateConversation(conversation.id, { cwd: resolvedCwd });
@@ -188,8 +189,8 @@ Session:
       }
 
       const repoName = workingUrl.split('/').pop()?.replace('.git', '') || 'unknown';
-      // Inside Docker container, always use /workspace (mounted volume)
-      const workspacePath = '/workspace';
+      // Use WORKSPACE_PATH env var for flexibility (local dev vs Docker)
+      const workspacePath = process.env.WORKSPACE_PATH || '/workspace';
       const targetPath = `${workspacePath}/${repoName}`;
 
       try {
@@ -368,12 +369,13 @@ Session:
 
       const [commandName, commandPath, ...textParts] = args;
       const commandText = textParts.join(' ');
-      const basePath = conversation.cwd || '/workspace';
+      const workspacePath = process.env.WORKSPACE_PATH || '/workspace';
+      const basePath = conversation.cwd || workspacePath;
       const fullPath = resolve(basePath, commandPath);
 
-      // Validate path is within /workspace to prevent path traversal
+      // Validate path is within workspace to prevent path traversal
       if (!isPathWithinWorkspace(fullPath)) {
-        return { success: false, message: 'Path must be within /workspace directory' };
+        return { success: false, message: `Path must be within ${workspacePath} directory` };
       }
 
       try {
@@ -406,12 +408,13 @@ Session:
       }
 
       const folderPath = args.join(' ');
-      const basePath = conversation.cwd || '/workspace';
+      const workspacePath = process.env.WORKSPACE_PATH || '/workspace';
+      const basePath = conversation.cwd || workspacePath;
       const fullPath = resolve(basePath, folderPath);
 
-      // Validate path is within /workspace to prevent path traversal
+      // Validate path is within workspace to prevent path traversal
       if (!isPathWithinWorkspace(fullPath)) {
-        return { success: false, message: 'Path must be within /workspace directory' };
+        return { success: false, message: `Path must be within ${workspacePath} directory` };
       }
 
       try {
@@ -471,7 +474,7 @@ Session:
     }
 
     case 'repos': {
-      const workspacePath = '/workspace';
+      const workspacePath = process.env.WORKSPACE_PATH || '/workspace';
 
       try {
         const entries = await readdir(workspacePath, { withFileTypes: true });

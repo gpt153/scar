@@ -327,7 +327,7 @@ export class GitHubAdapter implements IPlatformAdapter {
     }
 
     // Use just the repo name (not owner-repo) to match /clone behavior
-    const repoPath = `/workspace/${repo}`;
+    const repoPath = `${process.env.WORKSPACE_PATH || '/workspace'}/${repo}`;
     const codebase = await codebaseDb.createCodebase({
       name: repo,
       repository_url: repoUrlNoGit, // Store without .git for consistency
