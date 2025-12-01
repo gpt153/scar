@@ -385,14 +385,38 @@ describe('orchestrator', () => {
   });
 
   describe('error handling', () => {
-    test('sends error message on unexpected error', async () => {
+    test('sends contextual error message on unexpected error', async () => {
       mockGetOrCreateConversation.mockRejectedValue(new Error('Database error'));
 
       await handleMessage(platform, 'chat-456', '/status');
 
       expect(platform.sendMessage).toHaveBeenCalledWith(
         'chat-456',
-        '⚠️ An error occurred. Try /reset to start a fresh session.'
+        '⚠️ Error: Database error. Try /reset if issue persists.'
+      );
+    });
+
+    test('sends rate limit message for rate limit errors', async () => {
+      mockGetOrCreateConversation.mockRejectedValue(new Error('rate limit exceeded'));
+
+      await handleMessage(platform, 'chat-456', '/status');
+
+      expect(platform.sendMessage).toHaveBeenCalledWith(
+        'chat-456',
+        '⚠️ AI rate limit reached. Please wait a moment and try again.'
+      );
+    });
+
+    test('sends generic message for sensitive errors', async () => {
+      mockGetOrCreateConversation.mockRejectedValue(
+        new Error('Connection to postgres://user:password@host:5432/db failed')
+      );
+
+      await handleMessage(platform, 'chat-456', '/status');
+
+      expect(platform.sendMessage).toHaveBeenCalledWith(
+        'chat-456',
+        '⚠️ An unexpected error occurred. Try /reset to start a fresh session.'
       );
     });
   });
