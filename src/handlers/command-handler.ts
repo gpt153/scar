@@ -168,42 +168,60 @@ Session:
         return { success: false, message: 'Usage: /clone <repo-url>' };
       }
 
-      const repoUrl: string = args[0];
-      const repoName = repoUrl.split('/').pop()?.replace('.git', '') || 'unknown';
+      // Normalize URL: strip trailing slashes
+      const normalizedUrl: string = args[0].replace(/\/+$/, '');
+
+      // Convert SSH URL to HTTPS format if needed
+      // git@github.com:user/repo.git -> https://github.com/user/repo.git
+      let workingUrl = normalizedUrl;
+      if (normalizedUrl.startsWith('git@github.com:')) {
+        workingUrl = normalizedUrl.replace('git@github.com:', 'https://github.com/');
+      }
+
+      const repoName = workingUrl.split('/').pop()?.replace('.git', '') || 'unknown';
       // Inside Docker container, always use /workspace (mounted volume)
       const workspacePath = '/workspace';
       const targetPath = `${workspacePath}/${repoName}`;
 
       try {
-        console.log(`[Clone] Cloning ${repoUrl} to ${targetPath}`);
+        // Check if target directory already exists
+        try {
+          await access(targetPath);
+          return {
+            success: false,
+            message: `Directory already exists: ${targetPath}\n\nUse a different repository or remove the existing directory first.`,
+          };
+        } catch {
+          // Directory doesn't exist, which is what we want
+        }
+
+        console.log(`[Clone] Cloning ${workingUrl} to ${targetPath}`);
 
         // Build clone command with authentication if GitHub token is available
-        let cloneCommand = `git clone ${repoUrl} ${targetPath}`;
+        let cloneUrl = workingUrl;
         const ghToken = process.env.GH_TOKEN;
 
-        if (ghToken && repoUrl.includes('github.com')) {
+        if (ghToken && workingUrl.includes('github.com')) {
           // Inject token into GitHub URL for private repo access
           // Convert: https://github.com/user/repo.git -> https://token@github.com/user/repo.git
-          let authenticatedUrl = repoUrl;
-          if (repoUrl.startsWith('https://github.com')) {
-            authenticatedUrl = repoUrl.replace(
+          if (workingUrl.startsWith('https://github.com')) {
+            cloneUrl = workingUrl.replace(
               'https://github.com',
               `https://${ghToken}@github.com`
             );
-          } else if (repoUrl.startsWith('http://github.com')) {
-            authenticatedUrl = repoUrl.replace(
+          } else if (workingUrl.startsWith('http://github.com')) {
+            cloneUrl = workingUrl.replace(
               'http://github.com',
               `https://${ghToken}@github.com`
             );
-          } else if (!repoUrl.startsWith('http')) {
-            // Handle github.com/user/repo format
-            authenticatedUrl = `https://${ghToken}@${repoUrl}`;
+          } else if (!workingUrl.startsWith('http')) {
+            // Handle github.com/user/repo format (bare domain)
+            cloneUrl = `https://${ghToken}@${workingUrl}`;
           }
-          cloneCommand = `git clone ${authenticatedUrl} ${targetPath}`;
           console.log('[Clone] Using authenticated GitHub clone');
         }
 
-        await execAsync(cloneCommand);
+        await execAsync(`git clone ${cloneUrl} ${targetPath}`);
 
         // Add the cloned repository to git safe.directory to prevent ownership errors
         // This is needed because we run as non-root user but git might see different ownership
@@ -232,7 +250,7 @@ Session:
 
         const codebase = await codebaseDb.createCodebase({
           name: repoName,
-          repository_url: repoUrl,
+          repository_url: workingUrl,
           default_cwd: targetPath,
           ai_assistant_type: suggestedAssistant,
         });

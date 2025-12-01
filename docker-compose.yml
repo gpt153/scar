@@ -6,7 +6,7 @@ services:
     build: .
     env_file: .env
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       - ${WORKSPACE_PATH:-./workspace}:/workspace
     restart: unless-stopped
@@ -26,7 +26,7 @@ services:
       # Override DATABASE_URL to use Docker service name
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/remote_coding_agent
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       - ${WORKSPACE_PATH:-./workspace}:/workspace
     restart: unless-stopped
@@ -47,7 +47,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./migrations:/docker-entrypoint-initdb.d
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
