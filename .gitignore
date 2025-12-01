@@ -35,6 +35,7 @@ api_sessions/
 
 # RCA reports (generated, local only)
 .agents/rca-reports/
+.claude/PRPs/features
 
 # Local workspace
 workspace/
