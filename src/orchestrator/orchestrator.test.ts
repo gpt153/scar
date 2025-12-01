@@ -350,7 +350,7 @@ describe('orchestrator', () => {
       expect(platform.sendMessage).toHaveBeenNthCalledWith(3, 'chat-456', 'Second chunk');
     });
 
-    test('batch mode accumulates and sends final message', async () => {
+    test('batch mode accumulates and sends all messages joined', async () => {
       platform.getStreamingMode.mockReturnValue('batch');
       mockClient.sendQuery.mockImplementation(async function* () {
         yield { type: 'assistant', content: 'Part 1' };
@@ -361,18 +361,18 @@ describe('orchestrator', () => {
 
       await handleMessage(platform, 'chat-456', '/command-invoke plan');
 
-      // Batch mode sends: 1) "starting" message, 2) final accumulated message
+      // Batch mode sends: 1) "starting" message, 2) all messages joined
       expect(platform.sendMessage).toHaveBeenCalledTimes(2);
       expect(platform.sendMessage).toHaveBeenNthCalledWith(
         1,
         'chat-456',
         expect.stringContaining('is on the case')
       );
-      expect(platform.sendMessage).toHaveBeenNthCalledWith(
-        2,
-        'chat-456',
-        expect.stringContaining('Final summary')
-      );
+      // Verify both Part 1 and Final summary are included (joined with ---)
+      const finalMessage = platform.sendMessage.mock.calls[1][1];
+      expect(finalMessage).toContain('Part 1');
+      expect(finalMessage).toContain('---');
+      expect(finalMessage).toContain('Final summary');
     });
 
     test('batch mode filters out tool indicators from final message', async () => {

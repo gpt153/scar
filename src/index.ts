@@ -221,6 +221,16 @@ async function main(): Promise<void> {
     res.json({ success: true });
   });
 
+  // Set test adapter streaming mode
+  app.put('/test/mode', (req, res) => {
+    const { mode } = req.body as { mode?: unknown };
+    if (mode !== 'stream' && mode !== 'batch') {
+      return res.status(400).json({ error: 'mode must be "stream" or "batch"' });
+    }
+    testAdapter.setStreamingMode(mode);
+    return res.json({ success: true, mode });
+  });
+
   app.listen(port, () => {
     console.log(`[Express] Health check server listening on port ${String(port)}`);
   });

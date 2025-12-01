@@ -207,16 +207,17 @@ export async function handleMessage(
       console.log(`[Orchestrator] Received ${String(allChunks.length)} chunks total`);
       console.log(`[Orchestrator] Assistant messages: ${String(assistantMessages.length)}`);
 
-      // Extract clean summary from the last message
+      // Join all assistant messages and filter tool indicators
       // Tool indicators from Claude Code: 🔧, 💭, etc.
       // These appear at the start of lines showing tool usage
       let finalMessage = '';
 
       if (assistantMessages.length > 0) {
-        const lastMessage = assistantMessages[assistantMessages.length - 1];
+        // Join all messages with separator (preserves context from all responses)
+        const allMessages = assistantMessages.join('\n\n---\n\n');
 
-        // Split by double newlines to separate tool sections from summary
-        const sections = lastMessage.split('\n\n');
+        // Split by double newlines to separate tool sections from content
+        const sections = allMessages.split('\n\n');
 
         // Filter out sections that start with tool indicators
         // Using alternation for emojis with variation selectors
@@ -227,12 +228,12 @@ export async function handleMessage(
           return !toolIndicatorRegex.exec(trimmed);
         });
 
-        // Join remaining sections (this is the summary without tool indicators)
+        // Join remaining sections
         finalMessage = cleanSections.join('\n\n').trim();
 
-        // If we filtered everything out, fall back to last message
+        // If we filtered everything out, fall back to all messages joined
         if (!finalMessage) {
-          finalMessage = lastMessage;
+          finalMessage = allMessages;
         }
       }
 

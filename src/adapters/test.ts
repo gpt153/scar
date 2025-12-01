@@ -35,6 +35,10 @@ export class TestAdapter implements IPlatformAdapter {
     return this.streamingMode;
   }
 
+  setStreamingMode(mode: 'stream' | 'batch'): void {
+    this.streamingMode = mode;
+  }
+
   getPlatformType(): string {
     return 'test';
   }
