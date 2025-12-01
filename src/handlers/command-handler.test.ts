@@ -133,6 +133,18 @@ describe('CommandHandler', () => {
       expect(result.args).toEqual(['1', 'pull']);
     });
 
+    test('should parse /repo-remove with number', () => {
+      const result = parseCommand('/repo-remove 1');
+      expect(result.command).toBe('repo-remove');
+      expect(result.args).toEqual(['1']);
+    });
+
+    test('should parse /repo-remove with name', () => {
+      const result = parseCommand('/repo-remove my-repo');
+      expect(result.command).toBe('repo-remove');
+      expect(result.args).toEqual(['my-repo']);
+    });
+
     // Bug fix tests: Multi-word quoted arguments should be preserved as single arg
     test('should preserve multi-word quoted string as single argument', () => {
       const result = parseCommand('/command-invoke plan "here is the request"');
@@ -413,6 +425,14 @@ describe('CommandHandler', () => {
         expect(result.success).toBe(false);
         expect(result.message).toContain('Unknown command');
         expect(result.message).toContain('/help');
+      });
+    });
+
+    describe('/repo-remove', () => {
+      test('should return error without argument', async () => {
+        const result = await handleCommand(baseConversation, '/repo-remove');
+        expect(result.success).toBe(false);
+        expect(result.message).toContain('Usage');
       });
     });
   });

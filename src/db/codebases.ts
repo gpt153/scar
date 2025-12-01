@@ -69,3 +69,17 @@ export async function findCodebaseByDefaultCwd(defaultCwd: string): Promise<Code
   );
   return result.rows[0] || null;
 }
+
+export async function deleteCodebase(id: string): Promise<void> {
+  // First, unlink any sessions referencing this codebase (FK has no cascade)
+  await pool.query('UPDATE remote_agent_sessions SET codebase_id = NULL WHERE codebase_id = $1', [
+    id,
+  ]);
+  // Second, unlink any conversations referencing this codebase (FK has no cascade)
+  await pool.query(
+    'UPDATE remote_agent_conversations SET codebase_id = NULL WHERE codebase_id = $1',
+    [id]
+  );
+  // Then delete the codebase
+  await pool.query('DELETE FROM remote_agent_codebases WHERE id = $1', [id]);
+}

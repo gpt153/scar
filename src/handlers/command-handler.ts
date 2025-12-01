@@ -4,7 +4,7 @@
  */
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { readFile, writeFile, readdir, access } from 'fs/promises';
+import { readFile, writeFile, readdir, access, rm } from 'fs/promises';
 import { join, basename, resolve } from 'path';
 import { Conversation, CommandResult } from '../types';
 import * as db from '../db/conversations';
@@ -91,6 +91,7 @@ Codebase:
   /clone <repo-url> - Clone repository
   /repos - List repositories (numbered)
   /repo <#|name> [pull] - Switch repo (auto-loads commands)
+  /repo-remove <#|name> - Remove repo and codebase record
   /getcwd - Show working directory
   /setcwd <path> - Set directory
   Note: Use /repo for quick switching, /setcwd for manual paths
@@ -654,6 +655,88 @@ Session:
         const err = error as Error;
         console.error('[Command] repo switch failed:', err);
         return { success: false, message: `Failed: ${err.message}` };
+      }
+    }
+
+    case 'repo-remove': {
+      if (args.length === 0) {
+        return { success: false, message: 'Usage: /repo-remove <number|name>' };
+      }
+
+      const workspacePath = process.env.WORKSPACE_PATH ?? '/workspace';
+      const identifier = args[0];
+
+      try {
+        // Get sorted list of repos (same as /repos)
+        const entries = await readdir(workspacePath, { withFileTypes: true });
+        const folders = entries
+          .filter(entry => entry.isDirectory())
+          .map(entry => entry.name)
+          .sort();
+
+        if (!folders.length) {
+          return {
+            success: false,
+            message: 'No repositories found. Nothing to remove.',
+          };
+        }
+
+        // Find the target folder by number or name
+        let targetFolder: string | undefined;
+        const num = parseInt(identifier, 10);
+        if (!isNaN(num) && num >= 1 && num <= folders.length) {
+          targetFolder = folders[num - 1];
+        } else {
+          // Try exact match first, then prefix match
+          targetFolder =
+            folders.find(f => f === identifier) ?? folders.find(f => f.startsWith(identifier));
+        }
+
+        if (!targetFolder) {
+          return {
+            success: false,
+            message: `Repository not found: ${identifier}\n\nUse /repos to see available repositories.`,
+          };
+        }
+
+        const targetPath = join(workspacePath, targetFolder);
+
+        // Find codebase by path
+        const codebase = await codebaseDb.findCodebaseByDefaultCwd(targetPath);
+
+        // If current conversation uses this codebase, unlink it
+        if (codebase && conversation.codebase_id === codebase.id) {
+          await db.updateConversation(conversation.id, { codebase_id: null, cwd: null });
+          // Also deactivate any active session
+          const session = await sessionDb.getActiveSession(conversation.id);
+          if (session) {
+            await sessionDb.deactivateSession(session.id);
+          }
+        }
+
+        // Delete codebase record (this also unlinks sessions)
+        if (codebase) {
+          await codebaseDb.deleteCodebase(codebase.id);
+          console.log(`[Command] Deleted codebase: ${codebase.name}`);
+        }
+
+        // Remove directory
+        await rm(targetPath, { recursive: true, force: true });
+        console.log(`[Command] Removed directory: ${targetPath}`);
+
+        let msg = `Removed: ${targetFolder}`;
+        if (codebase) {
+          msg += '\n✓ Deleted codebase record';
+        }
+        if (conversation.codebase_id === codebase?.id) {
+          msg += '\n✓ Unlinked from current conversation';
+        }
+
+        return { success: true, message: msg, modified: true };
+      } catch (error) {
+        const err = error as Error;
+        console.error('[Command] repo-remove failed:', err);
+        return { success: false, message: `Failed to remove: ${err.message}` };
       }
     }
 
