@@ -11,6 +11,7 @@ import * as sessionDb from '../db/sessions';
 import * as commandHandler from '../handlers/command-handler';
 import { formatToolCall } from '../utils/tool-formatter';
 import { substituteVariables } from '../utils/variable-substitution';
+import { classifyAndFormatError } from '../utils/error-formatter';
 import { getAssistantClient } from '../clients/factory';
 
 export async function handleMessage(
@@ -242,10 +243,9 @@ export async function handleMessage(
 
     console.log('[Orchestrator] Message handling complete');
   } catch (error) {
+    const err = error as Error;
     console.error('[Orchestrator] Error:', error);
-    await platform.sendMessage(
-      conversationId,
-      '⚠️ An error occurred. Try /reset to start a fresh session.'
-    );
+    const userMessage = classifyAndFormatError(err);
+    await platform.sendMessage(conversationId, userMessage);
   }
 }

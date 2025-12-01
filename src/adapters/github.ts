@@ -6,6 +6,7 @@ import { Octokit } from '@octokit/rest';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { IPlatformAdapter } from '../types';
 import { handleMessage } from '../orchestrator/orchestrator';
+import { classifyAndFormatError } from '../utils/error-formatter';
 import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
 import * as sessionDb from '../db/sessions';
@@ -492,11 +493,10 @@ ${userComment}`;
     try {
       await handleMessage(this, conversationId, finalMessage, contextToAppend);
     } catch (error) {
+      const err = error as Error;
       console.error('[GitHub] Message handling error:', error);
-      await this.sendMessage(
-        conversationId,
-        '⚠️ An error occurred. Please try again or use /reset.'
-      );
+      const userMessage = classifyAndFormatError(err);
+      await this.sendMessage(conversationId, userMessage);
     }
   }
 }
