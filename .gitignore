@@ -32,6 +32,9 @@ Caddyfile
 sessions/
 api_sessions/
 
+# RCA reports (generated, local only)
+.agents/rca-reports/
+
 # Local workspace
 workspace/
 
