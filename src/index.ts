@@ -14,6 +14,7 @@ import { GitHubAdapter } from './adapters/github';
 import { handleMessage } from './orchestrator/orchestrator';
 import { pool } from './db/connection';
 import { ConversationLockManager } from './utils/conversation-lock';
+import { classifyAndFormatError } from './utils/error-formatter';
 
 async function main(): Promise<void> {
   console.log('[App] Starting Remote Coding Agent (Telegram + Claude MVP)');
@@ -90,6 +91,8 @@ async function main(): Promise<void> {
         const payload = (req.body as Buffer).toString('utf-8');
 
         // Process async (fire-and-forget for fast webhook response)
+        // Note: github.handleWebhook() has internal error handling that notifies users
+        // This catch is a fallback for truly unexpected errors (e.g., signature verification bugs)
         github.handleWebhook(payload, signature).catch(error => {
           console.error('[GitHub] Webhook processing error:', error);
         });
@@ -153,8 +156,14 @@ async function main(): Promise<void> {
         .acquireLock(conversationId, async () => {
           await handleMessage(testAdapter, conversationId, message);
         })
-        .catch(error => {
+        .catch(async error => {
           console.error('[Test] Message handling error:', error);
+          try {
+            const userMessage = classifyAndFormatError(error as Error);
+            await testAdapter.sendMessage(conversationId, userMessage);
+          } catch (sendError) {
+            console.error('[Test] Failed to send error message to user:', sendError);
+          }
         });
 
       return res.json({ success: true, conversationId, message });
@@ -198,8 +207,14 @@ async function main(): Promise<void> {
       .acquireLock(conversationId, async () => {
         await handleMessage(telegram, conversationId, message);
       })
-      .catch(error => {
+      .catch(async error => {
         console.error('[Telegram] Failed to process message:', error);
+        try {
+          const userMessage = classifyAndFormatError(error as Error);
+          await telegram.sendMessage(conversationId, userMessage);
+        } catch (sendError) {
+          console.error('[Telegram] Failed to send error message to user:', sendError);
+        }
       });
   });
 
