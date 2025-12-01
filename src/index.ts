@@ -133,6 +133,9 @@ async function main(): Promise<void> {
   app.post('/test/message', async (req, res) => {
     try {
       const { conversationId, message } = req.body;
+      if (typeof conversationId !== 'string' || typeof message !== 'string') {
+        return res.status(400).json({ error: 'conversationId and message must be strings' });
+      }
       if (!conversationId || !message) {
         return res.status(400).json({ error: 'conversationId and message required' });
       }
