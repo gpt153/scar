@@ -1,3 +1,12 @@
+## Archon Rules to Always Follow:
+
+@.agents/reference/archon-rules.md
+
+---
+
+## IMPORTANT: Archon project id: c9bd0aa0-4298-48c5-8f1f-28ef7c142240
+
+
 # CRITICAL: ARCHON-FIRST RULE - READ THIS FIRST
   BEFORE doing ANYTHING else, when you see ANY task management scenario:
   1. STOP and check if Archon MCP server is available

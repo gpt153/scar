@@ -1,11 +1,3 @@
-## Archon Rules to Always Follow:
-
-@.agents/reference/archon-rules.md
-
----
-
-## IMPORTANT: Archon project id: c9bd0aa0-4298-48c5-8f1f-28ef7c142240
-
 ## Project Overview
 
 **Remote Agentic Coding Platform**: Control AI coding assistants (Claude Code SDK, Codex SDK) remotely from Slack, Telegram, and GitHub. Built with **Node.js + TypeScript + PostgreSQL**, single-developer tool for practitioners of the Dynamous Agentic Coding Course. Architecture prioritizes simplicity, flexibility, and user control.
