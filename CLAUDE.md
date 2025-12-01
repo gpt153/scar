@@ -29,7 +29,23 @@
 
 ## Essential Commands
 
-### Development
+### Development (Recommended)
+
+Run postgres in Docker, app locally for hot reload:
+
+```bash
+# Terminal 1: Start postgres only
+docker-compose --profile with-db up -d postgres
+
+# Terminal 2: Run app with hot reload
+npm run dev
+```
+
+Requires `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/remote_coding_agent` in `.env`.
+
+Code changes auto-reload instantly. Telegram/Slack work from any device (polling-based, no port forwarding needed).
+
+### Build Commands
 
 ```bash
 # Install dependencies
@@ -38,10 +54,7 @@ npm install
 # Build TypeScript
 npm run build
 
-# Start development server
-npm run dev
-
-# Start production server
+# Start production server (no hot reload)
 npm start
 ```
 
@@ -100,21 +113,25 @@ psql $DATABASE_URL < migrations/001_initial_schema.sql
 docker-compose --profile with-db up -d postgres
 ```
 
-### Docker
+### Docker (Production)
+
+For production deployment (no hot reload):
 
 ```bash
 # Build and start all services (app + postgres)
 docker-compose --profile with-db up -d --build
 
-# Start app only (remote database)
-docker-compose up -d
+# Start app only (external database like Supabase/Neon)
+docker-compose --profile external-db up -d
 
 # View logs
-docker-compose logs -f app
+docker-compose logs -f app-with-db
 
 # Stop all services
-docker-compose down
+docker-compose --profile with-db down
 ```
+
+**Note:** For development, use the hybrid approach above instead (postgres in Docker, app locally).
 
 ## Architecture
 
@@ -304,12 +321,11 @@ DELETE http://localhost:3000/test/messages/test-123
 
 **Complete Test Workflow:**
 ```bash
-# 1. Start application
-docker-compose up -d
-# Wait for startup (check logs)
-docker-compose logs -f app
+# 1. Start application (hybrid mode - recommended)
+docker-compose --profile with-db up -d postgres
+npm run dev
 
-# 2. Send test message
+# 2. Send test message (use your configured PORT, default 3000)
 curl -X POST http://localhost:3000/test/message \
   -H "Content-Type: application/json" \
   -d '{"conversationId":"test-123","message":"/status"}'
@@ -473,16 +489,20 @@ try {
 ### Docker Patterns
 
 **Profiles:**
-- Default: App only (remote database)
-- `with-db`: App + PostgreSQL 18
+- `external-db`: App only (for remote databases like Supabase/Neon)
+- `with-db`: App + PostgreSQL 18 (for production with local DB)
+
+**Development Setup (Recommended):**
+- Run only postgres: `docker-compose --profile with-db up -d postgres`
+- Run app locally: `npm run dev` (hot reload enabled)
 
 **Volumes:**
 - `/workspace` - Cloned repositories
 - Mount via `WORKSPACE_PATH` env var
 
 **Networking:**
-- App: Port 3000
-- PostgreSQL: Port 5432 (only exposed with `with-db` profile)
+- App: Port 3000 (configurable via `PORT` env var)
+- PostgreSQL: Port 5432 (exposed on localhost for local development)
 
 ### GitHub-Specific Patterns
 

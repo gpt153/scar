@@ -160,8 +160,13 @@ async function main(): Promise<void> {
     res.json({ conversationId: req.params.conversationId, messages });
   });
 
-  app.delete('/test/messages/:conversationId?', (req, res) => {
+  app.delete('/test/messages/:conversationId', (req, res) => {
     testAdapter.clearMessages(req.params.conversationId);
+    res.json({ success: true });
+  });
+
+  app.delete('/test/messages', (req, res) => {
+    testAdapter.clearMessages();
     res.json({ success: true });
   });
 
