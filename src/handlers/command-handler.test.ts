@@ -283,6 +283,54 @@ describe('CommandHandler', () => {
         expect(result.success).toBe(true);
         expect(result.message).toContain('my-repo');
       });
+
+      test('should auto-detect and link codebase from cwd', async () => {
+        // Conversation has cwd set but no codebase_id
+        const conversation = {
+          ...baseConversation,
+          cwd: '/workspace/detected-repo',
+          codebase_id: null,
+        };
+
+        // Mock findCodebaseByDefaultCwd to return a matching codebase
+        mockCodebaseDb.findCodebaseByDefaultCwd.mockResolvedValue({
+          id: 'cb-auto',
+          name: 'detected-repo',
+          repository_url: 'https://github.com/user/detected-repo',
+          default_cwd: '/workspace/detected-repo',
+          ai_assistant_type: 'claude',
+          commands: {},
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+        mockDb.updateConversation.mockResolvedValue();
+        mockSessionDb.getActiveSession.mockResolvedValue(null);
+
+        const result = await handleCommand(conversation, '/status');
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain('detected-repo');
+        // Verify auto-link was called
+        expect(mockDb.updateConversation).toHaveBeenCalledWith('conv-123', {
+          codebase_id: 'cb-auto',
+        });
+      });
+
+      test('should show no codebase when cwd does not match any codebase', async () => {
+        const conversation = {
+          ...baseConversation,
+          cwd: '/workspace/unknown-repo',
+          codebase_id: null,
+        };
+
+        mockCodebaseDb.findCodebaseByDefaultCwd.mockResolvedValue(null);
+        mockSessionDb.getActiveSession.mockResolvedValue(null);
+
+        const result = await handleCommand(conversation, '/status');
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain('No codebase configured');
+      });
     });
 
     describe('/reset', () => {

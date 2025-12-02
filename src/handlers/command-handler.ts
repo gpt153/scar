@@ -112,13 +112,24 @@ Session:
     case 'status': {
       let msg = `Platform: ${conversation.platform_type}\nAI Assistant: ${conversation.ai_assistant_type}`;
 
-      if (conversation.codebase_id) {
-        const cb = await codebaseDb.getCodebase(conversation.codebase_id);
-        if (cb?.name) {
-          msg += `\n\nCodebase: ${cb.name}`;
-          if (cb.repository_url) {
-            msg += `\nRepository: ${cb.repository_url}`;
-          }
+      let codebase = conversation.codebase_id
+        ? await codebaseDb.getCodebase(conversation.codebase_id)
+        : null;
+
+      // Auto-detect codebase from cwd if not explicitly linked
+      if (!codebase && conversation.cwd) {
+        codebase = await codebaseDb.findCodebaseByDefaultCwd(conversation.cwd);
+        if (codebase) {
+          // Auto-link the detected codebase to this conversation
+          await db.updateConversation(conversation.id, { codebase_id: codebase.id });
+          console.log(`[Status] Auto-linked codebase ${codebase.name} to conversation`);
+        }
+      }
+
+      if (codebase?.name) {
+        msg += `\n\nCodebase: ${codebase.name}`;
+        if (codebase.repository_url) {
+          msg += `\nRepository: ${codebase.repository_url}`;
         }
       } else {
         msg += '\n\nNo codebase configured. Use /clone <repo-url> to get started.';
