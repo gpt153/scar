@@ -1,6 +1,6 @@
 ---
 name: worktree-agents
-description: Manage parallel AI coding agents across git worktrees. Use when user wants to spin up multiple branches for parallel development, launch Claude Code agents in worktrees, check status of running agents, or clean up completed work.
+description: Create worktrees and launch Claude Code agents. USE THIS SKILL when user says "create worktree", "spin up worktree", "new worktree", "worktree for X", or wants parallel development branches. Also handles worktree status, cleanup, and agent launching.
 ---
 
 # Worktree Agent Management
@@ -47,6 +47,7 @@ The user wants to:
 | Task | Who Does It | How |
 |------|-------------|-----|
 | Create git worktree | **You** | `git worktree add worktrees/<branch> -b <branch>` |
+| Copy .agents/ directory | **You** | `cp -r .agents worktrees/<branch>/` (for plans, RCAs, etc.) |
 | Install dependencies | **You** | `cd worktrees/<branch> && npm install` |
 | Run validation | **You** | `npm run type-check && npm run lint && npm test` |
 | Pick next available port | **You** | Look at registry, find unused port in range |
@@ -56,6 +57,20 @@ The user wants to:
 | Full cleanup | **Script** | `scripts/cleanup.sh <branch> [--delete-branch]` |
 | Check PR status | **You** | `gh pr list --head <branch> --json number,state` |
 | Decide what to clean | **You** | Check if PR merged, ask user if unsure |
+
+## IMPORTANT: Copy .agents/ Directory
+
+**Why**: Uncommitted files (plans, RCA reports, PRPs) only exist in the source worktree. New worktrees start clean from git, so these files won't be there.
+
+**Always copy** the `.agents/` directory to new worktrees so the agent has access to:
+- `.agents/plans/` - Implementation plans to execute
+- `.agents/rca-reports/` - Root cause analysis reports
+- `.agents/PRPs/` - Product requirement plans
+
+```bash
+# After creating worktree, copy .agents/
+cp -r .agents worktrees/<branch>/.agents
+```
 
 ## Port Allocation
 
@@ -85,13 +100,15 @@ Ports are assigned from the configured range (default: 8124-8128).
    a. Find next available port (check registry)
    b. Create worktree:
       git worktree add worktrees/<branch> -b <branch>
-   c. Install dependencies:
+   c. Copy .agents/ directory (plans, RCAs, PRPs):
+      cp -r .agents worktrees/<branch>/.agents
+   d. Install dependencies:
       cd worktrees/<branch> && npm install
-   d. Run validation (optional but recommended):
+   e. Run validation (optional but recommended):
       npm run type-check && npm run lint && npm test
-   e. Register:
+   f. Register:
       scripts/register.sh <branch> worktrees/<branch> <port> "[task]"
-   f. Launch agent:
+   g. Launch agent:
       scripts/launch-agent.sh worktrees/<branch> "[task]"
 
 2. Report summary to user
@@ -102,6 +119,10 @@ Ports are assigned from the configured range (default: 8124-8128).
 # Create worktrees
 git worktree add worktrees/feature/auth -b feature/auth
 git worktree add worktrees/feature/payments -b feature/payments
+
+# Copy .agents/ directory (uncommitted plans, RCAs, etc.)
+cp -r .agents worktrees/feature/auth/.agents
+cp -r .agents worktrees/feature/payments/.agents
 
 # Install deps
 cd worktrees/feature/auth && npm install
@@ -352,22 +373,27 @@ git worktree list
    git worktree add worktrees/feature/dark-mode -b feature/dark-mode
    git worktree add worktrees/fix/login-bug -b fix/login-bug
    ```
-3. Install deps:
+3. Copy .agents/ directory (so agents have access to plans, RCAs):
+   ```bash
+   cp -r .agents worktrees/feature/dark-mode/.agents
+   cp -r .agents worktrees/fix/login-bug/.agents
+   ```
+4. Install deps:
    ```bash
    cd worktrees/feature/dark-mode && npm install
    cd worktrees/fix/login-bug && npm install
    ```
-4. Register:
+5. Register:
    ```bash
    .claude/skills/worktree-agents/scripts/register.sh feature/dark-mode worktrees/feature/dark-mode 8124 "Implement dark mode toggle"
    .claude/skills/worktree-agents/scripts/register.sh fix/login-bug worktrees/fix/login-bug 8125 "Fix login redirect bug"
    ```
-5. Launch agents:
+6. Launch agents:
    ```bash
    .claude/skills/worktree-agents/scripts/launch-agent.sh worktrees/feature/dark-mode "Implement dark mode toggle"
    .claude/skills/worktree-agents/scripts/launch-agent.sh worktrees/fix/login-bug "Fix login redirect bug"
    ```
-6. Report:
+7. Report:
    ```
    Created 2 worktrees with agents:
 
@@ -377,4 +403,5 @@ git worktree list
    | fix/login-bug | 8125 | Fix login redirect bug |
 
    Both agents are now running in separate Ghostty windows.
+   .agents/ directory copied to each worktree.
    ```
