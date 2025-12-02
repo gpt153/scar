@@ -94,10 +94,21 @@ async function main(): Promise<void> {
 
       if (!content) return;
 
+      // Check if message is from a thread - inherit parent context if so
+      const parentConversationId = discord!.isThread(message)
+        ? discord!.getParentChannelId(message)
+        : null;
+
       // Fire-and-forget: handler returns immediately, processing happens async
       lockManager
         .acquireLock(conversationId, async () => {
-          await handleMessage(discord!, conversationId, content);
+          await handleMessage(
+            discord!,
+            conversationId,
+            content,
+            undefined,
+            parentConversationId ?? undefined
+          );
         })
         .catch(async error => {
           console.error('[Discord] Failed to process message:', error);

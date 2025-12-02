@@ -150,6 +150,24 @@ export class DiscordAdapter implements IPlatformAdapter {
   }
 
   /**
+   * Check if a message is from a Discord thread
+   */
+  isThread(message: Message): boolean {
+    return message.channel.isThread();
+  }
+
+  /**
+   * Get the parent channel ID if the message is from a thread
+   * Returns null for non-thread messages
+   */
+  getParentChannelId(message: Message): string | null {
+    if (message.channel.isThread()) {
+      return message.channel.parentId;
+    }
+    return null;
+  }
+
+  /**
    * Register a message handler for incoming messages
    * Must be called before start()
    */

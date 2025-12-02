@@ -19,13 +19,19 @@ export async function handleMessage(
   platform: IPlatformAdapter,
   conversationId: string,
   message: string,
-  issueContext?: string // Optional GitHub issue/PR context to append AFTER command loading
+  issueContext?: string, // Optional GitHub issue/PR context to append AFTER command loading
+  parentConversationId?: string // Optional parent conversation ID for thread context inheritance
 ): Promise<void> {
   try {
     console.log(`[Orchestrator] Handling message for conversation ${conversationId}`);
 
-    // Get or create conversation
-    let conversation = await db.getOrCreateConversation(platform.getPlatformType(), conversationId);
+    // Get or create conversation (with optional parent context for thread inheritance)
+    let conversation = await db.getOrCreateConversation(
+      platform.getPlatformType(),
+      conversationId,
+      undefined,
+      parentConversationId
+    );
 
     // Parse command upfront if it's a slash command
     let promptToSend = message;
