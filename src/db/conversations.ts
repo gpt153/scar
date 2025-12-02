@@ -4,6 +4,21 @@
 import { pool } from './connection';
 import { Conversation } from '../types';
 
+/**
+ * Get a conversation by platform type and platform ID
+ * Returns null if not found (unlike getOrCreate which creates)
+ */
+export async function getConversationByPlatformId(
+  platformType: string,
+  platformId: string
+): Promise<Conversation | null> {
+  const result = await pool.query<Conversation>(
+    'SELECT * FROM remote_agent_conversations WHERE platform_type = $1 AND platform_conversation_id = $2',
+    [platformType, platformId]
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function getOrCreateConversation(
   platformType: string,
   platformId: string,

@@ -140,6 +140,71 @@ export class DiscordAdapter implements IPlatformAdapter {
   }
 
   /**
+   * Check if the bot was mentioned in a message
+   */
+  isBotMentioned(message: Message): boolean {
+    const botUser = this.client.user;
+    if (!botUser) return false;
+    return message.mentions.has(botUser);
+  }
+
+  /**
+   * Check if a message is in a thread
+   */
+  isThread(message: Message): boolean {
+    return message.channel.isThread();
+  }
+
+  /**
+   * Get parent channel ID for a thread message
+   * Returns null if not in a thread
+   */
+  getParentChannelId(message: Message): string | null {
+    if (message.channel.isThread()) {
+      return message.channel.parentId;
+    }
+    return null;
+  }
+
+  /**
+   * Fetch message history from a thread (up to 100 messages)
+   * Returns messages in chronological order (oldest first)
+   */
+  async fetchThreadHistory(message: Message): Promise<string[]> {
+    if (!message.channel.isThread()) {
+      return [];
+    }
+
+    try {
+      // Fetch up to 100 messages (Discord API limit)
+      const messages = await message.channel.messages.fetch({ limit: 100 });
+
+      // Sort chronologically (oldest first) and format
+      const sorted = [...messages.values()].reverse();
+
+      return sorted.map(msg => {
+        const author = msg.author.bot ? '[Bot]' : (msg.author.displayName || msg.author.username);
+        return `${author}: ${msg.content}`;
+      });
+    } catch (error) {
+      console.error('[Discord] Failed to fetch thread history:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Remove bot mention from message content
+   */
+  stripBotMention(message: Message): string {
+    const botUser = this.client.user;
+    if (!botUser) return message.content;
+
+    // Remove <@BOT_ID> or <@!BOT_ID> (with nickname)
+    const mentionRegex = new RegExp(`<@!?${botUser.id}>\\s*`, 'g');
+    return message.content.replace(mentionRegex, '').trim();
+  }
+
+  /**
    * Extract conversation ID from Discord message
    * Uses channel ID as the conversation identifier
    * Note: For thread messages, channelId is the thread ID (not parent channel)
@@ -147,24 +212,6 @@ export class DiscordAdapter implements IPlatformAdapter {
    */
   getConversationId(message: Message): string {
     return message.channelId;
-  }
-
-  /**
-   * Check if a message is from a Discord thread
-   */
-  isThread(message: Message): boolean {
-    return message.channel.isThread();
-  }
-
-  /**
-   * Get the parent channel ID if the message is from a thread
-   * Returns null for non-thread messages
-   */
-  getParentChannelId(message: Message): string | null {
-    if (message.channel.isThread()) {
-      return message.channel.parentId;
-    }
-    return null;
   }
 
   /**

@@ -20,7 +20,8 @@ export async function handleMessage(
   conversationId: string,
   message: string,
   issueContext?: string, // Optional GitHub issue/PR context to append AFTER command loading
-  parentConversationId?: string // Optional parent conversation ID for thread context inheritance
+  threadContext?: string, // Optional thread message history for context
+  parentConversationId?: string // Optional parent channel ID for thread inheritance
 ): Promise<void> {
   try {
     console.log(`[Orchestrator] Handling message for conversation ${conversationId}`);
@@ -32,6 +33,23 @@ export async function handleMessage(
       undefined,
       parentConversationId
     );
+
+    // If new thread conversation, inherit context from parent
+    if (parentConversationId && !conversation.codebase_id) {
+      const parentConversation = await db.getConversationByPlatformId(
+        platform.getPlatformType(),
+        parentConversationId
+      );
+      if (parentConversation?.codebase_id) {
+        await db.updateConversation(conversation.id, {
+          codebase_id: parentConversation.codebase_id,
+          cwd: parentConversation.cwd,
+        });
+        // Reload conversation with inherited values
+        conversation = await db.getOrCreateConversation(platform.getPlatformType(), conversationId);
+        console.log('[Orchestrator] Thread inherited context from parent channel');
+      }
+    }
 
     // Parse command upfront if it's a slash command
     let promptToSend = message;
@@ -159,6 +177,12 @@ export async function handleMessage(
         await platform.sendMessage(conversationId, 'No codebase configured. Use /clone first.');
         return;
       }
+    }
+
+    // Prepend thread context if provided
+    if (threadContext) {
+      promptToSend = `## Thread Context (previous messages)\n\n${threadContext}\n\n---\n\n## Current Request\n\n${promptToSend}`;
+      console.log('[Orchestrator] Prepended thread context to prompt');
     }
 
     console.log('[Orchestrator] Starting AI conversation');

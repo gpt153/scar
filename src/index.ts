@@ -90,14 +90,39 @@ async function main(): Promise<void> {
     // Register message handler
     discord.onMessage(async message => {
       const conversationId = discord!.getConversationId(message);
-      const content = message.content;
 
-      if (!content) return;
+      // Skip if no content
+      if (!message.content) return;
 
-      // Check if message is from a thread - inherit parent context if so
-      const parentConversationId = discord!.isThread(message)
-        ? discord!.getParentChannelId(message)
-        : null;
+      // Check if bot was mentioned (required for activation)
+      // Exception: DMs don't require mention
+      const isDM = !message.guild;
+      if (!isDM && !discord!.isBotMentioned(message)) {
+        return; // Ignore messages that don't mention the bot
+      }
+
+      // Strip the bot mention from the message
+      const content = discord!.stripBotMention(message);
+      if (!content) return; // Message was only a mention with no content
+
+      // Check for thread context
+      let threadContext: string | undefined;
+      let parentConversationId: string | undefined;
+
+      if (discord!.isThread(message)) {
+        // Fetch thread history for context
+        const history = await discord!.fetchThreadHistory(message);
+        if (history.length > 0) {
+          // Exclude the current message from history (it's included in fetch)
+          const historyWithoutCurrent = history.slice(0, -1);
+          if (historyWithoutCurrent.length > 0) {
+            threadContext = historyWithoutCurrent.join('\n');
+          }
+        }
+
+        // Get parent channel ID for context inheritance
+        parentConversationId = discord!.getParentChannelId(message) ?? undefined;
+      }
 
       // Fire-and-forget: handler returns immediately, processing happens async
       lockManager
@@ -107,7 +132,8 @@ async function main(): Promise<void> {
             conversationId,
             content,
             undefined,
-            parentConversationId ?? undefined
+            threadContext,
+            parentConversationId
           );
         })
         .catch(async error => {

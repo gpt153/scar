@@ -18,6 +18,7 @@ jest.mock('discord.js', () => {
     once: jest.fn(),
     login: jest.fn().mockResolvedValue('token'),
     destroy: jest.fn(),
+    user: { id: '123456789' }, // Bot user for mention detection
   };
 
   return {
@@ -163,6 +164,95 @@ describe('DiscordAdapter', () => {
       // The handler should be registered internally
       // We can verify this indirectly by checking that onMessage doesn't throw
       expect(true).toBe(true);
+    });
+  });
+
+  describe('mention detection', () => {
+    test('should detect when bot is mentioned', () => {
+      const adapter = new DiscordAdapter('fake-token-for-testing');
+      const mockMessage = {
+        mentions: {
+          has: jest.fn().mockReturnValue(true),
+        },
+      } as unknown as import('discord.js').Message;
+
+      expect(adapter.isBotMentioned(mockMessage)).toBe(true);
+    });
+
+    test('should return false when bot is not mentioned', () => {
+      const adapter = new DiscordAdapter('fake-token-for-testing');
+      const mockMessage = {
+        mentions: {
+          has: jest.fn().mockReturnValue(false),
+        },
+      } as unknown as import('discord.js').Message;
+
+      expect(adapter.isBotMentioned(mockMessage)).toBe(false);
+    });
+  });
+
+  describe('thread detection', () => {
+    test('should detect thread channel', () => {
+      const adapter = new DiscordAdapter('fake-token-for-testing');
+      const mockMessage = {
+        channel: {
+          isThread: () => true,
+          parentId: '987654321',
+        },
+      } as unknown as import('discord.js').Message;
+
+      expect(adapter.isThread(mockMessage)).toBe(true);
+      expect(adapter.getParentChannelId(mockMessage)).toBe('987654321');
+    });
+
+    test('should return null for non-thread channel', () => {
+      const adapter = new DiscordAdapter('fake-token-for-testing');
+      const mockMessage = {
+        channel: {
+          isThread: () => false,
+        },
+      } as unknown as import('discord.js').Message;
+
+      expect(adapter.isThread(mockMessage)).toBe(false);
+      expect(adapter.getParentChannelId(mockMessage)).toBeNull();
+    });
+  });
+
+  describe('mention stripping', () => {
+    test('should strip bot mention from message', () => {
+      const adapter = new DiscordAdapter('fake-token-for-testing');
+      const mockMessage = {
+        content: '<@123456789> hello world',
+      } as unknown as import('discord.js').Message;
+
+      expect(adapter.stripBotMention(mockMessage)).toBe('hello world');
+    });
+
+    test('should strip bot mention with nickname format', () => {
+      const adapter = new DiscordAdapter('fake-token-for-testing');
+      const mockMessage = {
+        content: '<@!123456789> hello world',
+      } as unknown as import('discord.js').Message;
+
+      expect(adapter.stripBotMention(mockMessage)).toBe('hello world');
+    });
+
+    test('should handle message without mention', () => {
+      const adapter = new DiscordAdapter('fake-token-for-testing');
+      const mockMessage = {
+        content: 'hello world',
+      } as unknown as import('discord.js').Message;
+
+      expect(adapter.stripBotMention(mockMessage)).toBe('hello world');
+    });
+
+    test('should handle mention at end of message', () => {
+      const adapter = new DiscordAdapter('fake-token-for-testing');
+      const mockMessage = {
+        content: 'hello world <@123456789>',
+      } as unknown as import('discord.js').Message;
+
+      expect(adapter.stripBotMention(mockMessage)).toBe('hello world');
     });
   });
 });
