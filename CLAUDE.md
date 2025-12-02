@@ -187,6 +187,21 @@ src/
 - **Slack**: SDK with polling (not webhooks), conversation ID = `thread_ts`
 - **Telegram**: Bot API with polling, conversation ID = `chat_id`
 - **GitHub**: Webhooks + GitHub CLI, conversation ID = `owner/repo#number`
+- **Discord**: discord.js WebSocket, conversation ID = channel ID
+
+**Adapter Authorization Pattern:**
+- Auth checks happen INSIDE adapters (encapsulation, consistency)
+- Auth utilities in `src/utils/{platform}-auth.ts`
+- Parse whitelist from env var in constructor (e.g., `TELEGRAM_ALLOWED_USER_IDS`)
+- Check authorization in message handler (before calling `onMessage` callback)
+- Silent rejection for unauthorized users (no error response)
+- Log unauthorized attempts with masked user IDs for privacy
+
+**Adapter Message Handler Pattern:**
+- Adapters expose `onMessage(handler)` callback registration
+- Auth check happens internally before invoking callback
+- `index.ts` only registers the callback and handles orchestrator routing
+- Errors handled by caller (callback returns Promise)
 
 **2. Command Handler** (`src/handlers/`)
 - Process slash commands (deterministic, no AI)
@@ -227,6 +242,8 @@ CODEX_ACCOUNT_ID=...
 # Platforms
 TELEGRAM_BOT_TOKEN=<from @BotFather>
 TELEGRAM_ALLOWED_USER_IDS=123456789,987654321  # Optional: Restrict bot to specific user IDs
+DISCORD_BOT_TOKEN=<from Discord Developer Portal>
+DISCORD_ALLOWED_USER_IDS=123456789012345678  # Optional: Restrict bot to specific user IDs
 SLACK_BOT_TOKEN=xoxb-...
 GITHUB_TOKEN=ghp_...
 GITHUB_APP_ID=12345

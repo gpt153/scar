@@ -4,6 +4,7 @@
  */
 import { Client, GatewayIntentBits, Partials, Message, Events } from 'discord.js';
 import { IPlatformAdapter } from '../types';
+import { parseAllowedUserIds, isDiscordUserAuthorized } from '../utils/discord-auth';
 
 const MAX_LENGTH = 2000;
 
@@ -12,6 +13,7 @@ export class DiscordAdapter implements IPlatformAdapter {
   private streamingMode: 'stream' | 'batch';
   private token: string;
   private messageHandler: ((message: Message) => Promise<void>) | null = null;
+  private allowedUserIds: string[];
 
   constructor(token: string, mode: 'stream' | 'batch' = 'stream') {
     this.client = new Client({
@@ -25,6 +27,15 @@ export class DiscordAdapter implements IPlatformAdapter {
     });
     this.streamingMode = mode;
     this.token = token;
+
+    // Parse Discord user whitelist (optional - empty = open access)
+    this.allowedUserIds = parseAllowedUserIds(process.env.DISCORD_ALLOWED_USER_IDS);
+    if (this.allowedUserIds.length > 0) {
+      console.log(`[Discord] User whitelist enabled (${String(this.allowedUserIds.length)} users)`);
+    } else {
+      console.log('[Discord] User whitelist disabled (open access)');
+    }
+
     console.log(`[Discord] Adapter initialized (mode: ${mode})`);
   }
 
@@ -153,6 +164,15 @@ export class DiscordAdapter implements IPlatformAdapter {
       // Ignore bot messages to prevent loops
       if (message.author.bot) return;
 
+      // Authorization check - verify sender is in whitelist
+      const userId = message.author.id;
+      if (!isDiscordUserAuthorized(userId, this.allowedUserIds)) {
+        // Log unauthorized attempt (mask user ID for privacy)
+        const maskedId = userId ? `${userId.slice(0, 4)}***` : 'unknown';
+        console.log(`[Discord] Unauthorized message from user ${maskedId}`);
+        return; // Silent rejection
+      }
+
       if (this.messageHandler) {
         // Fire-and-forget - errors handled by caller
         void this.messageHandler(message);
@@ -173,7 +193,7 @@ export class DiscordAdapter implements IPlatformAdapter {
    * Stop the bot gracefully
    */
   stop(): void {
-    this.client.destroy();
+    void this.client.destroy();
     console.log('[Discord] Bot stopped');
   }
 }

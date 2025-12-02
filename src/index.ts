@@ -244,22 +244,8 @@ async function main(): Promise<void> {
   // TELEGRAM_BOT_TOKEN is validated above in required env vars check
   const telegram = new TelegramAdapter(process.env.TELEGRAM_BOT_TOKEN!, streamingMode);
 
-  // Handle text messages
-  // Note: 'text' listener is deprecated in Telegraf v5, but still functional
-  telegram.getBot().on('message', async ctx => {
-    if (!('text' in ctx.message)) return;
-    const conversationId = telegram.getConversationId(ctx);
-    const message = ctx.message.text;
-
-    if (!message) return;
-
-    // Authorization check - verify sender is in whitelist
-    const userId = ctx.from?.id;
-    if (!telegram.isAuthorized(userId)) {
-      console.log(`[Telegram] Unauthorized message from user ${userId}`);
-      return; // Silent rejection
-    }
-
+  // Register message handler (auth is handled internally by adapter)
+  telegram.onMessage(async ({ conversationId, message }) => {
     // Fire-and-forget: handler returns immediately, processing happens async
     lockManager
       .acquireLock(conversationId, async () => {
