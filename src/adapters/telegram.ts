@@ -4,6 +4,7 @@
  */
 import { Telegraf, Context } from 'telegraf';
 import { IPlatformAdapter } from '../types';
+import { parseAllowedUserIds, isUserAuthorized } from '../utils/telegram-auth';
 import { convertToTelegramMarkdown, stripMarkdown } from '../utils/telegram-markdown';
 
 const MAX_LENGTH = 4096;
@@ -11,6 +12,7 @@ const MAX_LENGTH = 4096;
 export class TelegramAdapter implements IPlatformAdapter {
   private bot: Telegraf;
   private streamingMode: 'stream' | 'batch';
+  private allowedUserIds: number[];
 
   constructor(token: string, mode: 'stream' | 'batch' = 'stream') {
     // Disable handler timeout to support long-running AI operations
@@ -19,7 +21,26 @@ export class TelegramAdapter implements IPlatformAdapter {
       handlerTimeout: Infinity,
     });
     this.streamingMode = mode;
+
+    // Parse Telegram user whitelist (optional - empty = open access)
+    // Support both TELEGRAM_ALLOWED_USER_IDS and TELEGRAM_ALLOWED_USERS
+    this.allowedUserIds = parseAllowedUserIds(
+      process.env.TELEGRAM_ALLOWED_USER_IDS || process.env.TELEGRAM_ALLOWED_USERS
+    );
+    if (this.allowedUserIds.length > 0) {
+      console.log(`[Telegram] User whitelist enabled (${this.allowedUserIds.length} users)`);
+    } else {
+      console.log('[Telegram] User whitelist disabled (open access)');
+    }
+
     console.log(`[Telegram] Adapter initialized (mode: ${mode}, timeout: disabled)`);
+  }
+
+  /**
+   * Check if a user ID is authorized to use the bot
+   */
+  isAuthorized(userId: number | undefined): boolean {
+    return isUserAuthorized(userId, this.allowedUserIds);
   }
 
   /**

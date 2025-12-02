@@ -226,11 +226,13 @@ CODEX_ACCOUNT_ID=...
 
 # Platforms
 TELEGRAM_BOT_TOKEN=<from @BotFather>
+TELEGRAM_ALLOWED_USER_IDS=123456789,987654321  # Optional: Restrict bot to specific user IDs
 SLACK_BOT_TOKEN=xoxb-...
 GITHUB_TOKEN=ghp_...
 GITHUB_APP_ID=12345
 GITHUB_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----...
 WEBHOOK_SECRET=<random string>
+GITHUB_ALLOWED_USERS=octocat,monalisa  # Optional: Restrict webhook processing to specific users
 
 # Platform Streaming Mode (stream | batch)
 TELEGRAM_STREAMING_MODE=stream  # Default: stream

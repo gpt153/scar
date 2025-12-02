@@ -249,6 +249,13 @@ async function main(): Promise<void> {
 
     if (!message) return;
 
+    // Authorization check - verify sender is in whitelist
+    const userId = ctx.from?.id;
+    if (!telegram.isAuthorized(userId)) {
+      console.log(`[Telegram] Unauthorized message from user ${userId}`);
+      return; // Silent rejection
+    }
+
     // Fire-and-forget: handler returns immediately, processing happens async
     lockManager
       .acquireLock(conversationId, async () => {

@@ -14,6 +14,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { readdir, access } from 'fs/promises';
 import { join } from 'path';
+import { parseAllowedUsers, isGitHubUserAuthorized } from '../utils/github-auth';
 
 const execAsync = promisify(exec);
 
@@ -54,10 +55,20 @@ interface WebhookEvent {
 export class GitHubAdapter implements IPlatformAdapter {
   private octokit: Octokit;
   private webhookSecret: string;
+  private allowedUsers: string[];
 
   constructor(token: string, webhookSecret: string) {
     this.octokit = new Octokit({ auth: token });
     this.webhookSecret = webhookSecret;
+
+    // Parse GitHub user whitelist (optional - empty = open access)
+    this.allowedUsers = parseAllowedUsers(process.env.GITHUB_ALLOWED_USERS);
+    if (this.allowedUsers.length > 0) {
+      console.log(`[GitHub] User whitelist enabled (${this.allowedUsers.length} users)`);
+    } else {
+      console.log('[GitHub] User whitelist disabled (open access)');
+    }
+
     console.log('[GitHub] Adapter initialized with secret:', webhookSecret.substring(0, 8) + '...');
   }
 
@@ -395,6 +406,16 @@ ${userComment}`;
 
     // 2. Parse event
     const event = JSON.parse(payload) as WebhookEvent;
+
+    // 2b. Authorization check - verify sender is in whitelist
+    const senderUsername = event.sender?.login;
+    if (!isGitHubUserAuthorized(senderUsername, this.allowedUsers)) {
+      // Log unauthorized attempt (mask username for privacy)
+      const maskedUser = senderUsername ? `${senderUsername.slice(0, 3)}***` : 'unknown';
+      console.log(`[GitHub] Unauthorized webhook from user ${maskedUser}`);
+      return; // Silent rejection - no error response
+    }
+
     const parsed = this.parseEvent(event);
     if (!parsed) return;
 
