@@ -61,3 +61,5 @@ coverage
 
 worktrees
 .claude/worktree-registry.json
+
+.agents/PRDs
