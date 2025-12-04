@@ -377,23 +377,36 @@ Session:
           console.log('[Command] Deactivated session after clone');
         }
 
-        // Detect command folders
-        let commandFolder: string | null = null;
+        // Auto-load commands if found
+        let commandsLoaded = 0;
         for (const folder of ['.claude/commands', '.agents/commands']) {
           try {
-            await access(join(targetPath, folder));
-            commandFolder = folder;
-            break;
+            const commandPath = join(targetPath, folder);
+            await access(commandPath);
+
+            const markdownFiles = await findMarkdownFilesRecursive(commandPath);
+            if (markdownFiles.length > 0) {
+              const commands = await codebaseDb.getCodebaseCommands(codebase.id);
+              markdownFiles.forEach(({ commandName, relativePath }) => {
+                commands[commandName] = {
+                  path: join(folder, relativePath),
+                  description: `From ${folder}`,
+                };
+              });
+              await codebaseDb.updateCodebaseCommands(codebase.id, commands);
+              commandsLoaded = markdownFiles.length;
+              break;
+            }
           } catch {
-            /* ignore */
+            // Folder doesn't exist, try next
           }
         }
 
-        let responseMessage = `Repository cloned successfully!\n\nCodebase: ${repoName}\nPath: ${targetPath}\n\nSession reset - starting fresh on next message.\n\nYou can now start asking questions about the code.`;
-
-        if (commandFolder) {
-          responseMessage += `\n\n📁 Found: ${commandFolder}/\nUse /load-commands ${commandFolder} to register commands.`;
+        let responseMessage = `Repository cloned successfully!\n\nCodebase: ${repoName}\nPath: ${targetPath}`;
+        if (commandsLoaded > 0) {
+          responseMessage += `\n✓ Loaded ${String(commandsLoaded)} commands`;
         }
+        responseMessage += '\n\nSession reset - starting fresh on next message.\n\nYou can now start asking questions about the code.';
 
         return {
           success: true,

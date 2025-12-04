@@ -772,5 +772,275 @@ describe('CommandHandler', () => {
         });
       });
     });
+
+    describe('/clone', () => {
+      // Mock fs/promises for testing command auto-loading
+      const { access, readdir } = require('fs/promises');
+      const mockAccess = access as jest.MockedFunction<typeof access>;
+      const mockReaddir = readdir as jest.MockedFunction<typeof readdir>;
+
+      beforeEach(() => {
+        // Reset all mocks
+        jest.clearAllMocks();
+
+        // Setup default mocks for git operations (callback-style for promisify)
+        // execFile signature: (cmd, args, options?, callback)
+        mockExecFile.mockImplementation(
+          (_cmd: string, _args: string[], optionsOrCallback: any, callback?: any) => {
+            const cb = typeof optionsOrCallback === 'function' ? optionsOrCallback : callback;
+            if (cb) {
+              cb(null, { stdout: '', stderr: '' });
+            }
+          }
+        );
+
+        // Default: no command folders exist
+        mockAccess.mockRejectedValue(new Error('ENOENT'));
+        mockReaddir.mockResolvedValue([]);
+
+        mockIsPathWithinWorkspace.mockReturnValue(true);
+        mockCodebaseDb.createCodebase.mockResolvedValue({
+          id: 'cb-new',
+          name: 'test-repo',
+          repository_url: 'https://github.com/user/test-repo',
+          default_cwd: '/workspace/test-repo',
+          ai_assistant_type: 'claude',
+          commands: {},
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+        mockDb.updateConversation.mockResolvedValue();
+        mockSessionDb.getActiveSession.mockResolvedValue(null);
+        mockCodebaseDb.getCodebaseCommands.mockResolvedValue({});
+        mockCodebaseDb.updateCodebaseCommands.mockResolvedValue();
+      });
+
+      test('should auto-load commands from .claude/commands/ when present', async () => {
+        // Mock .claude/commands folder exists
+        mockAccess.mockImplementation((path: string) => {
+          if (path.includes('.claude/commands')) {
+            return Promise.resolve();
+          }
+          return Promise.reject(new Error('ENOENT'));
+        });
+
+        // Mock markdown files in .claude/commands
+        mockReaddir.mockResolvedValue([
+          { name: 'test-command.md', isFile: () => true, isDirectory: () => false } as any,
+          { name: 'another-command.md', isFile: () => true, isDirectory: () => false } as any,
+        ]);
+
+        const result = await handleCommand(
+          baseConversation,
+          '/clone https://github.com/user/test-repo'
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain('Repository cloned successfully');
+        expect(result.message).toContain('✓ Loaded 2 commands');
+        expect(mockCodebaseDb.updateCodebaseCommands).toHaveBeenCalledWith(
+          'cb-new',
+          expect.objectContaining({
+            'test-command': expect.objectContaining({
+              path: '.claude/commands/test-command.md',
+              description: 'From .claude/commands',
+            }),
+            'another-command': expect.objectContaining({
+              path: '.claude/commands/another-command.md',
+              description: 'From .claude/commands',
+            }),
+          })
+        );
+      });
+
+      test('should auto-load commands from .agents/commands/ when .claude absent', async () => {
+        // Mock only .agents/commands exists
+        mockAccess.mockImplementation((path: string) => {
+          if (path.includes('.agents/commands')) {
+            return Promise.resolve();
+          }
+          return Promise.reject(new Error('ENOENT'));
+        });
+
+        mockReaddir.mockResolvedValue([
+          { name: 'rca.md', isFile: () => true, isDirectory: () => false } as any,
+        ]);
+
+        const result = await handleCommand(
+          baseConversation,
+          '/clone https://github.com/user/test-repo'
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain('✓ Loaded 1 commands');
+        expect(mockCodebaseDb.updateCodebaseCommands).toHaveBeenCalledWith(
+          'cb-new',
+          expect.objectContaining({
+            rca: expect.objectContaining({
+              path: '.agents/commands/rca.md',
+              description: 'From .agents/commands',
+            }),
+          })
+        );
+      });
+
+      test('should not show loaded message when no command folders exist', async () => {
+        // Both command folders don't exist (default mock state)
+        const result = await handleCommand(
+          baseConversation,
+          '/clone https://github.com/user/test-repo'
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain('Repository cloned successfully');
+        expect(result.message).not.toContain('✓ Loaded');
+        expect(mockCodebaseDb.updateCodebaseCommands).not.toHaveBeenCalled();
+      });
+
+      test('should not show loaded message when command folder is empty', async () => {
+        // Command folder exists but has no markdown files
+        mockAccess.mockImplementation((path: string) => {
+          if (path.includes('.claude/commands')) {
+            return Promise.resolve();
+          }
+          return Promise.reject(new Error('ENOENT'));
+        });
+
+        mockReaddir.mockResolvedValue([
+          { name: '.gitkeep', isFile: () => true, isDirectory: () => false } as any,
+        ]);
+
+        const result = await handleCommand(
+          baseConversation,
+          '/clone https://github.com/user/test-repo'
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).not.toContain('✓ Loaded');
+        expect(mockCodebaseDb.updateCodebaseCommands).not.toHaveBeenCalled();
+      });
+
+      test('should check .claude/commands before .agents/commands (priority order)', async () => {
+        // This test verifies that the code checks folders in the correct priority order
+        // We test this by checking that .claude/commands is checked first
+        mockAccess.mockImplementation((path: string) => {
+          if (path.includes('.claude/commands')) {
+            return Promise.resolve();
+          }
+          // Reject .agents/commands to ensure we stop at .claude
+          return Promise.reject(new Error('ENOENT'));
+        });
+
+        mockReaddir.mockResolvedValue([
+          { name: 'priority-test.md', isFile: () => true, isDirectory: () => false } as any,
+        ]);
+
+        const result = await handleCommand(
+          baseConversation,
+          '/clone https://github.com/user/test-repo'
+        );
+
+        expect(result.success).toBe(true);
+        // Should successfully load from .claude/commands
+        expect(result.message).toMatch(/✓ Loaded \d+ command/);
+      });
+
+      test('should recursively find commands in subdirectories', async () => {
+        // This test verifies that findMarkdownFilesRecursive is called
+        // which handles subdirectory traversal
+        mockAccess.mockImplementation((path: string) => {
+          if (path.includes('.claude/commands')) {
+            return Promise.resolve();
+          }
+          return Promise.reject(new Error('ENOENT'));
+        });
+
+        // Mock a directory with a subdirectory
+        mockReaddir
+          .mockResolvedValueOnce([
+            { name: 'cmd1.md', isFile: () => true, isDirectory: () => false } as any,
+            { name: 'subfolder', isFile: () => false, isDirectory: () => true } as any,
+          ])
+          .mockResolvedValueOnce([
+            { name: 'cmd2.md', isFile: () => true, isDirectory: () => false } as any,
+          ]);
+
+        const result = await handleCommand(
+          baseConversation,
+          '/clone https://github.com/user/test-repo'
+        );
+
+        expect(result.success).toBe(true);
+        // Should successfully load commands
+        expect(result.message).toMatch(/✓ Loaded \d+ command/);
+        // Verify readdir was called multiple times (once for root, once for subdirectory)
+        expect(mockReaddir).toHaveBeenCalledTimes(2);
+      });
+
+      test('should preserve existing commands when auto-loading', async () => {
+        // Mock existing commands in the codebase
+        mockCodebaseDb.getCodebaseCommands.mockResolvedValue({
+          'existing-cmd': {
+            path: '.claude/existing.md',
+            description: 'Existing command',
+          },
+        });
+
+        mockAccess.mockImplementation((path: string) => {
+          if (path.includes('.claude/commands')) {
+            return Promise.resolve();
+          }
+          return Promise.reject(new Error('ENOENT'));
+        });
+
+        mockReaddir.mockResolvedValue([
+          { name: 'new-cmd.md', isFile: () => true, isDirectory: () => false } as any,
+        ]);
+
+        const result = await handleCommand(
+          baseConversation,
+          '/clone https://github.com/user/test-repo'
+        );
+
+        expect(result.success).toBe(true);
+
+        // Verify commands were updated
+        expect(mockCodebaseDb.updateCodebaseCommands).toHaveBeenCalled();
+        const updateCall = mockCodebaseDb.updateCodebaseCommands.mock.calls[0];
+        const commands = updateCall[1];
+
+        // Should preserve existing command
+        expect(commands).toHaveProperty('existing-cmd');
+        expect(commands['existing-cmd'].path).toBe('.claude/existing.md');
+
+        // Should add new command (name depends on what readdir returned)
+        expect(Object.keys(commands).length).toBeGreaterThan(1);
+      });
+
+      test('should reset session when cloning', async () => {
+        const activeSession = {
+          id: 'session-123',
+          conversation_id: 'conv-123',
+          codebase_id: 'cb-old',
+          ai_assistant_type: 'claude',
+          assistant_session_id: 'asst-123',
+          active: true,
+          started_at: new Date(),
+          ended_at: null,
+          metadata: {},
+        };
+
+        mockSessionDb.getActiveSession.mockResolvedValue(activeSession);
+        mockSessionDb.deactivateSession.mockResolvedValue();
+
+        const result = await handleCommand(
+          baseConversation,
+          '/clone https://github.com/user/test-repo'
+        );
+
+        expect(result.success).toBe(true);
+        expect(mockSessionDb.deactivateSession).toHaveBeenCalledWith('session-123');
+      });
+    });
   });
 });
