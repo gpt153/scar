@@ -540,6 +540,9 @@ describe('CommandHandler', () => {
           expect(result.success).toBe(true);
           expect(result.message).toContain('Worktree created');
           expect(result.message).toContain('feat-auth');
+          // Should show shortened path relative to repo root
+          expect(result.message).toContain('worktrees/feat-auth');
+          expect(result.message).not.toContain('/workspace/my-repo/worktrees');
           expect(mockDb.updateConversation).toHaveBeenCalledWith(
             conversationWithCodebase.id,
             expect.objectContaining({ worktree_path: '/workspace/my-repo/worktrees/feat-auth' })
@@ -556,6 +559,8 @@ describe('CommandHandler', () => {
 
           expect(result.success).toBe(false);
           expect(result.message).toContain('Already using worktree');
+          // Should show shortened path
+          expect(result.message).toContain('worktrees/existing-branch');
           expect(result.message).toContain('/worktree remove first');
         });
       });
@@ -577,6 +582,12 @@ describe('CommandHandler', () => {
           expect(result.success).toBe(true);
           expect(result.message).toContain('Worktrees:');
           expect(result.message).toContain('main');
+          // Should show shortened paths
+          // The main repo root becomes "." and worktree shows as relative path
+          expect(result.message).toContain('abc1234 [main]');
+          expect(result.message).toContain('worktrees/feat-x');
+          // Should NOT contain the full absolute path
+          expect(result.message).not.toContain('/workspace/my-repo/worktrees');
         });
       });
 
@@ -604,6 +615,9 @@ describe('CommandHandler', () => {
 
           expect(result.success).toBe(true);
           expect(result.message).toContain('removed');
+          // Should show shortened path
+          expect(result.message).toContain('worktrees/feat-x');
+          expect(result.message).not.toContain('/workspace/my-repo/worktrees');
           expect(mockDb.updateConversation).toHaveBeenCalledWith(
             convWithWorktree.id,
             expect.objectContaining({ worktree_path: null, cwd: '/workspace/my-repo' })

@@ -5,7 +5,7 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { readFile, writeFile, readdir, access, rm } from 'fs/promises';
-import { join, basename, resolve } from 'path';
+import { join, basename, resolve, relative } from 'path';
 import { Conversation, CommandResult } from '../types';
 import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
@@ -14,6 +14,31 @@ import * as templateDb from '../db/command-templates';
 import { isPathWithinWorkspace } from '../utils/path-validation';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Convert an absolute path to a relative path from the repository root
+ * Falls back to showing relative to workspace if not in a git repo
+ */
+function shortenPath(absolutePath: string, repoRoot?: string): string {
+  // If we have a repo root, show path relative to it
+  if (repoRoot) {
+    const relPath = relative(repoRoot, absolutePath);
+    // Only use relative path if it doesn't start with '..' (i.e., it's within the repo)
+    if (!relPath.startsWith('..')) {
+      return relPath;
+    }
+  }
+
+  // Fallback: show relative to workspace
+  const workspacePath = resolve(process.env.WORKSPACE_PATH ?? '/workspace');
+  const relPath = relative(workspacePath, absolutePath);
+  if (!relPath.startsWith('..')) {
+    return relPath;
+  }
+
+  // If all else fails, return the original path
+  return absolutePath;
+}
 
 /**
  * Recursively find all .md files in a directory and its subdirectories
@@ -143,7 +168,9 @@ Session:
       msg += `\n\nCurrent Working Directory: ${conversation.cwd ?? 'Not set'}`;
 
       if (conversation.worktree_path) {
-        msg += `\nWorktree: ${conversation.worktree_path}`;
+        const repoRoot = codebase?.default_cwd;
+        const shortPath = shortenPath(conversation.worktree_path, repoRoot);
+        msg += `\nWorktree: ${shortPath}`;
       }
 
       const session = await sessionDb.getActiveSession(conversation.id);
@@ -866,9 +893,10 @@ Session:
 
           // Check if already using a worktree
           if (conversation.worktree_path) {
+            const shortPath = shortenPath(conversation.worktree_path, mainPath);
             return {
               success: false,
-              message: `Already using worktree: ${conversation.worktree_path}\n\nRun /worktree remove first.`,
+              message: `Already using worktree: ${shortPath}\n\nRun /worktree remove first.`,
             };
           }
 
@@ -912,9 +940,10 @@ Session:
               await sessionDb.deactivateSession(session.id);
             }
 
+            const shortPath = shortenPath(worktreePath, mainPath);
             return {
               success: true,
-              message: `Worktree created!\n\nBranch: ${branchName}\nPath: ${worktreePath}\n\nThis conversation now works in isolation.\nRun dependency install if needed (e.g., npm install).`,
+              message: `Worktree created!\n\nBranch: ${branchName}\nPath: ${shortPath}\n\nThis conversation now works in isolation.\nRun dependency install if needed (e.g., npm install).`,
               modified: true,
             };
           } catch (error) {
@@ -941,10 +970,19 @@ Session:
             let msg = 'Worktrees:\n\n';
 
             for (const line of lines) {
+              // Extract the path (first part before whitespace)
+              const parts = line.split(/\s+/);
+              const fullPath = parts[0];
+              const shortPath = shortenPath(fullPath, mainPath);
+
+              // Reconstruct line with shortened path
+              const restOfLine = parts.slice(1).join(' ');
+              const shortenedLine = restOfLine ? `${shortPath} ${restOfLine}` : shortPath;
+
               const isActive =
                 conversation.worktree_path && line.startsWith(conversation.worktree_path);
               const marker = isActive ? ' <- active' : '';
-              msg += `${line}${marker}\n`;
+              msg += `${shortenedLine}${marker}\n`;
             }
 
             return { success: true, message: msg };
@@ -984,9 +1022,10 @@ Session:
               await sessionDb.deactivateSession(session.id);
             }
 
+            const shortPath = shortenPath(worktreePath, mainPath);
             return {
               success: true,
-              message: `Worktree removed: ${worktreePath}\n\nSwitched back to main repo: ${mainPath}`,
+              message: `Worktree removed: ${shortPath}\n\nSwitched back to main repo.`,
               modified: true,
             };
           } catch (error) {
