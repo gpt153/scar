@@ -1,9 +1,0 @@
-{
-  "terminal": "ghostty",
-  "shell": "fish",
-  "claudeCommand": "cc",
-  "portRange": {
-    "start": 8124,
-    "end": 8128
-  }
-}
