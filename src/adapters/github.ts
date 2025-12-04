@@ -75,7 +75,28 @@ export class GitHubAdapter implements IPlatformAdapter {
   }
 
   /**
+   * Check if an error is retryable (transient network issues)
+   */
+  private isRetryableError(error: unknown): boolean {
+    const err = error as Error | undefined;
+    const message = err?.message ?? '';
+    const causeErr = (error as { cause?: Error }).cause;
+    const cause = causeErr?.message ?? '';
+    const combined = `${message} ${cause}`.toLowerCase();
+
+    // Retry on transient network errors
+    return (
+      combined.includes('timeout') ||
+      combined.includes('econnrefused') ||
+      combined.includes('econnreset') ||
+      combined.includes('etimedout') ||
+      combined.includes('fetch failed')
+    );
+  }
+
+  /**
    * Send a message to a GitHub issue or PR
+   * Includes retry logic for transient network failures
    */
   async sendMessage(conversationId: string, message: string): Promise<void> {
     const parsed = this.parseConversationId(conversationId);
@@ -84,16 +105,30 @@ export class GitHubAdapter implements IPlatformAdapter {
       return;
     }
 
-    try {
-      await this.octokit.rest.issues.createComment({
-        owner: parsed.owner,
-        repo: parsed.repo,
-        issue_number: parsed.number,
-        body: message,
-      });
-      console.log(`[GitHub] Comment posted to ${conversationId}`);
-    } catch (error) {
-      console.error('[GitHub] Failed to post comment:', { error, conversationId });
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.octokit.rest.issues.createComment({
+          owner: parsed.owner,
+          repo: parsed.repo,
+          issue_number: parsed.number,
+          body: message,
+        });
+        console.log(`[GitHub] Comment posted to ${conversationId}`);
+        return;
+      } catch (error) {
+        const isRetryable = this.isRetryableError(error);
+        if (attempt < maxRetries && isRetryable) {
+          const delay = 1000 * attempt;
+          console.log(
+            `[GitHub] Retry ${String(attempt)}/${String(maxRetries)} for ${conversationId} (waiting ${String(delay)}ms)`
+          );
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        console.error('[GitHub] Failed to post comment:', { error, conversationId });
+        return;
+      }
     }
   }
 
