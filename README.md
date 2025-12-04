@@ -54,7 +54,7 @@ cp .env.example .env
 | `GH_TOKEN` | Repository cloning | [Generate token](https://github.com/settings/tokens) with `repo` scope |
 | `GITHUB_TOKEN` | Same as `GH_TOKEN` | Use same token value |
 | `PORT` | HTTP server port | Default: `3000` (optional) |
-| `WORKSPACE_PATH` | Clone destination | Default: `./workspace` (optional) |
+| `WORKSPACE_PATH` | Clone destination | **Recommended**: `/tmp/remote-agent-workspace` or `~/remote-agent-workspace` (see note below) |
 
 **GitHub Personal Access Token Setup:**
 
@@ -67,6 +67,24 @@ cp .env.example .env
 GH_TOKEN=ghp_your_token_here
 GITHUB_TOKEN=ghp_your_token_here  # Same value
 ```
+
+**⚠️ Important: WORKSPACE_PATH Configuration**
+
+The `WORKSPACE_PATH` determines where cloned repositories are stored. **Use a path outside your project directory** to avoid issues:
+
+```env
+# Recommended options
+WORKSPACE_PATH=/tmp/remote-agent-workspace  # Temporary (auto-cleaned on reboot)
+# or
+WORKSPACE_PATH=~/remote-agent-workspace     # Persistent in home directory
+```
+
+**Why avoid `./workspace`?**
+- **Repo nesting**: When working on this repo's issues, clones nest inside the development directory
+- **Path confusion**: Similar paths like `remote-coding-agent` and `workspace/remote-coding-agent` are easy to mix up
+- **Git worktree conflicts**: `git worktree list` shows different results depending on which repo you're in
+
+**Docker note**: Inside containers, the path is always `/workspace` (mapped from your host `WORKSPACE_PATH` in docker-compose.yml).
 
 **Database Setup - Choose One:**
 

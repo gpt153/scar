@@ -8,6 +8,7 @@
 import 'dotenv/config';
 
 import express from 'express';
+import { resolve } from 'path';
 import { TelegramAdapter } from './adapters/telegram';
 import { TestAdapter } from './adapters/test';
 import { GitHubAdapter } from './adapters/github';
@@ -56,6 +57,17 @@ async function main(): Promise<void> {
   } catch (error) {
     console.error('[Database] Connection failed:', error);
     process.exit(1);
+  }
+
+  // Warn if WORKSPACE_PATH is inside project directory
+  const workspacePath = resolve(process.env.WORKSPACE_PATH ?? '/workspace');
+  const projectRoot = resolve(__dirname, '..');
+  if (workspacePath.startsWith(projectRoot + '/') || workspacePath === projectRoot) {
+    console.warn('⚠️  WARNING: WORKSPACE_PATH is inside project directory');
+    console.warn('   This can cause nested repository issues when working on this repo.');
+    console.warn(`   Current: ${workspacePath}`);
+    console.warn('   Recommended: /tmp/remote-agent-workspace or ~/remote-agent-workspace');
+    console.warn('');
   }
 
   // Seed default command templates

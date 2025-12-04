@@ -260,7 +260,7 @@ GITHUB_TOKEN=ghp_your_token_here
 
 # Server settings
 PORT=3000
-WORKSPACE_PATH=./workspace
+WORKSPACE_PATH=/tmp/remote-agent-workspace  # Use external path to avoid nested repos
 ```
 
 **GitHub Token Setup:**
