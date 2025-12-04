@@ -266,6 +266,9 @@ GITHUB_STREAMING_MODE=batch     # Default: batch
 # Optional
 WORKSPACE_PATH=/workspace
 PORT=3000
+
+# Builtin Commands (default: true)
+LOAD_BUILTIN_COMMANDS=true  # Load maintained workflow templates on startup
 ```
 
 **Loading:** Use `dotenv` package, load in `src/index.ts`
@@ -493,6 +496,21 @@ if (streamingMode === 'batch') {
 **Auto-detection:**
 - On `/clone`, detect `.claude/commands/` or `.agents/commands/`
 - Offer to bulk load with `/load-commands`
+
+### Builtin Command Templates
+
+The repo ships with maintained workflow commands in `.claude/commands/exp-piv-loop/`:
+- `/plan` - Deep implementation planning
+- `/implement` - Execute implementation plans
+- `/commit` - Quick commits with natural language targeting
+- `/review-pr` - Comprehensive PR code review
+- `/create-pr`, `/merge-pr` - PR lifecycle
+- `/rca`, `/fix-rca` - Root cause analysis workflow
+- `/prd` - Product requirements documents
+- `/worktree` - Parallel branch development
+
+These are loaded as global templates on startup (controlled by `LOAD_BUILTIN_COMMANDS`).
+To disable: `LOAD_BUILTIN_COMMANDS=false`
 
 ### Error Handling
 

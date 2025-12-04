@@ -23,7 +23,15 @@ function extractDescription(content: string): string | undefined {
 }
 
 export async function seedDefaultCommands(): Promise<void> {
-  console.log('[Seed] Checking for default command templates...');
+  // Check if builtin commands should be loaded (default: true)
+  const loadBuiltins = process.env.LOAD_BUILTIN_COMMANDS !== 'false';
+
+  if (!loadBuiltins) {
+    console.log('[Seed] Builtin commands disabled (LOAD_BUILTIN_COMMANDS=false)');
+    return;
+  }
+
+  console.log('[Seed] Loading builtin command templates...');
 
   try {
     const files = await readdir(SEED_COMMANDS_PATH);
@@ -41,12 +49,12 @@ export async function seedDefaultCommands(): Promise<void> {
         content,
       });
 
-      console.log(`[Seed] Loaded template: ${name}`);
+      console.log(`[Seed] Loaded builtin template: ${name}`);
     }
 
-    console.log(`[Seed] Seeded ${String(mdFiles.length)} default command templates`);
+    console.log(`[Seed] Loaded ${String(mdFiles.length)} builtin command templates`);
   } catch {
     // Don't fail startup if seed commands don't exist
-    console.log('[Seed] No default commands to seed (this is OK)');
+    console.log('[Seed] No builtin commands found (this is OK for external-db deployments)');
   }
 }
