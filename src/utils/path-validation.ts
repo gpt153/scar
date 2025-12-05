@@ -1,7 +1,7 @@
 /**
  * Path validation utilities to prevent path traversal attacks
  */
-import { resolve } from 'path';
+import { resolve, sep } from 'path';
 
 // resolve() converts relative paths to absolute (cross-platform)
 const WORKSPACE_ROOT = resolve(process.env.WORKSPACE_PATH ?? '/workspace');
@@ -23,8 +23,8 @@ export function isPathWithinWorkspace(
   const resolvedWorkspace = resolve(WORKSPACE_ROOT);
 
   // Check if resolved path starts with workspace root
-  // Use trailing slash to prevent matching /workspace-other
-  return resolvedTarget === resolvedWorkspace || resolvedTarget.startsWith(resolvedWorkspace + '/');
+  // Use trailing separator to prevent matching /workspace-other
+  return resolvedTarget === resolvedWorkspace || resolvedTarget.startsWith(resolvedWorkspace + sep);
 }
 
 /**

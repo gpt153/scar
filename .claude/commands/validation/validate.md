@@ -71,22 +71,74 @@ Create a private GitHub repository from a minimal Next.js template for end-to-en
 # We must clean it on the HOST to avoid "directory already exists" errors
 # when cloning inside the Docker container
 
+# Load environment variables
+source .env
+
+# Store project root directory for later use
+PROJECT_ROOT="$(pwd)"
+export PROJECT_ROOT
+
+# Determine workspace path (use WORKSPACE_PATH from .env or fallback to ./workspace)
+if [ -n "$WORKSPACE_PATH" ]; then
+  WORK_DIR="$WORKSPACE_PATH"
+else
+  WORK_DIR="workspace"
+fi
+
+echo "Using workspace directory: ${WORK_DIR}"
+echo "Project root directory: ${PROJECT_ROOT}"
+
 # Remove any previous test repositories
-rm -rf workspace/remote-coding-test-*
+rm -rf "${WORK_DIR}"/remote-coding-test-*
 
 # Clean up test adapter conversations from database
 # This ensures test-e2e conversation uses current DEFAULT_AI_ASSISTANT setting
-source .env
-docker exec remote-coding-agent-app-1 sh -c "psql '$DATABASE_URL' -c \"DELETE FROM remote_agent_conversations WHERE platform_conversation_id LIKE 'test-%';\""
+# Works with both local and remote PostgreSQL (e.g., Supabase)
 
-# Verify cleanup
-ls -la workspace/
+# Try using psql directly (works for both local and remote databases)
+if command -v psql &> /dev/null; then
+  echo "Using psql to clean database..."
+  psql "$DATABASE_URL" -c "DELETE FROM remote_agent_conversations WHERE platform_conversation_id LIKE 'test-%';" 2>&1
+  if [ $? -eq 0 ]; then
+    echo "✅ Database cleaned successfully via psql"
+  else
+    echo "⚠️ psql command failed, trying alternative method..."
+    # Fallback: Use Node.js script if psql fails
+    node -e "
+      const { Client } = require('pg');
+      const client = new Client({ connectionString: process.env.DATABASE_URL });
+      client.connect()
+        .then(() => client.query(\"DELETE FROM remote_agent_conversations WHERE platform_conversation_id LIKE 'test-%'\"))
+        .then(() => { console.log('✅ Database cleaned via Node.js'); return client.end(); })
+        .catch(err => { console.error('❌ Database cleanup failed:', err.message); process.exit(1); });
+    "
+  fi
+else
+  echo "psql not found, using Node.js for database cleanup..."
+  # Use Node.js as alternative (pg package already in node_modules)
+  node -e "
+    const { Client } = require('pg');
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    client.connect()
+      .then(() => client.query(\"DELETE FROM remote_agent_conversations WHERE platform_conversation_id LIKE 'test-%'\"))
+      .then(() => { console.log('✅ Database cleaned via Node.js'); return client.end(); })
+      .catch(err => { console.error('❌ Database cleanup failed:', err.message); process.exit(1); });
+  "
+fi
+
+# Verify workspace cleanup
+ls -la "${WORK_DIR}/" 2>&1 || echo "Workspace directory does not exist yet (will be created)"
 echo "✅ Workspace and database cleaned"
+
+# Export WORK_DIR for use in subsequent steps
+export WORK_DIR
 ```
 
 **Why this is needed:**
 1. **Workspace cleanup:** The workspace is mounted from the host into the Docker container. If a directory exists on the host, git clone inside the container will fail with "directory already exists".
 2. **Database cleanup:** Test adapter conversations (e.g., `test-e2e`) persist across validation runs. Without cleanup, old conversations retain their original `ai_assistant_type` even if `DEFAULT_AI_ASSISTANT` environment variable has changed. This causes the test to use the wrong AI assistant.
+3. **WORKSPACE_PATH support:** Reads WORKSPACE_PATH from .env to support custom workspace directories (e.g., `C:\Users\colem\remote-agent-repos` on Windows or `/tmp/workspace` on Linux).
+4. **Remote database support:** Works with both local PostgreSQL and remote databases (like Supabase) by using `psql` with the connection string directly, with Node.js fallback.
 
 ### 2.1 Store ngrok URL
 ```bash
@@ -111,9 +163,10 @@ echo "Test repository: ${TEST_REPO_NAME}"
 
 ### 2.3 Create Minimal Next.js App Manually
 ```bash
+# Use WORK_DIR from environment (set in Phase 2.0)
 # Create workspace directory if needed
-mkdir -p workspace
-cd workspace
+mkdir -p "${WORK_DIR}"
+cd "${WORK_DIR}"
 mkdir ${TEST_REPO_NAME}
 cd ${TEST_REPO_NAME}
 
@@ -231,7 +284,7 @@ echo "Repository structure created successfully"
 
 ### 2.4 Push to Private GitHub Repository
 ```bash
-# Already in workspace/${TEST_REPO_NAME} from previous step
+# Already in ${WORK_DIR}/${TEST_REPO_NAME} from previous step
 # Git is already initialized and committed
 
 # Create private GitHub repository and push
@@ -253,7 +306,7 @@ gh repo view ${TEST_REPO_NAME} --json isPrivate -q .isPrivate
 ### 2.5 Configure GitHub Webhook
 ```bash
 # Return to project root
-cd ../..
+cd "${PROJECT_ROOT}"
 
 # Extract webhook secret from .env
 source .env
@@ -307,7 +360,7 @@ Rebuild and verify Docker container startup.
 
 ### 3.1 Tear Down Existing Container
 ```bash
-cd ../..  # Return to project root
+cd "${PROJECT_ROOT}"  # Return to project root
 docker-compose down
 ```
 
@@ -412,47 +465,75 @@ curl http://localhost:3000/test/messages/test-e2e | jq '.messages | last'
 
 Verify database records are created correctly.
 
-**Note:** We use `docker exec` to run psql because the PostgreSQL client may not be installed on the host machine.
+**Note:** Works with both local and remote PostgreSQL databases (e.g., Supabase). Uses psql if available, falls back to Node.js if not.
 
 ### 5.1 Load DATABASE_URL
 ```bash
-# Extract DATABASE_URL from .env (needed for docker exec)
+# Extract DATABASE_URL from .env
 source .env
 ```
 
 ### 5.2 Check Codebase Record
 ```bash
-# Query via Docker container (psql is installed there)
-docker exec remote-coding-agent-app-1 sh -c "
-psql '$DATABASE_URL' -c \"
+# Use psql if available, otherwise Node.js
+if command -v psql &> /dev/null; then
+  psql "$DATABASE_URL" -c "
 SELECT id, name, repository_url, default_cwd
 FROM remote_agent_codebases
 WHERE name LIKE '%${TEST_REPO_NAME}%'
 ORDER BY created_at DESC
 LIMIT 1;
-\"
-"
+" 2>&1
+else
+  node -e "
+    const { Client } = require('pg');
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    client.connect()
+      .then(() => client.query(\`
+        SELECT id, name, repository_url, default_cwd
+        FROM remote_agent_codebases
+        WHERE name LIKE '%\${process.env.TEST_REPO_NAME}%'
+        ORDER BY created_at DESC
+        LIMIT 1
+      \`))
+      .then(res => { console.table(res.rows); return client.end(); })
+      .catch(err => { console.error('Error:', err.message); process.exit(1); });
+  "
+fi
 ```
 
 **Expected:** 1 row with repository details
 
 ### 5.3 Check Conversation Record
 ```bash
-docker exec remote-coding-agent-app-1 sh -c "
-psql '$DATABASE_URL' -c \"
+if command -v psql &> /dev/null; then
+  psql "$DATABASE_URL" -c "
 SELECT id, platform_type, platform_conversation_id, cwd, ai_assistant_type
 FROM remote_agent_conversations
 WHERE platform_conversation_id = 'test-e2e';
-\"
-"
+" 2>&1
+else
+  node -e "
+    const { Client } = require('pg');
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    client.connect()
+      .then(() => client.query(\`
+        SELECT id, platform_type, platform_conversation_id, cwd, ai_assistant_type
+        FROM remote_agent_conversations
+        WHERE platform_conversation_id = 'test-e2e'
+      \`))
+      .then(res => { console.table(res.rows); return client.end(); })
+      .catch(err => { console.error('Error:', err.message); process.exit(1); });
+  "
+fi
 ```
 
 **Expected:** 1 row with platform_type='test', codebase_id set
 
 ### 5.4 Check Session Records
 ```bash
-docker exec remote-coding-agent-app-1 sh -c "
-psql '$DATABASE_URL' -c \"
+if command -v psql &> /dev/null; then
+  psql "$DATABASE_URL" -c "
 SELECT id, ai_assistant_type, active, assistant_session_id
 FROM remote_agent_sessions
 WHERE conversation_id IN (
@@ -460,8 +541,25 @@ WHERE conversation_id IN (
 )
 ORDER BY started_at DESC
 LIMIT 5;
-\"
-"
+" 2>&1
+else
+  node -e "
+    const { Client } = require('pg');
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    client.connect()
+      .then(() => client.query(\`
+        SELECT id, ai_assistant_type, active, assistant_session_id
+        FROM remote_agent_sessions
+        WHERE conversation_id IN (
+          SELECT id FROM remote_agent_conversations WHERE platform_conversation_id = 'test-e2e'
+        )
+        ORDER BY started_at DESC
+        LIMIT 5
+      \`))
+      .then(res => { console.table(res.rows); return client.end(); })
+      .catch(err => { console.error('Error:', err.message); process.exit(1); });
+  "
+fi
 ```
 
 **Expected:** At least 1 session record, active=true for latest
@@ -474,7 +572,7 @@ Test GitHub webhook integration with issue creation and @remote-agent mention.
 
 ### 6.1 Create GitHub Issue
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 ISSUE_URL=$(gh issue create \
   --title "Update README with validation section" \
@@ -530,7 +628,7 @@ Test @remote-agent mention in pull request comments.
 
 ### 7.1 Verify Pull Request Exists
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 # Find the PR created by test adapter
 PR_NUMBER=$(gh pr list --state open --limit 1 --json number -q '.[0].number')
@@ -546,18 +644,18 @@ else
 fi
 
 # Return to project root
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 ### 7.2 Request PR Review via @remote-agent
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 gh pr comment ${PR_NUMBER} \
   --body "@remote-agent Please review this pull request. Check for code quality, completeness, and adherence to best practices."
 
 echo "Review request posted to PR #${PR_NUMBER}"
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 ### 7.3 Monitor PR Review Processing
@@ -578,9 +676,9 @@ docker-compose logs app --tail 100 | grep -E "GitHub.*pull_request|Orchestrator"
 
 ### 7.4 Verify PR Review Comment
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 gh pr view ${PR_NUMBER} --comments | tail -30
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 **Expected:**
@@ -639,15 +737,15 @@ Test the complete remote agentic workflow using slash commands: Prime → Plan �
 The test repository needs the command files to invoke them via @remote-agent.
 
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 # Create .agents/commands directory
 mkdir -p .agents/commands
 
-# Copy command files from main project
-cp ../../.agents/commands/prime.md .agents/commands/
-cp ../../.agents/commands/plan-feature.md .agents/commands/
-cp ../../.agents/commands/execute.md .agents/commands/
+# Copy command files from main project (use absolute path from PROJECT_ROOT set in Phase 2.0)
+cp "${PROJECT_ROOT}/.agents/commands/prime.md" .agents/commands/
+cp "${PROJECT_ROOT}/.agents/commands/plan-feature.md" .agents/commands/
+cp "${PROJECT_ROOT}/.agents/commands/execute.md" .agents/commands/
 
 # Commit these commands to main branch
 git add .agents/
@@ -656,7 +754,8 @@ git push origin main
 
 echo "✅ Commands copied and pushed to test repository"
 
-cd ../..
+# Return to project root
+cd "${PROJECT_ROOT}"
 ```
 
 **Why needed:** The bot runs commands from the repository's working directory, so commands must exist in the test repo.
@@ -664,7 +763,7 @@ cd ../..
 ### 9.1 Create Test Issue for Command Workflow
 
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 # Create a new issue for command workflow test
 COMMAND_ISSUE_URL=$(gh issue create \
@@ -682,7 +781,7 @@ COMMAND_ISSUE_NUMBER=$(echo $COMMAND_ISSUE_URL | grep -o '[0-9]*$')
 echo "Command workflow test issue created: ${COMMAND_ISSUE_URL}"
 echo "Issue number: ${COMMAND_ISSUE_NUMBER}"
 
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 ### 9.2 Phase 1: Prime Command
@@ -690,7 +789,7 @@ cd ../..
 Comment on the issue to load commands and prime the agent:
 
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 gh issue comment ${COMMAND_ISSUE_NUMBER} \
   --body "@remote-agent /load-commands .agents/commands
@@ -698,7 +797,7 @@ gh issue comment ${COMMAND_ISSUE_NUMBER} \
 Once commands are loaded, run: /command-invoke prime"
 
 echo "✅ Sent prime command request"
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 **Wait for processing:**
@@ -712,9 +811,9 @@ docker-compose logs app --tail 100 | grep -E "prime|Prime|command-invoke" | tail
 
 **Verify prime completed:**
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 gh issue view ${COMMAND_ISSUE_NUMBER} --comments | tail -50
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 **Expected:** Bot comment with project overview, tech stack, architecture summary, and "Remote Development Readiness" checklist.
@@ -764,13 +863,13 @@ LIMIT 5;
 Request feature planning:
 
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 gh issue comment ${COMMAND_ISSUE_NUMBER} \
   --body "@remote-agent /command-invoke plan-feature Add Contributing section to README with guidelines for cloning, installation, testing, and PR submission"
 
 echo "✅ Sent plan-feature command request"
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 **Wait for planning:**
@@ -784,7 +883,7 @@ docker-compose logs app --tail 150 | grep -E "plan-feature|Plan|\.agents/plans" 
 
 **Verify plan created:**
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 # Check if plan file was created
 if [ -d ".agents/plans" ]; then
@@ -801,7 +900,7 @@ fi
 # Check issue comments for plan confirmation
 gh issue view ${COMMAND_ISSUE_NUMBER} --comments | tail -100
 
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 **Expected:**
@@ -812,7 +911,7 @@ cd ../..
 ### 9.4 Extract Branch Name and Plan File Path
 
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 # Extract branch name from bot's plan-feature response
 # Bot should report: "Feature branch name: feature/add-contributing-section"
@@ -842,7 +941,7 @@ fi
 
 echo "Plan File Path: ${PLAN_FILE_PATH}"
 
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 **Expected:**
@@ -855,14 +954,14 @@ cd ../..
 Execute the implementation plan with both branch name and plan file path:
 
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 # Execute command now takes TWO arguments: branch name and plan file path
 gh issue comment ${COMMAND_ISSUE_NUMBER} \
   --body "@remote-agent /command-invoke execute ${FEATURE_BRANCH} ${PLAN_FILE_PATH}"
 
 echo "✅ Sent execute command: /command-invoke execute ${FEATURE_BRANCH} ${PLAN_FILE_PATH}"
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 **Wait for execution:**
@@ -878,7 +977,7 @@ docker-compose logs app --tail 200 | grep -E "execute|Execute|pull request|PR cr
 ### 9.6 Verify Execution Results
 
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 # Check for new pull request
 COMMAND_PR_NUMBER=$(gh pr list --state open --json number,title --jq '.[] | select(.title | contains("Contributing")) | .number' | head -1)
@@ -909,7 +1008,7 @@ echo ""
 echo "=== Final Issue Comments ==="
 gh issue view ${COMMAND_ISSUE_NUMBER} --comments | tail -100
 
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 **Expected:**
@@ -1068,7 +1167,7 @@ fi
 ### 9.7 Validate PR Quality
 
 ```bash
-cd workspace/${TEST_REPO_NAME}
+cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 if [ -n "$COMMAND_PR_NUMBER" ]; then
   echo "=== PR Validation ==="
@@ -1112,7 +1211,7 @@ if [ -n "$COMMAND_PR_NUMBER" ]; then
 
 fi
 
-cd ../..
+cd "${PROJECT_ROOT}"
 ```
 
 **Expected:**
@@ -1321,7 +1420,7 @@ Command Test PR #${COMMAND_PR_NUMBER}: (PR URL)
 You can delete the test repository when ready:
 ```bash
 gh repo delete ${GITHUB_USERNAME}/${TEST_REPO_NAME} --yes
-rm -rf workspace/${TEST_REPO_NAME}
+rm -rf "${WORK_DIR}/${TEST_REPO_NAME}"
 ```
 
 ---
@@ -1337,9 +1436,9 @@ rm -rf workspace/${TEST_REPO_NAME}
 ### Execution Details
 - **Timing**: AI operations may take 30-90 seconds, adjust sleep times if needed
 - **Batch Mode**: GitHub responses should be single comments, not streaming (verified in Phase 6-7)
-- **Database**: Queries run via `docker exec` (psql not required on host)
+- **Database**: Queries use psql (if available) or Node.js fallback - works with both local and remote databases
 - **Database Validation**: Critical throughout - verifies conversations, sessions, and state transitions
-- **Workspace**: Cleaned automatically at start to avoid conflicts with Docker volume mount
+- **Workspace**: Uses WORKSPACE_PATH from .env (or defaults to ./workspace), cleaned automatically at start
 - **Webhook**: Automatically configured with secret from `.env`
 
 ### Database Validation Checkpoints
@@ -1379,7 +1478,7 @@ The validation extensively tests database state throughout:
 **Solution**: Verify ngrok URL is correct and matches what you passed as argument
 
 **Problem**: psql command not found
-**Solution**: Using `docker exec` (Phase 5) works even without psql on host
+**Solution**: The validation command automatically falls back to Node.js with pg package (Phase 2.0 and Phase 5)
 
 **Problem**: Execute command reuses same conversation instead of creating new one
 **Solution**: Check GitHub adapter code - execute should trigger new conversation creation

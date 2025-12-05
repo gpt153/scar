@@ -14,8 +14,12 @@ export function getWorktreeBase(repoPath: string): string {
   const envBase = process.env.WORKTREE_BASE;
   if (envBase) {
     // Expand ~ to home directory using os.homedir() for cross-platform support
-    const expanded = envBase.startsWith('~') ? envBase.replace(/^~/, homedir()) : envBase;
-    return expanded;
+    if (envBase.startsWith('~')) {
+      // Use join() to normalize path separators cross-platform
+      const pathAfterTilde = envBase.slice(1).replace(/^[/\\]/, ''); // Remove leading ~ and any separator
+      return join(homedir(), pathAfterTilde);
+    }
+    return envBase;
   }
   // Default: sibling to repo (original behavior)
   return join(repoPath, '..', 'worktrees');

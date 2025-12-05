@@ -1,5 +1,6 @@
 import { MockPlatformAdapter } from '../test/mocks/platform';
 import { Conversation, Codebase, Session } from '../types';
+import { join } from 'path';
 
 // Setup mocks before importing the module under test
 const mockGetOrCreateConversation = jest.fn();
@@ -225,10 +226,9 @@ describe('orchestrator', () => {
 
       await handleMessage(platform, 'chat-456', '/command-invoke plan "Add dark mode"');
 
-      expect(mockReadFile).toHaveBeenCalledWith(
-        '/workspace/project/.claude/commands/plan.md',
-        'utf-8'
-      );
+      // Use join() for platform-agnostic path construction
+      const expectedPath = join('/workspace/project', '.claude/commands/plan.md');
+      expect(mockReadFile).toHaveBeenCalledWith(expectedPath, 'utf-8');
       // Session has assistant_session_id so it's passed to sendQuery
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         wrapCommandForExecution('plan', 'Plan the following: Add dark mode'),
