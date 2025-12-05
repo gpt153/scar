@@ -424,6 +424,15 @@ Then STOP. Do not proceed to implementation.
 ## Summary
 [One paragraph: What we're building and the approach]
 
+## Intent
+[One paragraph: Why we're building this feature]
+
+## Persona
+[One paragraph: Who will use this feature]
+
+## UX
+[Describe the ux before and after this implementation is complete in details use ascii diagrams]
+
 ## External Research
 
 ### Documentation
