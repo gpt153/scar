@@ -1,12 +1,12 @@
 /**
  * Slack platform adapter using @slack/bolt with Socket Mode
- * Handles message sending with 4000 character limit splitting (practical readability limit)
+ * Handles message sending with markdown block formatting for AI responses
  */
 import { App, LogLevel } from '@slack/bolt';
 import { IPlatformAdapter } from '../types';
 import { parseAllowedUserIds, isSlackUserAuthorized } from '../utils/slack-auth';
 
-const MAX_LENGTH = 4000; // Practical limit for readability (Slack allows 40k)
+const MAX_MARKDOWN_BLOCK_LENGTH = 12000; // Slack markdown block limit
 
 /**
  * Slack message event context for the message handler
@@ -47,7 +47,8 @@ export class SlackAdapter implements IPlatformAdapter {
 
   /**
    * Send a message to a Slack channel/thread
-   * Automatically splits messages longer than 4000 characters
+   * Uses markdown block for proper formatting of AI responses
+   * Automatically splits messages longer than 12000 characters
    */
   async sendMessage(channelId: string, message: string): Promise<void> {
     console.log(`[Slack] sendMessage called, length=${String(message.length)}`);
@@ -57,23 +58,52 @@ export class SlackAdapter implements IPlatformAdapter {
       ? channelId.split(':')
       : [channelId, undefined];
 
-    if (message.length <= MAX_LENGTH) {
-      await this.app.client.chat.postMessage({
-        channel,
-        text: message,
-        thread_ts: threadTs,
-      });
+    if (message.length <= MAX_MARKDOWN_BLOCK_LENGTH) {
+      // Use markdown block for proper formatting
+      await this.sendWithMarkdownBlock(channel, message, threadTs);
     } else {
+      // Long message: split by paragraphs
       console.log(`[Slack] Message too long (${String(message.length)}), splitting by paragraphs`);
-      const chunks = this.splitIntoParagraphChunks(message, MAX_LENGTH - 100);
+      const chunks = this.splitIntoParagraphChunks(message, MAX_MARKDOWN_BLOCK_LENGTH - 500);
 
       for (const chunk of chunks) {
-        await this.app.client.chat.postMessage({
-          channel,
-          text: chunk,
-          thread_ts: threadTs,
-        });
+        await this.sendWithMarkdownBlock(channel, chunk, threadTs);
       }
+    }
+  }
+
+  /**
+   * Send a message using Slack's markdown block for proper formatting
+   * Falls back to plain text if block fails
+   */
+  private async sendWithMarkdownBlock(
+    channel: string,
+    message: string,
+    threadTs?: string
+  ): Promise<void> {
+    try {
+      await this.app.client.chat.postMessage({
+        channel,
+        thread_ts: threadTs,
+        blocks: [
+          {
+            type: 'markdown',
+            text: message,
+          },
+        ],
+        // Fallback text for notifications/accessibility
+        text: message.substring(0, 150) + (message.length > 150 ? '...' : ''),
+      });
+      console.log(`[Slack] Markdown block sent (${String(message.length)} chars)`);
+    } catch (error) {
+      // Fallback to plain text
+      const err = error as Error;
+      console.warn('[Slack] Markdown block failed, using plain text:', err.message);
+      await this.app.client.chat.postMessage({
+        channel,
+        thread_ts: threadTs,
+        text: message,
+      });
     }
   }
 

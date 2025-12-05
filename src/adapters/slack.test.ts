@@ -196,4 +196,106 @@ describe('SlackAdapter', () => {
       expect(app.client).toBeDefined();
     });
   });
+
+  describe('message formatting', () => {
+    let adapter: SlackAdapter;
+    let mockPostMessage: jest.Mock;
+
+    beforeEach(() => {
+      adapter = new SlackAdapter('xoxb-fake', 'xapp-fake');
+      mockPostMessage = adapter.getApp().client.chat.postMessage as jest.Mock;
+      mockPostMessage.mockClear();
+    });
+
+    test('should send short messages with markdown block', async () => {
+      await adapter.sendMessage('C123:1234.5678', '**Hello** world');
+
+      expect(mockPostMessage).toHaveBeenCalledWith({
+        channel: 'C123',
+        thread_ts: '1234.5678',
+        blocks: [
+          {
+            type: 'markdown',
+            text: '**Hello** world',
+          },
+        ],
+        text: '**Hello** world',
+      });
+    });
+
+    test('should send messages without thread_ts when not in thread', async () => {
+      await adapter.sendMessage('C123', 'Hello');
+
+      expect(mockPostMessage).toHaveBeenCalledWith({
+        channel: 'C123',
+        thread_ts: undefined,
+        blocks: [
+          {
+            type: 'markdown',
+            text: 'Hello',
+          },
+        ],
+        text: 'Hello',
+      });
+    });
+
+    test('should truncate fallback text for long messages', async () => {
+      const longMessage = 'a'.repeat(200);
+      await adapter.sendMessage('C123', longMessage);
+
+      expect(mockPostMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: 'a'.repeat(150) + '...',
+        })
+      );
+    });
+
+    test('should fallback to plain text when markdown block fails', async () => {
+      mockPostMessage
+        .mockRejectedValueOnce(new Error('markdown block not supported'))
+        .mockResolvedValueOnce(undefined);
+
+      await adapter.sendMessage('C123', 'test message');
+
+      expect(mockPostMessage).toHaveBeenCalledTimes(2);
+      // First call with markdown block
+      expect(mockPostMessage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          blocks: expect.any(Array),
+        })
+      );
+      // Second call plain text fallback
+      expect(mockPostMessage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          text: 'test message',
+        })
+      );
+      expect(mockPostMessage.mock.calls[1][0]).not.toHaveProperty('blocks');
+    });
+
+    test('should split long messages into multiple markdown blocks', async () => {
+      const paragraph1 = 'a'.repeat(10000);
+      const paragraph2 = 'b'.repeat(10000);
+      const message = `${paragraph1}\n\n${paragraph2}`;
+
+      await adapter.sendMessage('C123', message);
+
+      expect(mockPostMessage).toHaveBeenCalledTimes(2);
+      // Both calls should use markdown blocks
+      expect(mockPostMessage.mock.calls[0][0]).toHaveProperty('blocks');
+      expect(mockPostMessage.mock.calls[1][0]).toHaveProperty('blocks');
+    });
+
+    test('should handle empty message without crashing', async () => {
+      await adapter.sendMessage('C123', '');
+
+      expect(mockPostMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blocks: [{ type: 'markdown', text: '' }],
+        })
+      );
+    });
+  });
 });
