@@ -288,15 +288,15 @@ export class GitHubAdapter implements IPlatformAdapter {
    * Check if text contains @mention for the configured bot
    */
   private hasMention(text: string): boolean {
-    const pattern = new RegExp(`@${this.botMention}[\\s,:;]`);
-    return pattern.test(text) || text.trim() === `@${this.botMention}`;
+    const pattern = new RegExp(`@${this.botMention}[\\s,:;]`, 'i');
+    return pattern.test(text) || text.trim().toLowerCase() === `@${this.botMention.toLowerCase()}`;
   }
 
   /**
    * Strip @mention from text for the configured bot
    */
   private stripMention(text: string): string {
-    const pattern = new RegExp(`@${this.botMention}[\\s,:;]+`, 'g');
+    const pattern = new RegExp(`@${this.botMention}[\\s,:;]+`, 'gi');
     return text.replace(pattern, '').trim();
   }
 

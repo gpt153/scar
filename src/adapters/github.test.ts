@@ -107,6 +107,42 @@ describe('GitHubAdapter', () => {
     });
   });
 
+  describe('bot mention detection', () => {
+    test('should detect mention case-insensitively', () => {
+      // Access private method via type assertion for testing
+      const adapterWithMention = new GitHubAdapter('token', 'secret', 'Dylan');
+      const hasMention = (adapterWithMention as unknown as { hasMention: (text: string) => boolean }).hasMention;
+
+      // All these should match @Dylan
+      expect(hasMention.call(adapterWithMention, '@Dylan please help')).toBe(true);
+      expect(hasMention.call(adapterWithMention, '@dylan please help')).toBe(true);
+      expect(hasMention.call(adapterWithMention, '@DYLAN please help')).toBe(true);
+      expect(hasMention.call(adapterWithMention, '@DyLaN please help')).toBe(true);
+
+      // Should not match other mentions
+      expect(hasMention.call(adapterWithMention, '@other-bot please help')).toBe(false);
+      expect(hasMention.call(adapterWithMention, 'no mention here')).toBe(false);
+    });
+
+    test('should detect mention when it is the entire message', () => {
+      const adapterWithMention = new GitHubAdapter('token', 'secret', 'remote-agent');
+      const hasMention = (adapterWithMention as unknown as { hasMention: (text: string) => boolean }).hasMention;
+
+      expect(hasMention.call(adapterWithMention, '@remote-agent')).toBe(true);
+      expect(hasMention.call(adapterWithMention, '@REMOTE-AGENT')).toBe(true);
+      expect(hasMention.call(adapterWithMention, '@Remote-Agent')).toBe(true);
+    });
+
+    test('should strip mention case-insensitively', () => {
+      const adapterWithMention = new GitHubAdapter('token', 'secret', 'Dylan');
+      const stripMention = (adapterWithMention as unknown as { stripMention: (text: string) => string }).stripMention;
+
+      expect(stripMention.call(adapterWithMention, '@Dylan please help')).toBe('please help');
+      expect(stripMention.call(adapterWithMention, '@dylan please help')).toBe('please help');
+      expect(stripMention.call(adapterWithMention, '@DYLAN please help')).toBe('please help');
+    });
+  });
+
   describe('worktree isolation', () => {
     describe('createWorktreeForIssue', () => {
       test('should create issue-XX branch for issues', async () => {
