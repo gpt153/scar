@@ -6,7 +6,7 @@ import {
   listWorktrees,
   findWorktreeByBranch,
 } from './git';
-import { writeFile, mkdir, rm } from 'fs/promises';
+import { writeFile, mkdir as realMkdir, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir, homedir } from 'os';
 import { execFile } from 'child_process';
@@ -21,7 +21,7 @@ describe('git utilities', () => {
   const testDir = join(tmpdir(), 'git-utils-test-' + Date.now());
 
   beforeEach(async () => {
-    await mkdir(testDir, { recursive: true });
+    await realMkdir(testDir, { recursive: true });
   });
 
   afterEach(async () => {
@@ -35,7 +35,7 @@ describe('git utilities', () => {
     });
 
     it('returns false for main repo (.git directory)', async () => {
-      await mkdir(join(testDir, '.git'));
+      await realMkdir(join(testDir, '.git'));
       const result = await isWorktreePath(testDir);
       expect(result).toBe(false);
     });
@@ -63,7 +63,7 @@ describe('git utilities', () => {
     });
 
     it('returns same path for main repo with .git directory', async () => {
-      await mkdir(join(testDir, '.git'));
+      await realMkdir(join(testDir, '.git'));
       const result = await getCanonicalRepoPath(testDir);
       expect(result).toBe(testDir);
     });
@@ -119,7 +119,7 @@ describe('git utilities', () => {
 
   describe('worktreeExists', () => {
     it('returns true when path and .git exist', async () => {
-      await mkdir(join(testDir, 'worktree-test'), { recursive: true });
+      await realMkdir(join(testDir, 'worktree-test'), { recursive: true });
       await writeFile(join(testDir, 'worktree-test', '.git'), 'gitdir: /some/path');
 
       const result = await worktreeExists(join(testDir, 'worktree-test'));
@@ -132,7 +132,7 @@ describe('git utilities', () => {
     });
 
     it('returns false when .git does not exist', async () => {
-      await mkdir(join(testDir, 'no-git'), { recursive: true });
+      await realMkdir(join(testDir, 'no-git'), { recursive: true });
       const result = await worktreeExists(join(testDir, 'no-git'));
       expect(result).toBe(false);
     });
@@ -221,6 +221,136 @@ branch refs/heads/feature/auth
     it('returns null when no match', async () => {
       const result = await findWorktreeByBranch('/workspace/main', 'nonexistent');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('createWorktreeForIssue', () => {
+    let mkdirSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      mockExecFile.mockClear();
+      // Mock mkdir to avoid filesystem operations in /workspace
+      mkdirSpy = jest.spyOn(require('fs/promises'), 'mkdir').mockResolvedValue(undefined);
+    });
+
+    afterEach(() => {
+      mkdirSpy.mockRestore();
+    });
+
+    it('creates worktree with SHA-based checkout when prHeadSha provided', async () => {
+      const { createWorktreeForIssue } = require('./git');
+      const repoPath = '/workspace/repo';
+      const issueNumber = 42;
+      const prHeadBranch = 'feature/auth';
+      const prHeadSha = 'abc123def456';
+
+      mockExecFile.mockImplementation(
+        (
+          _cmd: string,
+          _args: string[],
+          _opts: unknown,
+          callback: (err: Error | null, result: { stdout: string; stderr: string }) => void
+        ) => {
+          // Mock successful git commands
+          callback(null, { stdout: '', stderr: '' });
+        }
+      );
+
+      await createWorktreeForIssue(repoPath, issueNumber, true, prHeadBranch, prHeadSha);
+
+      // Verify git fetch was called with SHA
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        expect.arrayContaining(['-C', repoPath, 'fetch', 'origin', prHeadSha]),
+        expect.any(Object),
+        expect.any(Function)
+      );
+
+      // Verify worktree add was called with SHA
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        expect.arrayContaining(['-C', repoPath, 'worktree', 'add', expect.any(String), prHeadSha]),
+        expect.any(Object),
+        expect.any(Function)
+      );
+
+      // Verify checkout -b was called to create tracking branch
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        expect.arrayContaining(['-C', expect.any(String), 'checkout', '-b', 'pr-42-review', prHeadSha]),
+        expect.any(Object),
+        expect.any(Function)
+      );
+    });
+
+    it('falls back to branch-based checkout when prHeadSha not provided', async () => {
+      const { createWorktreeForIssue } = require('./git');
+      const repoPath = '/workspace/repo';
+      const issueNumber = 42;
+      const prHeadBranch = 'feature/auth';
+
+      mockExecFile.mockImplementation(
+        (
+          _cmd: string,
+          _args: string[],
+          _opts: unknown,
+          callback: (err: Error | null, result: { stdout: string; stderr: string }) => void
+        ) => {
+          callback(null, { stdout: '', stderr: '' });
+        }
+      );
+
+      await createWorktreeForIssue(repoPath, issueNumber, true, prHeadBranch);
+
+      // Verify git fetch was called with branch
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        expect.arrayContaining(['-C', repoPath, 'fetch', 'origin', prHeadBranch]),
+        expect.any(Object),
+        expect.any(Function)
+      );
+
+      // Verify worktree add was called with branch reference
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        expect.arrayContaining(['-C', repoPath, 'worktree', 'add', expect.any(String), `origin/${prHeadBranch}`]),
+        expect.any(Object),
+        expect.any(Function)
+      );
+
+      // Verify checkout -b was NOT called (branch-based checkout doesn't need it)
+      const checkoutCalls = mockExecFile.mock.calls.filter((call: unknown[]) => {
+        const args = call[1] as string[];
+        return args.includes('checkout');
+      });
+      expect(checkoutCalls).toHaveLength(0);
+    });
+
+    it('creates issue branch for non-PR issues', async () => {
+      const { createWorktreeForIssue } = require('./git');
+      const repoPath = '/workspace/repo';
+      const issueNumber = 42;
+
+      mockExecFile.mockImplementation(
+        (
+          _cmd: string,
+          _args: string[],
+          _opts: unknown,
+          callback: (err: Error | null, result: { stdout: string; stderr: string }) => void
+        ) => {
+          callback(null, { stdout: '', stderr: '' });
+        }
+      );
+
+      await createWorktreeForIssue(repoPath, issueNumber, false);
+
+      // Verify worktree add was called with -b flag for new branch
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        expect.arrayContaining(['-C', repoPath, 'worktree', 'add', expect.any(String), '-b', 'issue-42']),
+        expect.any(Object),
+        expect.any(Function)
+      );
     });
   });
 });

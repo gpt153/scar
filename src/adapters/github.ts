@@ -593,6 +593,7 @@ ${userComment}`;
     // 10. Create worktree for this issue/PR (if conversation doesn't have one)
     let worktreePath: string | null = null;
     let prHeadBranch: string | undefined;
+    let prHeadSha: string | undefined;
     // Detect PR: either pull_request event, or issue_comment on a PR (indicated by issue.pull_request or pullRequest)
     const isPR = eventType === 'pull_request' || !!pullRequest || !!issue?.pull_request;
     if (!existingConv.worktree_path) {
@@ -626,7 +627,7 @@ ${userComment}`;
       // If no shared worktree found, create new one
       if (!worktreePath) {
         try {
-          // For PRs, fetch the head branch name from GitHub API
+          // For PRs, fetch the head branch name and SHA from GitHub API
           if (isPR) {
             try {
               const { data: prData } = await this.octokit.rest.pulls.get({
@@ -635,7 +636,8 @@ ${userComment}`;
                 pull_number: number,
               });
               prHeadBranch = prData.head.ref;
-              console.log(`[GitHub] PR #${String(number)} head branch: ${prHeadBranch}`);
+              prHeadSha = prData.head.sha;
+              console.log(`[GitHub] PR #${String(number)} head branch: ${prHeadBranch}, SHA: ${prHeadSha}`);
             } catch (error) {
               console.warn(
                 '[GitHub] Failed to fetch PR head branch, will create new branch instead:',
@@ -644,7 +646,7 @@ ${userComment}`;
             }
           }
 
-          worktreePath = await createWorktreeForIssue(repoPath, number, isPR, prHeadBranch);
+          worktreePath = await createWorktreeForIssue(repoPath, number, isPR, prHeadBranch, prHeadSha);
           console.log(`[GitHub] Created worktree: ${worktreePath}`);
 
           // Update conversation with worktree path
@@ -722,9 +724,20 @@ ${userComment}`;
     if (worktreePath) {
       // Use the actual PR head branch name if available, otherwise use the worktree naming convention
       const branchName = (isPR && prHeadBranch) ? prHeadBranch : (isPR ? `pr-${String(number)}` : `issue-${String(number)}`);
-      const worktreeContext = isPR && prHeadBranch
-        ? `\n\n[Working in isolated worktree with PR branch: ${branchName}. This is the actual PR branch with all changes.]`
-        : `\n\n[Working in isolated branch: ${branchName}. When done, changes can be committed and pushed, then a PR can be created from this branch.]`;
+      let worktreeContext: string;
+
+      if (isPR && prHeadBranch && prHeadSha) {
+        // SHA-based PR review - show commit SHA for reproducibility
+        const shortSha = prHeadSha.substring(0, 7);
+        worktreeContext = `\n\n[Working in isolated worktree at commit ${shortSha} (PR #${String(number)} branch: ${branchName}). This is the exact commit that triggered the review for reproducibility.]`;
+      } else if (isPR && prHeadBranch) {
+        // Branch-based PR review (fallback)
+        worktreeContext = `\n\n[Working in isolated worktree with PR branch: ${branchName}. This is the actual PR branch with all changes.]`;
+      } else {
+        // Issue workflow
+        worktreeContext = `\n\n[Working in isolated branch: ${branchName}. When done, changes can be committed and pushed, then a PR can be created from this branch.]`;
+      }
+
       contextToAppend = contextToAppend ? contextToAppend + worktreeContext : worktreeContext;
     }
 

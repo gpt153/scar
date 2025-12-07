@@ -117,7 +117,7 @@ export async function isWorktreePath(path: string): Promise<boolean> {
  * Create a git worktree for an issue or PR
  * Returns the worktree path
  *
- * For PRs: provide prHeadBranch to checkout the PR's actual branch
+ * For PRs: provide prHeadBranch and optionally prHeadSha for reproducible reviews
  * For issues: creates a new branch (issue-XX)
  *
  * Will adopt existing worktrees if found (enables skill-app symbiosis)
@@ -126,7 +126,8 @@ export async function createWorktreeForIssue(
   repoPath: string,
   issueNumber: number,
   isPR: boolean,
-  prHeadBranch?: string
+  prHeadBranch?: string,
+  prHeadSha?: string
 ): Promise<string> {
   const branchName = isPR ? `pr-${String(issueNumber)}` : `issue-${String(issueNumber)}`;
   const projectName = basename(repoPath);
@@ -155,15 +156,33 @@ export async function createWorktreeForIssue(
   if (isPR && prHeadBranch) {
     // For PRs: fetch and checkout the PR's head branch
     try {
-      // Fetch the PR's head branch from origin
-      await execFileAsync('git', ['-C', repoPath, 'fetch', 'origin', prHeadBranch], {
-        timeout: 30000,
-      });
+      // If SHA provided, use it for reproducible reviews (hybrid approach)
+      if (prHeadSha) {
+        // Fetch the specific commit SHA
+        await execFileAsync('git', ['-C', repoPath, 'fetch', 'origin', prHeadSha], {
+          timeout: 30000,
+        });
 
-      // Create worktree using the fetched branch
-      await execFileAsync('git', ['-C', repoPath, 'worktree', 'add', worktreePath, `origin/${prHeadBranch}`], {
-        timeout: 30000,
-      });
+        // Create worktree at the specific SHA
+        await execFileAsync('git', ['-C', repoPath, 'worktree', 'add', worktreePath, prHeadSha], {
+          timeout: 30000,
+        });
+
+        // Create a local tracking branch so it's not detached HEAD
+        await execFileAsync('git', ['-C', worktreePath, 'checkout', '-b', `pr-${String(issueNumber)}-review`, prHeadSha], {
+          timeout: 30000,
+        });
+      } else {
+        // Fallback: fetch the PR's head branch from origin
+        await execFileAsync('git', ['-C', repoPath, 'fetch', 'origin', prHeadBranch], {
+          timeout: 30000,
+        });
+
+        // Create worktree using the fetched branch
+        await execFileAsync('git', ['-C', repoPath, 'worktree', 'add', worktreePath, `origin/${prHeadBranch}`], {
+          timeout: 30000,
+        });
+      }
     } catch (error) {
       const err = error as Error & { stderr?: string };
       throw new Error(`Failed to create worktree for PR branch '${prHeadBranch}': ${err.message}`);
