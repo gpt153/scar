@@ -33,6 +33,7 @@
 - Trust git's natural guardrails (e.g., refuse to remove worktree with uncommitted changes)
 - Use `execFileAsync` for git commands (not `exec`) to prevent command injection
 - Worktrees enable parallel development per conversation without branch conflicts
+- **NEVER run `git clean -fd`** - it permanently deletes untracked files (use `git checkout .` instead)
 
 ## Essential Commands
 
