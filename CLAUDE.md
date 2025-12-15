@@ -381,6 +381,34 @@ You: Build a search interface...
 Bot: [Works on the project...]
 ```
 
+**Topic Filtering (for shared groups with multiple bots):**
+
+When multiple bots operate in the same Telegram group, use `TELEGRAM_TOPIC_FILTER` to prevent conflicts:
+
+```env
+# Respond to all topics (default)
+TELEGRAM_TOPIC_FILTER=all
+
+# Only respond in general chat (ignore all topics)
+TELEGRAM_TOPIC_FILTER=none
+
+# Whitelist - only respond to specific topics
+TELEGRAM_TOPIC_FILTER=123,456,789
+
+# Blacklist - respond to all topics EXCEPT these
+TELEGRAM_TOPIC_FILTER=!123,456
+```
+
+**Use cases:**
+- **Development bot + Product bot**: Use blacklist so development bot ignores product topics
+- **Multiple projects**: Assign specific topics to different bot instances
+- **Testing**: Create test topics that production bots ignore
+
+**Example scenario (blacklist approach - easier to maintain):**
+- remote-coding-agent bot: `TELEGRAM_TOPIC_FILTER=!10` (all topics except health-agent)
+- health-agent bot: `TELEGRAM_TOPIC_FILTER=10` (only health-agent topic)
+- Both bots in same group, zero conflicts, no need to update when adding new dev topics
+
 ### Worktree Symbiosis (Skill + App)
 
 The app can work alongside the worktree-manager Claude Code skill. Both use git worktrees for isolated development, and can share the same base directory.

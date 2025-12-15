@@ -23,6 +23,7 @@ export class TelegramAdapter implements IPlatformAdapter {
   private streamingMode: 'stream' | 'batch';
   private allowedUserIds: number[];
   private groupChatId: string | null;
+  private topicFilter: 'all' | 'none' | number[];
   private messageHandler: ((ctx: TelegramMessageContext) => Promise<void>) | null = null;
 
   constructor(token: string, mode: 'stream' | 'batch' = 'stream') {
@@ -51,6 +52,27 @@ export class TelegramAdapter implements IPlatformAdapter {
     if (this.groupChatId) {
       console.log(`[Telegram] Configured for group: ${this.groupChatId}`);
     }
+
+    // Parse topic filter configuration
+    // - 'all' (default): Respond to all topics
+    // - 'none': Only respond in general chat (no topics)
+    // - '123,456,789': Comma-separated list of topic IDs to respond to (whitelist)
+    // - '!123,456': Exclude these topics, respond to all others (blacklist)
+    const filterConfig = process.env.TELEGRAM_TOPIC_FILTER ?? 'all';
+    if (filterConfig === 'all' || filterConfig === 'none') {
+      this.topicFilter = filterConfig;
+    } else if (filterConfig.startsWith('!')) {
+      // Blacklist mode - exclude these topics
+      const excludeIds = filterConfig
+        .substring(1)
+        .split(',')
+        .map((id) => parseInt(id.trim()));
+      this.topicFilter = excludeIds.map((id) => -id); // Negative IDs indicate blacklist
+    } else {
+      // Whitelist mode - only these topics
+      this.topicFilter = filterConfig.split(',').map((id) => parseInt(id.trim()));
+    }
+    console.log(`[Telegram] Topic filter: ${JSON.stringify(this.topicFilter)}`);
 
     console.log(`[Telegram] Adapter initialized (mode: ${mode}, timeout: disabled)`);
   }
@@ -244,6 +266,48 @@ export class TelegramAdapter implements IPlatformAdapter {
         const maskedId = `${String(userId).slice(0, 4)}***`;
         console.log(`[Telegram] Unauthorized message from user ${maskedId}`);
         return; // Silent rejection
+      }
+
+      // Topic filtering check
+      const threadId = 'message' in ctx && ctx.message?.message_thread_id;
+      if (this.topicFilter === 'none' && threadId) {
+        // Configured to only respond in general chat, ignore topics
+        console.log(`[Telegram] Ignoring message in topic ${String(threadId)} (filter: none)`);
+        return;
+      }
+      if (Array.isArray(this.topicFilter) && threadId) {
+        // Check if this is blacklist mode (negative IDs)
+        const isBlacklist = this.topicFilter.some((id) => id < 0);
+
+        if (isBlacklist) {
+          // Blacklist mode - ignore if topic is in the blacklist
+          const blacklistedIds = this.topicFilter.map((id) => Math.abs(id));
+          if (blacklistedIds.includes(threadId)) {
+            console.log(
+              `[Telegram] Ignoring message in topic ${String(threadId)} (blacklisted)`
+            );
+            return;
+          }
+          // Not blacklisted, process it
+        } else {
+          // Whitelist mode - only process if topic is in the whitelist
+          if (!this.topicFilter.includes(threadId)) {
+            console.log(
+              `[Telegram] Ignoring message in topic ${String(threadId)} (not in whitelist)`
+            );
+            return;
+          }
+        }
+      }
+      if (Array.isArray(this.topicFilter) && !threadId) {
+        // Check if blacklist mode
+        const isBlacklist = this.topicFilter.some((id) => id < 0);
+        if (!isBlacklist) {
+          // Whitelist mode - ignore general chat
+          console.log(`[Telegram] Ignoring general chat message (topic whitelist active)`);
+          return;
+        }
+        // Blacklist mode - process general chat (it's not blacklisted)
       }
 
       if (this.messageHandler) {

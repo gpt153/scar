@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add sync-template-to-projects.ts script to update existing workspace projects with complete template structure
+- Add topic filtering for Telegram to prevent bot conflicts in shared groups (TELEGRAM_TOPIC_FILTER environment variable)
 
 ### Changed
 
