@@ -63,14 +63,20 @@ export class TelegramAdapter implements IPlatformAdapter {
    * - Short messages (≤4096 chars): Convert to MarkdownV2 for nice formatting
    * - Long messages: Split by paragraphs, format each chunk independently
    *   (paragraphs rarely have formatting that spans across them)
+   *
+   * Supports forum topics: chatId can be "chatId:threadId" format
    */
   async sendMessage(chatId: string, message: string): Promise<void> {
-    const id = parseInt(chatId);
-    console.log(`[Telegram] sendMessage called, length=${String(message.length)}`);
+    // Parse chat ID and optional thread ID for forum topics
+    const parts = chatId.split(':');
+    const id = parseInt(parts[0]);
+    const threadId = parts[1] ? parseInt(parts[1]) : undefined;
+
+    console.log(`[Telegram] sendMessage called, chat=${id}, thread=${threadId ?? 'none'}, length=${String(message.length)}`);
 
     if (message.length <= MAX_LENGTH) {
       // Short message: try MarkdownV2 formatting
-      await this.sendFormattedChunk(id, message);
+      await this.sendFormattedChunk(id, message, threadId);
     } else {
       // Long message: split by paragraphs, format each chunk
       console.log(
@@ -79,7 +85,7 @@ export class TelegramAdapter implements IPlatformAdapter {
       const chunks = this.splitIntoParagraphChunks(message, MAX_LENGTH - 200);
 
       for (const chunk of chunks) {
-        await this.sendFormattedChunk(id, chunk);
+        await this.sendFormattedChunk(id, chunk, threadId);
       }
     }
   }
@@ -118,7 +124,7 @@ export class TelegramAdapter implements IPlatformAdapter {
   /**
    * Send a single chunk with MarkdownV2 formatting, with fallback to plain text
    */
-  private async sendFormattedChunk(id: number, chunk: string): Promise<void> {
+  private async sendFormattedChunk(id: number, chunk: string, threadId?: number): Promise<void> {
     // If chunk is still too long after paragraph splitting, fall back to plain text
     if (chunk.length > MAX_LENGTH) {
       console.log(`[Telegram] Chunk too long (${String(chunk.length)}), sending as plain text`);
@@ -128,20 +134,31 @@ export class TelegramAdapter implements IPlatformAdapter {
       let subChunk = '';
       for (const line of lines) {
         if (subChunk.length + line.length + 1 > MAX_LENGTH - 100) {
-          if (subChunk) await this.bot.telegram.sendMessage(id, subChunk);
+          if (subChunk) {
+            await this.bot.telegram.sendMessage(id, subChunk, {
+              message_thread_id: threadId,
+            });
+          }
           subChunk = line;
         } else {
           subChunk += (subChunk ? '\n' : '') + line;
         }
       }
-      if (subChunk) await this.bot.telegram.sendMessage(id, subChunk);
+      if (subChunk) {
+        await this.bot.telegram.sendMessage(id, subChunk, {
+          message_thread_id: threadId,
+        });
+      }
       return;
     }
 
     // Try MarkdownV2 formatting
     const formatted = convertToTelegramMarkdown(chunk);
     try {
-      await this.bot.telegram.sendMessage(id, formatted, { parse_mode: 'MarkdownV2' });
+      await this.bot.telegram.sendMessage(id, formatted, {
+        parse_mode: 'MarkdownV2',
+        message_thread_id: threadId,
+      });
       console.log(`[Telegram] MarkdownV2 chunk sent (${String(chunk.length)} chars)`);
     } catch (error) {
       // Fallback to stripped plain text for this chunk
@@ -153,7 +170,9 @@ export class TelegramAdapter implements IPlatformAdapter {
         '[Telegram] Formatted chunk (around byte 4059):',
         formatted.substring(4000, 4100)
       );
-      await this.bot.telegram.sendMessage(id, stripMarkdown(chunk));
+      await this.bot.telegram.sendMessage(id, stripMarkdown(chunk), {
+        message_thread_id: threadId,
+      });
     }
   }
 

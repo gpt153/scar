@@ -287,11 +287,6 @@ async function main(): Promise<void> {
   const mindmapDist = resolve(__dirname, '../client/mindmap/dist');
   app.use('/mindmap', express.static(mindmapDist));
 
-  // Fallback for React Router (future-proofing)
-  app.get('/mindmap/*', (_req, res) => {
-    res.sendFile(resolve(__dirname, '../client/mindmap/dist/index.html'));
-  });
-
   console.log('[Express] Mind map web app served at /mindmap');
 
   // Health check endpoints
