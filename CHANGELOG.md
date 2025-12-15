@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add sync-template-to-projects.ts script to update existing workspace projects with complete template structure
+
 ### Changed
 
 - Switch Archon MCP integration from stdio-based (uvx command) to HTTP-based (Docker service on port 8051) for improved reliability and simpler setup
 
 ### Fixed
 
+- Fix /new-topic to copy all command directories (core_piv_loop, github_bug_fix, validation) and preserve folder structure - was only copying 17 of 32 commands
 - Fix test assertions to match updated function signatures (handleCommand bot parameter, Telegram sendMessage options)
 - Fix ESLint configuration to properly ignore client projects and root-level utility scripts
 - Apply Prettier formatting across codebase for consistent code style
