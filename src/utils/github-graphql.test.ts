@@ -60,12 +60,7 @@ describe('github-graphql', () => {
 
     test('returns empty array on error (graceful degradation)', async () => {
       mockExecFile.mockImplementation(
-        (
-          _cmd: string,
-          _args: string[],
-          _opts: unknown,
-          callback: (err: Error | null) => void
-        ) => {
+        (_cmd: string, _args: string[], _opts: unknown, callback: (err: Error | null) => void) => {
           callback(new Error('gh: command not found'));
         }
       );

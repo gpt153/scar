@@ -44,9 +44,7 @@ export async function worktreeExists(worktreePath: string): Promise<boolean> {
  * List all worktrees for a repository
  * Returns array of {path, branch} objects parsed from git worktree list --porcelain
  */
-export async function listWorktrees(
-  repoPath: string
-): Promise<{ path: string; branch: string }[]> {
+export async function listWorktrees(repoPath: string): Promise<{ path: string; branch: string }[]> {
   try {
     const { stdout } = await execFileAsync(
       'git',
@@ -144,7 +142,9 @@ export async function createWorktreeForIssue(
   if (isPR && prHeadBranch) {
     const existingByBranch = await findWorktreeByBranch(repoPath, prHeadBranch);
     if (existingByBranch) {
-      console.log(`[Git] Adopting existing worktree for branch ${prHeadBranch}: ${existingByBranch}`);
+      console.log(
+        `[Git] Adopting existing worktree for branch ${prHeadBranch}: ${existingByBranch}`
+      );
       return existingByBranch;
     }
   }
@@ -169,9 +169,13 @@ export async function createWorktreeForIssue(
         });
 
         // Create a local tracking branch so it's not detached HEAD
-        await execFileAsync('git', ['-C', worktreePath, 'checkout', '-b', `pr-${String(issueNumber)}-review`, prHeadSha], {
-          timeout: 30000,
-        });
+        await execFileAsync(
+          'git',
+          ['-C', worktreePath, 'checkout', '-b', `pr-${String(issueNumber)}-review`, prHeadSha],
+          {
+            timeout: 30000,
+          }
+        );
       } else {
         // Fallback: fetch the PR's head branch from origin
         await execFileAsync('git', ['-C', repoPath, 'fetch', 'origin', prHeadBranch], {
@@ -179,9 +183,13 @@ export async function createWorktreeForIssue(
         });
 
         // Create worktree using the fetched branch
-        await execFileAsync('git', ['-C', repoPath, 'worktree', 'add', worktreePath, `origin/${prHeadBranch}`], {
-          timeout: 30000,
-        });
+        await execFileAsync(
+          'git',
+          ['-C', repoPath, 'worktree', 'add', worktreePath, `origin/${prHeadBranch}`],
+          {
+            timeout: 30000,
+          }
+        );
       }
     } catch (error) {
       const err = error as Error & { stderr?: string };
@@ -191,9 +199,13 @@ export async function createWorktreeForIssue(
     // For issues (or PRs without branch info): create new branch
     try {
       // Try to create with new branch
-      await execFileAsync('git', ['-C', repoPath, 'worktree', 'add', worktreePath, '-b', branchName], {
-        timeout: 30000,
-      });
+      await execFileAsync(
+        'git',
+        ['-C', repoPath, 'worktree', 'add', worktreePath, '-b', branchName],
+        {
+          timeout: 30000,
+        }
+      );
     } catch (error) {
       const err = error as Error & { stderr?: string };
       // Branch already exists - use existing branch

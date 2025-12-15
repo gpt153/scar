@@ -14,11 +14,7 @@ export const ExportButton: React.FC = () => {
     switch (format) {
       case 'json': {
         const content = ExportService.exportJSON(mindMapData);
-        ExportService.downloadFile(
-          content,
-          `${projectName}-${timestamp}.json`,
-          'application/json'
-        );
+        ExportService.downloadFile(content, `${projectName}-${timestamp}.json`, 'application/json');
         break;
       }
       case 'markdown': {
@@ -28,11 +24,7 @@ export const ExportButton: React.FC = () => {
       }
       case 'plan-feature': {
         const content = ExportService.exportPlanFeature(mindMapData, selectedNodeId || undefined);
-        ExportService.downloadFile(
-          content,
-          `${projectName}-plan-${timestamp}.md`,
-          'text/markdown'
-        );
+        ExportService.downloadFile(content, `${projectName}-plan-${timestamp}.md`, 'text/markdown');
         break;
       }
     }

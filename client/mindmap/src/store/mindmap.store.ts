@@ -1,10 +1,5 @@
 import { create } from 'zustand';
-import type {
-  MindMapData,
-  MindMapNode,
-  MindMapEdge,
-  ChatMessage,
-} from '@/types/mindmap.types';
+import type { MindMapData, MindMapNode, MindMapEdge, ChatMessage } from '@/types/mindmap.types';
 import { applyTreeLayout } from '@/utils/layout';
 
 interface MindMapStore {

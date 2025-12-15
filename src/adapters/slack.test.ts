@@ -131,9 +131,7 @@ describe('SlackAdapter', () => {
     });
 
     test('should strip multiple mentions', () => {
-      expect(adapter.stripBotMention('<@U1234ABCD> <@W5678EFGH> hello')).toBe(
-        '<@W5678EFGH> hello'
-      );
+      expect(adapter.stripBotMention('<@U1234ABCD> <@W5678EFGH> hello')).toBe('<@W5678EFGH> hello');
     });
 
     test('should return unchanged if no mention', () => {
@@ -141,20 +139,24 @@ describe('SlackAdapter', () => {
     });
 
     test('should normalize Slack URL formatting', () => {
-      expect(
-        adapter.stripBotMention('<@U1234ABCD> /clone <https://github.com/test/repo>')
-      ).toBe('/clone https://github.com/test/repo');
+      expect(adapter.stripBotMention('<@U1234ABCD> /clone <https://github.com/test/repo>')).toBe(
+        '/clone https://github.com/test/repo'
+      );
     });
 
     test('should normalize Slack URL with label', () => {
       expect(
-        adapter.stripBotMention('<@U1234ABCD> check <https://github.com/test/repo|github.com/test/repo>')
+        adapter.stripBotMention(
+          '<@U1234ABCD> check <https://github.com/test/repo|github.com/test/repo>'
+        )
       ).toBe('check https://github.com/test/repo');
     });
 
     test('should normalize multiple URLs', () => {
       expect(
-        adapter.stripBotMention('<@U1234ABCD> compare <https://github.com/a> and <https://github.com/b>')
+        adapter.stripBotMention(
+          '<@U1234ABCD> compare <https://github.com/a> and <https://github.com/b>'
+        )
       ).toBe('compare https://github.com/a and https://github.com/b');
     });
   });

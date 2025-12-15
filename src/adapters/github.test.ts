@@ -125,7 +125,9 @@ describe('GitHubAdapter', () => {
     test('should detect mention case-insensitively', () => {
       // Access private method via type assertion for testing
       const adapterWithMention = new GitHubAdapter('token', 'secret', 'Dylan');
-      const hasMention = (adapterWithMention as unknown as { hasMention: (text: string) => boolean }).hasMention;
+      const hasMention = (
+        adapterWithMention as unknown as { hasMention: (text: string) => boolean }
+      ).hasMention;
 
       // All these should match @Dylan
       expect(hasMention.call(adapterWithMention, '@Dylan please help')).toBe(true);
@@ -140,7 +142,9 @@ describe('GitHubAdapter', () => {
 
     test('should detect mention when it is the entire message', () => {
       const adapterWithMention = new GitHubAdapter('token', 'secret', 'remote-agent');
-      const hasMention = (adapterWithMention as unknown as { hasMention: (text: string) => boolean }).hasMention;
+      const hasMention = (
+        adapterWithMention as unknown as { hasMention: (text: string) => boolean }
+      ).hasMention;
 
       expect(hasMention.call(adapterWithMention, '@remote-agent')).toBe(true);
       expect(hasMention.call(adapterWithMention, '@REMOTE-AGENT')).toBe(true);
@@ -149,7 +153,9 @@ describe('GitHubAdapter', () => {
 
     test('should strip mention case-insensitively', () => {
       const adapterWithMention = new GitHubAdapter('token', 'secret', 'Dylan');
-      const stripMention = (adapterWithMention as unknown as { stripMention: (text: string) => string }).stripMention;
+      const stripMention = (
+        adapterWithMention as unknown as { stripMention: (text: string) => string }
+      ).stripMention;
 
       expect(stripMention.call(adapterWithMention, '@Dylan please help')).toBe('please help');
       expect(stripMention.call(adapterWithMention, '@dylan please help')).toBe('please help');
@@ -194,9 +200,7 @@ describe('GitHubAdapter', () => {
 
       test('removeWorktree failure with uncommitted changes should be detectable', async () => {
         const removeWorktreeMock = git.removeWorktree as jest.Mock;
-        removeWorktreeMock.mockRejectedValueOnce(
-          new Error('contains modified or untracked files')
-        );
+        removeWorktreeMock.mockRejectedValueOnce(new Error('contains modified or untracked files'));
 
         await expect(
           git.removeWorktree('/workspace/repo', '/workspace/worktrees/issue-42')
@@ -306,7 +310,8 @@ describe('GitHubAdapter', () => {
         const graphql = await import('../utils/github-graphql');
         const conversations = await import('../db/conversations');
         const mockGetLinkedIssueNumbers = graphql.getLinkedIssueNumbers as jest.Mock;
-        const mockGetConversationByPlatformId = conversations.getConversationByPlatformId as jest.Mock;
+        const mockGetConversationByPlatformId =
+          conversations.getConversationByPlatformId as jest.Mock;
 
         // PR #50 is linked to issue #42 which has a worktree
         mockGetLinkedIssueNumbers.mockResolvedValueOnce([42]);
@@ -320,7 +325,10 @@ describe('GitHubAdapter', () => {
         const linkedIssues = await graphql.getLinkedIssueNumbers('owner', 'repo', 50);
         expect(linkedIssues).toEqual([42]);
 
-        const issueConv = await conversations.getConversationByPlatformId('github', 'owner/repo#42');
+        const issueConv = await conversations.getConversationByPlatformId(
+          'github',
+          'owner/repo#42'
+        );
         expect(issueConv?.worktree_path).toBe('/workspace/worktrees/issue-42');
       });
 
@@ -339,7 +347,8 @@ describe('GitHubAdapter', () => {
         const graphql = await import('../utils/github-graphql');
         const conversations = await import('../db/conversations');
         const mockGetLinkedIssueNumbers = graphql.getLinkedIssueNumbers as jest.Mock;
-        const mockGetConversationByPlatformId = conversations.getConversationByPlatformId as jest.Mock;
+        const mockGetConversationByPlatformId =
+          conversations.getConversationByPlatformId as jest.Mock;
 
         // PR linked to issue, but issue has no worktree yet
         mockGetLinkedIssueNumbers.mockResolvedValueOnce([42]);
@@ -353,7 +362,10 @@ describe('GitHubAdapter', () => {
         const linkedIssues = await graphql.getLinkedIssueNumbers('owner', 'repo', 50);
         expect(linkedIssues).toEqual([42]);
 
-        const issueConv = await conversations.getConversationByPlatformId('github', 'owner/repo#42');
+        const issueConv = await conversations.getConversationByPlatformId(
+          'github',
+          'owner/repo#42'
+        );
         expect(issueConv?.worktree_path).toBeNull();
         // Should proceed to create new worktree when linked issue has no worktree
       });
@@ -413,10 +425,7 @@ describe('GitHubAdapter', () => {
     });
 
     describe('shared worktree cleanup integration via handleWebhook', () => {
-      const createCloseEventPayload = (
-        type: 'issue' | 'pull_request',
-        number: number
-      ): string => {
+      const createCloseEventPayload = (type: 'issue' | 'pull_request', number: number): string => {
         if (type === 'issue') {
           return JSON.stringify({
             action: 'closed',
@@ -674,9 +683,7 @@ describe('GitHubAdapter', () => {
         const issueSignature = computeSignature(issuePayload, 'fake-webhook-secret');
 
         // Should not throw - error is caught and logged
-        await expect(
-          adapter.handleWebhook(issuePayload, issueSignature)
-        ).resolves.toBeUndefined();
+        await expect(adapter.handleWebhook(issuePayload, issueSignature)).resolves.toBeUndefined();
 
         // Verify conversation was still updated
         expect(conversations.updateConversation).toHaveBeenCalledWith('issue-conv-id', {
@@ -871,7 +878,8 @@ describe('GitHubAdapter', () => {
 
         // Create signature (HMAC SHA-256)
         const crypto = require('crypto');
-        const signature = 'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
+        const signature =
+          'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
 
         await adapter.handleWebhook(payload, signature);
 
@@ -932,7 +940,8 @@ describe('GitHubAdapter', () => {
         });
 
         const crypto = require('crypto');
-        const signature = 'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
+        const signature =
+          'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
 
         await adapter.handleWebhook(payload, signature);
 
@@ -989,7 +998,8 @@ describe('GitHubAdapter', () => {
         });
 
         const crypto = require('crypto');
-        const signature = 'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
+        const signature =
+          'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
 
         await adapter.handleWebhook(payload, signature);
 
@@ -1046,7 +1056,8 @@ describe('GitHubAdapter', () => {
         });
 
         const crypto = require('crypto');
-        const signature = 'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
+        const signature =
+          'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
 
         await adapter.handleWebhook(payload, signature);
 
@@ -1081,9 +1092,7 @@ describe('GitHubAdapter', () => {
         });
 
         // Simulate removal failure
-        removeWorktreeMock.mockRejectedValue(
-          new Error('contains modified or untracked files')
-        );
+        removeWorktreeMock.mockRejectedValue(new Error('contains modified or untracked files'));
 
         const payload = JSON.stringify({
           action: 'closed',
@@ -1106,7 +1115,8 @@ describe('GitHubAdapter', () => {
         });
 
         const crypto = require('crypto');
-        const signature = 'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
+        const signature =
+          'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
 
         await adapter.handleWebhook(payload, signature);
 
@@ -1172,7 +1182,8 @@ describe('GitHubAdapter', () => {
         });
 
         const crypto = require('crypto');
-        const signature = 'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
+        const signature =
+          'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
 
         await adapter.handleWebhook(payload, signature);
 
@@ -1207,7 +1218,8 @@ describe('GitHubAdapter', () => {
         });
 
         const crypto = require('crypto');
-        const signature = 'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
+        const signature =
+          'sha256=' + crypto.createHmac('sha256', 'test-secret').update(payload).digest('hex');
 
         await adapter.handleWebhook(payload, signature);
 

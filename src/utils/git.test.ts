@@ -41,10 +41,7 @@ describe('git utilities', () => {
     });
 
     it('returns true for worktree (.git file with gitdir)', async () => {
-      await writeFile(
-        join(testDir, '.git'),
-        'gitdir: /some/repo/.git/worktrees/branch-name'
-      );
+      await writeFile(join(testDir, '.git'), 'gitdir: /some/repo/.git/worktrees/branch-name');
       const result = await isWorktreePath(testDir);
       expect(result).toBe(true);
     });
@@ -69,10 +66,7 @@ describe('git utilities', () => {
     });
 
     it('extracts main repo path from worktree', async () => {
-      await writeFile(
-        join(testDir, '.git'),
-        'gitdir: /workspace/my-repo/.git/worktrees/issue-42'
-      );
+      await writeFile(join(testDir, '.git'), 'gitdir: /workspace/my-repo/.git/worktrees/issue-42');
       const result = await getCanonicalRepoPath(testDir);
       expect(result).toBe('/workspace/my-repo');
     });
@@ -169,12 +163,7 @@ branch refs/heads/feature/auth
 
     it('returns empty array on error', async () => {
       mockExecFile.mockImplementation(
-        (
-          _cmd: string,
-          _args: string[],
-          _opts: unknown,
-          callback: (err: Error | null) => void
-        ) => {
+        (_cmd: string, _args: string[], _opts: unknown, callback: (err: Error | null) => void) => {
           callback(new Error('git not found'));
         }
       );
@@ -277,7 +266,14 @@ branch refs/heads/feature/auth
       // Verify checkout -b was called to create tracking branch
       expect(mockExecFile).toHaveBeenCalledWith(
         'git',
-        expect.arrayContaining(['-C', expect.any(String), 'checkout', '-b', 'pr-42-review', prHeadSha]),
+        expect.arrayContaining([
+          '-C',
+          expect.any(String),
+          'checkout',
+          '-b',
+          'pr-42-review',
+          prHeadSha,
+        ]),
         expect.any(Object),
         expect.any(Function)
       );
@@ -313,7 +309,14 @@ branch refs/heads/feature/auth
       // Verify worktree add was called with branch reference
       expect(mockExecFile).toHaveBeenCalledWith(
         'git',
-        expect.arrayContaining(['-C', repoPath, 'worktree', 'add', expect.any(String), `origin/${prHeadBranch}`]),
+        expect.arrayContaining([
+          '-C',
+          repoPath,
+          'worktree',
+          'add',
+          expect.any(String),
+          `origin/${prHeadBranch}`,
+        ]),
         expect.any(Object),
         expect.any(Function)
       );
@@ -347,7 +350,15 @@ branch refs/heads/feature/auth
       // Verify worktree add was called with -b flag for new branch
       expect(mockExecFile).toHaveBeenCalledWith(
         'git',
-        expect.arrayContaining(['-C', repoPath, 'worktree', 'add', expect.any(String), '-b', 'issue-42']),
+        expect.arrayContaining([
+          '-C',
+          repoPath,
+          'worktree',
+          'add',
+          expect.any(String),
+          '-b',
+          'issue-42',
+        ]),
         expect.any(Object),
         expect.any(Function)
       );

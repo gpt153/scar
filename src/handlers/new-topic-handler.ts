@@ -76,7 +76,10 @@ async function copyTemplateStructure(
     .replace(/\{\{GITHUB_URL\}\}/g, metadata.githubUrl)
     .replace(/\{\{ARCHON_PROJECT_ID\}\}/g, metadata.archonProjectId)
     .replace(/\{\{WORKSPACE_PATH\}\}/g, repoPath)
-    .replace(/\{\{PROJECT_DESCRIPTION\}\}/g, `${metadata.projectName} - Created via Remote Coding Agent`)
+    .replace(
+      /\{\{PROJECT_DESCRIPTION\}\}/g,
+      `${metadata.projectName} - Created via Remote Coding Agent`
+    )
     .replace(/\{\{CUSTOM_NOTES\}\}/g, 'Add project-specific notes here.');
 
   await writeFile(join(repoPath, 'CLAUDE.md'), customized, 'utf-8');
@@ -169,7 +172,13 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
 
     // 7. Commit all changes (template + README)
     await execFileAsync('git', ['-C', repoPath, 'add', '.']);
-    await execFileAsync('git', ['-C', repoPath, 'commit', '-m', 'Add project template and metadata']);
+    await execFileAsync('git', [
+      '-C',
+      repoPath,
+      'commit',
+      '-m',
+      'Add project template and metadata',
+    ]);
     await execFileAsync('git', ['-C', repoPath, 'push']);
 
     // 8. Create codebase record in database

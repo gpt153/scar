@@ -32,10 +32,9 @@ export async function getAllTemplates(): Promise<CommandTemplate[]> {
 }
 
 export async function deleteTemplate(name: string): Promise<boolean> {
-  const result = await pool.query(
-    'DELETE FROM remote_agent_command_templates WHERE name = $1',
-    [name]
-  );
+  const result = await pool.query('DELETE FROM remote_agent_command_templates WHERE name = $1', [
+    name,
+  ]);
   return (result.rowCount ?? 0) > 0;
 }
 

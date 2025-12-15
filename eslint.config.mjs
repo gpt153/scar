@@ -12,6 +12,8 @@ export default tseslint.config(
       '.agents/examples/**',
       'workspace/**',
       'worktrees/**',
+      'client/**', // Ignore client projects (separate configs)
+      '*.ts', // Ignore root-level TS scripts (not in src/)
       '**/*.js', // Ignore JS files (like jest.config.js)
       '*.mjs', // Ignore ESLint config itself
       '**/*.test.ts', // Ignore test files (excluded from tsconfig)

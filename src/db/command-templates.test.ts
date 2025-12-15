@@ -138,10 +138,11 @@ describe('command-templates', () => {
       });
 
       expect(result).toEqual(mockTemplate);
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('ON CONFLICT'),
-        ['plan', 'Create implementation plan', '# Plan']
-      );
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('ON CONFLICT'), [
+        'plan',
+        'Create implementation plan',
+        '# Plan',
+      ]);
     });
   });
 });

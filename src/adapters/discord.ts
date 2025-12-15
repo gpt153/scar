@@ -183,7 +183,7 @@ export class DiscordAdapter implements IPlatformAdapter {
       const sorted = [...messages.values()].reverse();
 
       return sorted.map(msg => {
-        const author = msg.author.bot ? '[Bot]' : (msg.author.displayName || msg.author.username);
+        const author = msg.author.bot ? '[Bot]' : msg.author.displayName || msg.author.username;
         return `${author}: ${msg.content}`;
       });
     } catch (error) {

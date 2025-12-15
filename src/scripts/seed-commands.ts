@@ -35,7 +35,7 @@ export async function seedDefaultCommands(): Promise<void> {
 
   try {
     const files = await readdir(SEED_COMMANDS_PATH);
-    const mdFiles = files.filter((f) => f.endsWith('.md'));
+    const mdFiles = files.filter(f => f.endsWith('.md'));
 
     for (const file of mdFiles) {
       const name = basename(file, '.md');

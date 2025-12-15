@@ -55,7 +55,7 @@ function buildMcpServers(): Record<string, McpServer> {
     const headers: Record<string, string> = {};
 
     if (process.env.ARCHON_TOKEN) {
-      headers['Authorization'] = `Bearer ${process.env.ARCHON_TOKEN}`;
+      headers.Authorization = `Bearer ${process.env.ARCHON_TOKEN}`;
     }
 
     mcpServers.archon = {

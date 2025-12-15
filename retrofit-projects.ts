@@ -35,7 +35,7 @@ async function copyTemplate(projectPath: string): Promise<void> {
   // Copy template contents (recursive)
   await cp(join(TEMPLATE_DIR, '.claude'), claudeDir, {
     recursive: true,
-    force: false // Don't overwrite existing files
+    force: false, // Don't overwrite existing files
   });
 
   console.log('  → Copying .agents/ directory...');
@@ -50,7 +50,7 @@ async function copyTemplate(projectPath: string): Promise<void> {
   // Copy .agents structure
   await cp(join(TEMPLATE_DIR, '.agents'), agentsDir, {
     recursive: true,
-    force: false
+    force: false,
   });
 
   console.log('  ✓ Template structure copied');

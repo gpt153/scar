@@ -394,7 +394,11 @@ export class GitHubAdapter implements IPlatformAdapter {
   private async getOrCreateCodebaseForRepo(
     owner: string,
     repo: string
-  ): Promise<{ codebase: { id: string; name: string; default_cwd: string }; repoPath: string; isNew: boolean }> {
+  ): Promise<{
+    codebase: { id: string; name: string; default_cwd: string };
+    repoPath: string;
+    isNew: boolean;
+  }> {
     // Try both with and without .git suffix to match existing clones
     const repoUrlNoGit = `https://github.com/${owner}/${repo}`;
     const repoUrlWithGit = `${repoUrlNoGit}.git`;
@@ -655,7 +659,9 @@ ${userComment}`;
               });
               prHeadBranch = prData.head.ref;
               prHeadSha = prData.head.sha;
-              console.log(`[GitHub] PR #${String(number)} head branch: ${prHeadBranch}, SHA: ${prHeadSha}`);
+              console.log(
+                `[GitHub] PR #${String(number)} head branch: ${prHeadBranch}, SHA: ${prHeadSha}`
+              );
             } catch (error) {
               console.warn(
                 '[GitHub] Failed to fetch PR head branch, will create new branch instead:',
@@ -664,7 +670,13 @@ ${userComment}`;
             }
           }
 
-          worktreePath = await createWorktreeForIssue(repoPath, number, isPR, prHeadBranch, prHeadSha);
+          worktreePath = await createWorktreeForIssue(
+            repoPath,
+            number,
+            isPR,
+            prHeadBranch,
+            prHeadSha
+          );
           console.log(`[GitHub] Created worktree: ${worktreePath}`);
 
           // Update conversation with worktree path
@@ -741,7 +753,12 @@ ${userComment}`;
     // Add worktree context if working in an isolated branch
     if (worktreePath) {
       // Use the actual PR head branch name if available, otherwise use the worktree naming convention
-      const branchName = (isPR && prHeadBranch) ? prHeadBranch : (isPR ? `pr-${String(number)}` : `issue-${String(number)}`);
+      const branchName =
+        isPR && prHeadBranch
+          ? prHeadBranch
+          : isPR
+            ? `pr-${String(number)}`
+            : `issue-${String(number)}`;
       let worktreeContext: string;
 
       if (isPR && prHeadBranch && prHeadSha) {

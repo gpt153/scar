@@ -20,14 +20,14 @@ Complete guide to all available commands, agents, and workflows in the Remote Co
 
 ### Essential Commands (Start Here)
 
-| Command | Purpose | When to Use |
-|---------|---------|-------------|
-| `/help` | Show all available commands | First time using the system |
-| `/clone <url>` | Clone a GitHub repository | Start working on a new codebase |
-| `/status` | Show conversation state | Check current codebase, session, commands |
-| `/core_piv_loop:prime` | Analyze and understand codebase | After cloning, before planning features |
-| `/core_piv_loop:plan-feature` | Create implementation plan | Before building any new feature |
-| `/core_piv_loop:execute` | Implement the plan | After approving the plan |
+| Command                       | Purpose                         | When to Use                               |
+| ----------------------------- | ------------------------------- | ----------------------------------------- |
+| `/help`                       | Show all available commands     | First time using the system               |
+| `/clone <url>`                | Clone a GitHub repository       | Start working on a new codebase           |
+| `/status`                     | Show conversation state         | Check current codebase, session, commands |
+| `/core_piv_loop:prime`        | Analyze and understand codebase | After cloning, before planning features   |
+| `/core_piv_loop:plan-feature` | Create implementation plan      | Before building any new feature           |
+| `/core_piv_loop:execute`      | Implement the plan              | After approving the plan                  |
 
 ### Most Common Workflows
 
@@ -48,18 +48,18 @@ Commands are organized into logical namespaces based on their purpose.
 
 **Built into the application** - Basic codebase and conversation management.
 
-| Command | Description |
-|---------|-------------|
-| `/help` | Display all available commands |
-| `/status` | Show conversation state (codebase, session, commands) |
-| `/clone <url>` | Clone GitHub repository to workspace |
-| `/repos` | List all cloned repositories |
-| `/getcwd` | Show current working directory |
-| `/setcwd <path>` | Change working directory |
-| `/command-set <name> <path>` | Register a custom command file |
-| `/load-commands <folder>` | Bulk load all .md commands from folder |
-| `/commands` | List all registered commands for current codebase |
-| `/reset` | Clear active AI session (start fresh) |
+| Command                      | Description                                           |
+| ---------------------------- | ----------------------------------------------------- |
+| `/help`                      | Display all available commands                        |
+| `/status`                    | Show conversation state (codebase, session, commands) |
+| `/clone <url>`               | Clone GitHub repository to workspace                  |
+| `/repos`                     | List all cloned repositories                          |
+| `/getcwd`                    | Show current working directory                        |
+| `/setcwd <path>`             | Change working directory                              |
+| `/command-set <name> <path>` | Register a custom command file                        |
+| `/load-commands <folder>`    | Bulk load all .md commands from folder                |
+| `/commands`                  | List all registered commands for current codebase     |
+| `/reset`                     | Clear active AI session (start fresh)                 |
 
 ---
 
@@ -67,11 +67,11 @@ Commands are organized into logical namespaces based on their purpose.
 
 **The primary workflow** for feature development with formal planning and execution phases.
 
-| Command | Description | Output |
-|---------|-------------|--------|
-| `/core_piv_loop:prime` | Deep codebase analysis and context building | Context report with architecture, tech stack, patterns |
-| `/core_piv_loop:plan-feature` | Create comprehensive implementation plan | Detailed plan.md with steps, files, tests, risks |
-| `/core_piv_loop:execute [plan-file]` | Execute plan with Archon task management | Implemented feature with progress tracking |
+| Command                              | Description                                 | Output                                                 |
+| ------------------------------------ | ------------------------------------------- | ------------------------------------------------------ |
+| `/core_piv_loop:prime`               | Deep codebase analysis and context building | Context report with architecture, tech stack, patterns |
+| `/core_piv_loop:plan-feature`        | Create comprehensive implementation plan    | Detailed plan.md with steps, files, tests, risks       |
+| `/core_piv_loop:execute [plan-file]` | Execute plan with Archon task management    | Implemented feature with progress tracking             |
 
 **When to use:** Building new features, major refactors, or working on unfamiliar codebases where you want formal planning.
 
@@ -81,14 +81,14 @@ Commands are organized into logical namespaces based on their purpose.
 
 **Testing and verification** workflows to ensure code quality before deployment.
 
-| Command | Description | Output |
-|---------|-------------|--------|
-| `/validation:code-review` | Technical code review (pre-commit) | List of bugs, code smells, improvements |
-| `/validation:code-review-fix` | Fix bugs from code review | Implemented fixes for review findings |
-| `/validation:validate [ngrok-url]` | End-to-end validation with live testing | Test results, screenshots, bug reports |
-| `/validation:execution-report` | Generate implementation report | Markdown report of what was built |
-| `/validation:system-review` | Compare implementation vs plan | Process improvements, lessons learned |
-| `/validation:ultimate_validate_command` | Generate codebase-specific validation | Custom validation script for this project |
+| Command                                 | Description                             | Output                                    |
+| --------------------------------------- | --------------------------------------- | ----------------------------------------- |
+| `/validation:code-review`               | Technical code review (pre-commit)      | List of bugs, code smells, improvements   |
+| `/validation:code-review-fix`           | Fix bugs from code review               | Implemented fixes for review findings     |
+| `/validation:validate [ngrok-url]`      | End-to-end validation with live testing | Test results, screenshots, bug reports    |
+| `/validation:execution-report`          | Generate implementation report          | Markdown report of what was built         |
+| `/validation:system-review`             | Compare implementation vs plan          | Process improvements, lessons learned     |
+| `/validation:ultimate_validate_command` | Generate codebase-specific validation   | Custom validation script for this project |
 
 **When to use:** Before commits, before PRs, after major implementations, or for continuous quality checks.
 
@@ -98,10 +98,10 @@ Commands are organized into logical namespaces based on their purpose.
 
 **Structured bug fix workflow** with root cause analysis.
 
-| Command | Description | Output |
-|---------|-------------|--------|
-| `/github_bug_fix:rca [issue-id]` | Deep root cause analysis | RCA-report.md with diagnosis and fix strategy |
-| `/github_bug_fix:implement-fix [issue-id]` | Implement fix from RCA | Code changes, tests, verification |
+| Command                                    | Description              | Output                                        |
+| ------------------------------------------ | ------------------------ | --------------------------------------------- |
+| `/github_bug_fix:rca [issue-id]`           | Deep root cause analysis | RCA-report.md with diagnosis and fix strategy |
+| `/github_bug_fix:implement-fix [issue-id]` | Implement fix from RCA   | Code changes, tests, verification             |
 
 **When to use:** Complex bugs that need investigation, production issues, or when you want documentation of the fix reasoning.
 
@@ -113,49 +113,49 @@ Commands are organized into logical namespaces based on their purpose.
 
 #### Planning & Implementation
 
-| Command | Description |
-|---------|-------------|
+| Command                                   | Description                                         |
+| ----------------------------------------- | --------------------------------------------------- |
 | `/exp-piv-loop:plan <description or PRD>` | Deep implementation planning with codebase analysis |
-| `/exp-piv-loop:implement <plan.md>` | Execute implementation plan autonomously |
-| `/exp-piv-loop:prd [filename]` | Create lean, problem-first PRD |
+| `/exp-piv-loop:implement <plan.md>`       | Execute implementation plan autonomously            |
+| `/exp-piv-loop:prd [filename]`            | Create lean, problem-first PRD                      |
 
 #### Git & GitHub Operations
 
-| Command | Description |
-|---------|-------------|
-| `/exp-piv-loop:commit [target]` | Quick commit with natural language file targeting |
-| `/exp-piv-loop:create-pr [base-branch]` | Create PR from current branch |
-| `/exp-piv-loop:merge-pr [pr-number]` | Merge PR after rebase with main |
-| `/exp-piv-loop:review-pr <number> [--approve]` | Comprehensive PR code review with comments |
+| Command                                        | Description                                       |
+| ---------------------------------------------- | ------------------------------------------------- |
+| `/exp-piv-loop:commit [target]`                | Quick commit with natural language file targeting |
+| `/exp-piv-loop:create-pr [base-branch]`        | Create PR from current branch                     |
+| `/exp-piv-loop:merge-pr [pr-number]`           | Merge PR after rebase with main                   |
+| `/exp-piv-loop:review-pr <number> [--approve]` | Comprehensive PR code review with comments        |
 
 #### Issue & Bug Management
 
-| Command | Description |
-|---------|-------------|
-| `/exp-piv-loop:fix-issue <number>` | End-to-end issue resolution (RCA + fix + test) |
-| `/exp-piv-loop:rca <issue/error> [quick]` | Root cause analysis for any error |
-| `/exp-piv-loop:fix-rca <RCA-report.md>` | Implement fix from RCA document |
+| Command                                   | Description                                    |
+| ----------------------------------------- | ---------------------------------------------- |
+| `/exp-piv-loop:fix-issue <number>`        | End-to-end issue resolution (RCA + fix + test) |
+| `/exp-piv-loop:rca <issue/error> [quick]` | Root cause analysis for any error              |
+| `/exp-piv-loop:fix-rca <RCA-report.md>`   | Implement fix from RCA document                |
 
 #### Release Management
 
-| Command | Description |
-|---------|-------------|
-| `/exp-piv-loop:changelog-entry [category] <desc>` | Add entry to CHANGELOG.md [Unreleased] |
-| `/exp-piv-loop:changelog-release [version]` | Promote unreleased entries to version |
-| `/exp-piv-loop:release-notes [version]` | Generate release notes from commits/changelog |
-| `/exp-piv-loop:release <version>` | Create GitHub Release with tag and notes |
+| Command                                           | Description                                   |
+| ------------------------------------------------- | --------------------------------------------- |
+| `/exp-piv-loop:changelog-entry [category] <desc>` | Add entry to CHANGELOG.md [Unreleased]        |
+| `/exp-piv-loop:changelog-release [version]`       | Promote unreleased entries to version         |
+| `/exp-piv-loop:release-notes [version]`           | Generate release notes from commits/changelog |
+| `/exp-piv-loop:release <version>`                 | Create GitHub Release with tag and notes      |
 
 #### Worktree Management
 
-| Command | Description |
-|---------|-------------|
-| `/exp-piv-loop:worktree <branch...>` | Create git worktrees for parallel development |
-| `/exp-piv-loop:worktree-cleanup <name>` | Clean up worktrees after PR merge |
+| Command                                 | Description                                   |
+| --------------------------------------- | --------------------------------------------- |
+| `/exp-piv-loop:worktree <branch...>`    | Create git worktrees for parallel development |
+| `/exp-piv-loop:worktree-cleanup <name>` | Clean up worktrees after PR merge             |
 
 #### Smart Routing
 
-| Command | Description |
-|---------|-------------|
+| Command                | Description                                    |
+| ---------------------- | ---------------------------------------------- |
 | `/exp-piv-loop:router` | Route natural language to appropriate workflow |
 
 **When to use:** Day-to-day development, PR workflows, release management, or parallel feature development.
@@ -166,10 +166,10 @@ Commands are organized into logical namespaces based on their purpose.
 
 **High-level autonomous workflows** that handle entire processes end-to-end.
 
-| Command | Description | Output |
-|---------|-------------|--------|
+| Command                             | Description                                                        | Output                   |
+| ----------------------------------- | ------------------------------------------------------------------ | ------------------------ |
 | `/end-to-end-feature <description>` | Fully autonomous feature development (plan → code → test → commit) | Complete feature with PR |
-| `/create-prd [filename]` | Generate PRD from conversation history | PRD.md document |
+| `/create-prd [filename]`            | Generate PRD from conversation history                             | PRD.md document          |
 
 **When to use:** When you want the AI to handle everything autonomously without supervision.
 
@@ -404,6 +404,7 @@ For users who want ZERO intervention:
 **Purpose:** Clone a GitHub repository to the workspace.
 
 **What it does:**
+
 - Executes `git clone` to workspace directory
 - Creates codebase record in database
 - Auto-detects command folders (`.claude/commands/`, `.agents/commands/`)
@@ -411,11 +412,13 @@ For users who want ZERO intervention:
 - Sets default working directory
 
 **Example:**
+
 ```bash
 /clone https://github.com/anthropics/anthropic-sdk-typescript
 ```
 
 **Output:**
+
 ```
 ✅ Repository cloned successfully!
 
@@ -433,6 +436,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Show current conversation state.
 
 **What it shows:**
+
 - Platform type (telegram, slack, github, discord)
 - AI assistant type (claude, codex)
 - Active codebase name and ID
@@ -441,6 +445,7 @@ Load commands? (Reply /load-commands .claude/commands)
 - Registered commands list
 
 **Example Output:**
+
 ```
 📊 Conversation Status
 
@@ -466,6 +471,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** List all cloned repositories.
 
 **What it shows:**
+
 - All codebases in database
 - Repository URLs
 - Default working directories
@@ -478,11 +484,13 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Clear the active AI session and start fresh.
 
 **When to use:**
+
 - AI is stuck or giving unhelpful responses
 - Want to start a new context without previous conversation
 - Session has grown too large (token limits)
 
 **What it does:**
+
 - Marks current session as inactive in database
 - Next message creates a new session
 - Preserves codebase configuration
@@ -498,6 +506,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Build comprehensive codebase understanding.
 
 **What it does:**
+
 - Analyzes directory structure
 - Reads core documentation (README, CLAUDE.md, PRD)
 - Identifies tech stack and dependencies
@@ -506,6 +515,7 @@ Load commands? (Reply /load-commands .claude/commands)
 - Reads key implementation files
 
 **Output:** Context report with:
+
 - Project overview and purpose
 - Architecture summary
 - Tech stack breakdown
@@ -513,6 +523,7 @@ Load commands? (Reply /load-commands .claude/commands)
 - Current state and recent changes
 
 **When to use:**
+
 - After cloning a new repository
 - Before planning major features
 - When onboarding to unfamiliar codebase
@@ -525,6 +536,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Create detailed implementation plan for a feature.
 
 **What it does:**
+
 - Researches existing codebase patterns
 - Identifies files to modify/create
 - Plans step-by-step implementation
@@ -534,32 +546,40 @@ Load commands? (Reply /load-commands .claude/commands)
 **Input:** Feature description (can be detailed or high-level)
 
 **Output:** Markdown plan file containing:
+
 ```markdown
 # Feature Implementation Plan
 
 ## Overview
+
 [Feature description and goals]
 
 ## Architecture Analysis
+
 [Relevant patterns and conventions]
 
 ## Implementation Steps
+
 1. Step-by-step tasks
 2. File modifications
 3. Test additions
 
 ## Files to Modify
+
 - src/file1.ts - [changes]
 - src/file2.ts - [changes]
 
 ## Testing Strategy
+
 [How to verify the feature works]
 
 ## Risks & Considerations
+
 [Potential issues and mitigations]
 ```
 
 **Example:**
+
 ```bash
 /core_piv_loop:plan-feature "Add rate limiting to API endpoints"
 ```
@@ -571,6 +591,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Implement the feature based on the plan.
 
 **What it does:**
+
 - Reads the plan document
 - Integrates with Archon MCP for task tracking
 - Implements each step systematically
@@ -581,11 +602,13 @@ Load commands? (Reply /load-commands .claude/commands)
 **Input:** Path to plan file (optional - uses most recent plan if omitted)
 
 **Example:**
+
 ```bash
 /core_piv_loop:execute .agents/plans/rate-limiting.plan.md
 ```
 
 **Session Behavior:**
+
 - Creates a **NEW session** (fresh context for implementation)
 - Plan content is injected into the new session
 - This is the ONLY command that creates a new session automatically
@@ -599,6 +622,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Technical code review for quality and bugs (pre-commit).
 
 **What it checks:**
+
 - Code quality and style violations
 - Potential bugs and logic errors
 - Security vulnerabilities
@@ -607,6 +631,7 @@ Load commands? (Reply /load-commands .claude/commands)
 - Documentation completeness
 
 **Output:** Categorized list of findings:
+
 ```
 🔴 CRITICAL
 - [File:Line] SQL injection vulnerability
@@ -620,6 +645,7 @@ Load commands? (Reply /load-commands .claude/commands)
 ```
 
 **When to use:**
+
 - Before committing changes
 - After implementing a feature
 - As part of CI/CD pipeline
@@ -631,12 +657,14 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Automatically fix issues found in code review.
 
 **What it does:**
+
 - Reads previous code review findings
 - Fixes all auto-fixable issues
 - Reports which issues were fixed
 - Lists issues requiring manual intervention
 
 **When to use:**
+
 - After `/validation:code-review` finds issues
 - To quickly resolve common code quality problems
 
@@ -647,6 +675,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** End-to-end validation with live testing.
 
 **What it does:**
+
 - Starts the application
 - Runs comprehensive test suite
 - Performs manual testing scenarios
@@ -657,6 +686,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Input:** Optional ngrok URL for testing webhooks/external integrations
 
 **When to use:**
+
 - Before merging a PR
 - After major refactors
 - Before releases
@@ -670,6 +700,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Deep root cause analysis for a GitHub issue.
 
 **What it does:**
+
 - Reads GitHub issue description
 - Analyzes stack traces and error messages
 - Searches codebase for related code
@@ -678,26 +709,33 @@ Load commands? (Reply /load-commands .claude/commands)
 - Proposes fix strategy
 
 **Output:** RCA report document:
+
 ```markdown
 # Root Cause Analysis: Issue #42
 
 ## Issue Summary
+
 [Problem description]
 
 ## Root Cause
+
 [Detailed explanation of underlying issue]
 
 ## Reproduction Steps
+
 [How to trigger the bug]
 
 ## Proposed Fix
+
 [Strategy for resolution]
 
 ## Files to Modify
+
 [List of changes needed]
 ```
 
 **Example:**
+
 ```bash
 /github_bug_fix:rca 42
 ```
@@ -709,6 +747,7 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Implement fix based on RCA document.
 
 **What it does:**
+
 - Reads RCA report
 - Implements proposed fix
 - Adds regression tests
@@ -716,6 +755,7 @@ Load commands? (Reply /load-commands .claude/commands)
 - Creates commit
 
 **Example:**
+
 ```bash
 /github_bug_fix:implement-fix 42
 ```
@@ -729,12 +769,14 @@ Load commands? (Reply /load-commands .claude/commands)
 **Purpose:** Quick commit with natural language file targeting.
 
 **What it does:**
+
 - Analyzes staged and unstaged changes
 - Filters files matching target description (if provided)
 - Generates descriptive commit message
 - Creates commit following conventional commits format
 
 **Examples:**
+
 ```bash
 /exp-piv-loop:commit
 # Commits all changes
@@ -747,6 +789,7 @@ Load commands? (Reply /load-commands .claude/commands)
 ```
 
 **Output:**
+
 ```
 ✅ Committed 3 files
 
@@ -763,6 +806,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Purpose:** Create pull request from current branch.
 
 **What it does:**
+
 - Analyzes all commits in current branch
 - Generates PR title and description
 - Creates test plan checklist
@@ -771,6 +815,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Input:** Base branch (default: `main`)
 
 **Example:**
+
 ```bash
 /exp-piv-loop:create-pr
 # Creates PR to main
@@ -780,6 +825,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ```
 
 **Output:**
+
 ```
 ✅ Pull Request created!
 
@@ -795,6 +841,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Purpose:** Comprehensive PR code review.
 
 **What it does:**
+
 - Fetches PR diff from GitHub
 - Analyzes code changes
 - Checks for bugs, style issues, security problems
@@ -802,6 +849,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 - Optionally approves or requests changes
 
 **Examples:**
+
 ```bash
 /exp-piv-loop:review-pr 123
 # Review only (no approval)
@@ -820,6 +868,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Purpose:** End-to-end issue resolution.
 
 **What it does:**
+
 - Reads GitHub issue
 - Performs quick RCA
 - Implements fix
@@ -829,11 +878,13 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 - Links PR to issue
 
 **Example:**
+
 ```bash
 /exp-piv-loop:fix-issue 42
 ```
 
 **Output:**
+
 ```
 ✅ Issue #42 fixed!
 
@@ -850,17 +901,20 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Purpose:** Create isolated git worktrees for parallel development.
 
 **What it does:**
+
 - Creates separate worktrees for each branch
 - Validates branch names
 - Sets up directory structure
 - Reports worktree paths
 
 **Example:**
+
 ```bash
 /exp-piv-loop:worktree feature-auth feature-api bugfix-login
 ```
 
 **Output:**
+
 ```
 ✅ Created 3 worktrees:
 
@@ -883,6 +937,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Purpose:** Add entry to CHANGELOG.md [Unreleased] section.
 
 **Categories:**
+
 - `added` - New features
 - `changed` - Changes to existing functionality
 - `deprecated` - Soon-to-be removed features
@@ -891,6 +946,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 - `security` - Security fixes
 
 **Examples:**
+
 ```bash
 /exp-piv-loop:changelog-entry added "JWT authentication for API endpoints"
 
@@ -907,17 +963,20 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Purpose:** Create GitHub Release with tag and notes.
 
 **What it does:**
+
 - Creates git tag
 - Generates release notes from changelog
 - Creates GitHub Release
 - Attaches release assets (if configured)
 
 **Example:**
+
 ```bash
 /exp-piv-loop:release 1.2.0
 ```
 
 **Output:**
+
 ```
 ✅ Release 1.2.0 created!
 
@@ -935,6 +994,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Purpose:** Fully autonomous feature development from start to finish.
 
 **What it does (no human intervention required):**
+
 1. Primes itself on codebase
 2. Creates implementation plan
 3. Implements feature
@@ -944,6 +1004,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 7. Opens pull request
 
 **Example:**
+
 ```bash
 /end-to-end-feature "Add dark mode toggle to user settings"
 ```
@@ -951,6 +1012,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Output:** Complete PR ready for review.
 
 **When to use:**
+
 - Trust the AI completely
 - Simple, well-defined features
 - Want to minimize interaction
@@ -964,12 +1026,14 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 **Purpose:** Generate Product Requirements Document from conversation.
 
 **What it does:**
+
 - Analyzes conversation history
 - Extracts requirements and decisions
 - Structures into PRD format
 - Writes to file
 
 **Output:** PRD.md with:
+
 - Problem statement
 - Goals and success metrics
 - User stories
@@ -977,6 +1041,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 - Out of scope items
 
 **Example:**
+
 ```bash
 /create-prd feature-auth-prd.md
 ```
@@ -988,27 +1053,32 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 The system uses specialized agents internally for different tasks:
 
 ### general-purpose
+
 **Purpose:** Researching complex questions, searching code, multi-step tasks
 **Tools Available:** All tools
 **When Used:** Open-ended exploration, keyword searches, codebase discovery
 
 ### Explore
+
 **Purpose:** Fast codebase exploration
 **Tools Available:** Glob, Grep, Read
 **Thoroughness Levels:** quick, medium, very thorough
 **When Used:** Finding files by patterns, searching for keywords, answering codebase questions
 
 ### Plan
+
 **Purpose:** Software architecture and implementation design
 **Tools Available:** All tools
 **When Used:** Creating implementation plans, identifying critical files, considering trade-offs
 
 ### statusline-setup
+
 **Purpose:** Configure Claude Code status line
 **Tools Available:** Read, Edit
 **When Used:** System configuration tasks
 
 ### claude-code-guide
+
 **Purpose:** Answer questions about Claude Code, SDK, API
 **Tools Available:** Glob, Grep, Read, WebFetch, WebSearch
 **When Used:** Documentation lookup, feature questions, API usage help
@@ -1058,6 +1128,7 @@ Are you starting with a new codebase?
 ### 🎯 When to Use Structured Commands vs Natural Conversation
 
 **Use Commands When:**
+
 - Working on unfamiliar codebases (always prime first)
 - Building complex features (plan → execute workflow)
 - Want formal documentation (PRDs, RCAs, plans)
@@ -1065,6 +1136,7 @@ Are you starting with a new codebase?
 - Working on production code (validation workflows)
 
 **Use Natural Conversation When:**
+
 - Quick questions or small changes
 - Iterating rapidly on code
 - Exploring ideas
@@ -1105,20 +1177,20 @@ Many commands work well in sequence:
 
 **I want to...**
 
-| Goal | Command |
-|------|---------|
-| Start working on a repo | `/clone <url>` |
-| Understand the codebase | `/core_piv_loop:prime` |
-| Build a new feature | `/core_piv_loop:plan-feature` then `/execute` |
-| Fix a bug quickly | `/exp-piv-loop:fix-issue <number>` |
-| Review my code | `/validation:code-review` |
-| Review someone's PR | `/exp-piv-loop:review-pr <number>` |
-| Make a commit | `/exp-piv-loop:commit` |
-| Create a pull request | `/exp-piv-loop:create-pr` |
-| Work on multiple features | `/exp-piv-loop:worktree branch1 branch2` |
-| See what's happening | `/status` |
-| Start fresh | `/reset` |
-| Do everything autonomously | `/end-to-end-feature "description"` |
+| Goal                       | Command                                       |
+| -------------------------- | --------------------------------------------- |
+| Start working on a repo    | `/clone <url>`                                |
+| Understand the codebase    | `/core_piv_loop:prime`                        |
+| Build a new feature        | `/core_piv_loop:plan-feature` then `/execute` |
+| Fix a bug quickly          | `/exp-piv-loop:fix-issue <number>`            |
+| Review my code             | `/validation:code-review`                     |
+| Review someone's PR        | `/exp-piv-loop:review-pr <number>`            |
+| Make a commit              | `/exp-piv-loop:commit`                        |
+| Create a pull request      | `/exp-piv-loop:create-pr`                     |
+| Work on multiple features  | `/exp-piv-loop:worktree branch1 branch2`      |
+| See what's happening       | `/status`                                     |
+| Start fresh                | `/reset`                                      |
+| Do everything autonomously | `/end-to-end-feature "description"`           |
 
 ---
 

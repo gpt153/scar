@@ -713,13 +713,20 @@ describe('CommandHandler', () => {
 
         test('should create worktree with valid name', async () => {
           mockExecFile.mockImplementation(
-            (_cmd: string, _args: string[], callback: (err: Error | null, result: { stdout: string; stderr: string }) => void) => {
+            (
+              _cmd: string,
+              _args: string[],
+              callback: (err: Error | null, result: { stdout: string; stderr: string }) => void
+            ) => {
               callback(null, { stdout: '', stderr: '' });
             }
           );
           mockSessionDb.getActiveSession.mockResolvedValue(null);
 
-          const result = await handleCommand(conversationWithCodebase, '/worktree create feat-auth');
+          const result = await handleCommand(
+            conversationWithCodebase,
+            '/worktree create feat-auth'
+          );
 
           expect(result.success).toBe(true);
           expect(result.message).toContain('Worktree created');
@@ -749,7 +756,11 @@ describe('CommandHandler', () => {
       describe('list', () => {
         test('should list worktrees', async () => {
           mockExecFile.mockImplementation(
-            (_cmd: string, _args: string[], callback: (err: Error | null, result: { stdout: string; stderr: string }) => void) => {
+            (
+              _cmd: string,
+              _args: string[],
+              callback: (err: Error | null, result: { stdout: string; stderr: string }) => void
+            ) => {
               callback(null, {
                 stdout:
                   '/workspace/my-repo  abc1234 [main]\n/workspace/my-repo/worktrees/feat-x  def5678 [feat-x]\n',
@@ -786,7 +797,11 @@ describe('CommandHandler', () => {
           };
 
           mockExecFile.mockImplementation(
-            (_cmd: string, _args: string[], callback: (err: Error | null, result: { stdout: string; stderr: string }) => void) => {
+            (
+              _cmd: string,
+              _args: string[],
+              callback: (err: Error | null, result: { stdout: string; stderr: string }) => void
+            ) => {
               callback(null, { stdout: '', stderr: '' });
             }
           );
@@ -883,8 +898,12 @@ describe('CommandHandler', () => {
         expect(commands['test-command']).toBeDefined();
         expect(commands['another-command']).toBeDefined();
         // Check path ends with expected relative path (platform-agnostic)
-        expect(commands['test-command'].path).toMatch(/\.claude[\\\/]commands[\\\/]test-command\.md$/);
-        expect(commands['another-command'].path).toMatch(/\.claude[\\\/]commands[\\\/]another-command\.md$/);
+        expect(commands['test-command'].path).toMatch(
+          /\.claude[\\\/]commands[\\\/]test-command\.md$/
+        );
+        expect(commands['another-command'].path).toMatch(
+          /\.claude[\\\/]commands[\\\/]another-command\.md$/
+        );
         expect(commands['test-command'].description).toBe('From .claude/commands');
         expect(commands['another-command'].description).toBe('From .claude/commands');
       });

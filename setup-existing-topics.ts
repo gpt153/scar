@@ -23,7 +23,13 @@ interface ProjectInfo {
 
 async function getGitHubUrl(projectPath: string): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('git', ['-C', projectPath, 'remote', 'get-url', 'origin']);
+    const { stdout } = await execFileAsync('git', [
+      '-C',
+      projectPath,
+      'remote',
+      'get-url',
+      'origin',
+    ]);
     return stdout.trim();
   } catch {
     return null;

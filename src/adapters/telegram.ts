@@ -72,7 +72,9 @@ export class TelegramAdapter implements IPlatformAdapter {
     const id = parseInt(parts[0]);
     const threadId = parts[1] ? parseInt(parts[1]) : undefined;
 
-    console.log(`[Telegram] sendMessage called, chat=${id}, thread=${threadId ?? 'none'}, length=${String(message.length)}`);
+    console.log(
+      `[Telegram] sendMessage called, chat=${id}, thread=${threadId ?? 'none'}, length=${String(message.length)}`
+    );
 
     if (message.length <= MAX_LENGTH) {
       // Short message: try MarkdownV2 formatting

@@ -84,8 +84,9 @@ export const ChatPanel: React.FC = () => {
     try {
       // Convert chat history to format expected by service (filter out system messages)
       const historyForAI = chatHistory
-        .filter((msg): msg is { role: 'user' | 'assistant'; content: string; timestamp: string } =>
-          msg.role === 'user' || msg.role === 'assistant'
+        .filter(
+          (msg): msg is { role: 'user' | 'assistant'; content: string; timestamp: string } =>
+            msg.role === 'user' || msg.role === 'assistant'
         )
         .map(msg => ({
           role: msg.role,
@@ -117,7 +118,9 @@ export const ChatPanel: React.FC = () => {
 
       // If no code block, try to find raw JSON
       if (!nodeCreationCommand) {
-        const rawJsonMatch = fullResponse.match(/\{[\s\S]*?"action"\s*:\s*"create_nodes"[\s\S]*?\}/);
+        const rawJsonMatch = fullResponse.match(
+          /\{[\s\S]*?"action"\s*:\s*"create_nodes"[\s\S]*?\}/
+        );
         if (rawJsonMatch) {
           try {
             nodeCreationCommand = JSON.parse(rawJsonMatch[0]);
@@ -129,7 +132,10 @@ export const ChatPanel: React.FC = () => {
       }
 
       // Process node creation if we found valid JSON
-      if (nodeCreationCommand?.action === 'create_nodes' && Array.isArray(nodeCreationCommand.nodes)) {
+      if (
+        nodeCreationCommand?.action === 'create_nodes' &&
+        Array.isArray(nodeCreationCommand.nodes)
+      ) {
         console.log('[ChatPanel] Creating nodes:', nodeCreationCommand.nodes);
         const parentId = selectedNodeId || null;
 

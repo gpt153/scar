@@ -70,10 +70,7 @@ export async function findCodebaseByDefaultCwd(defaultCwd: string): Promise<Code
   return result.rows[0] || null;
 }
 
-export async function updateCodebase(
-  id: string,
-  data: { default_cwd?: string }
-): Promise<void> {
+export async function updateCodebase(id: string, data: { default_cwd?: string }): Promise<void> {
   const updates: string[] = [];
   const values: (string | null)[] = [];
   let paramIndex = 1;

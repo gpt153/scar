@@ -72,8 +72,8 @@ export async function handleMessage(
     }
 
     // Check if this is Telegram general chat (no topic)
-    const isGeneralChat = platform.getPlatformType() === 'telegram' &&
-                          !conversationId.includes(':');
+    const isGeneralChat =
+      platform.getPlatformType() === 'telegram' && !conversationId.includes(':');
 
     // Parse command upfront if it's a slash command
     let promptToSend = message;
@@ -89,7 +89,7 @@ export async function handleMessage(
         if (!allowedInGeneralChat.includes(command)) {
           await platform.sendMessage(
             conversationId,
-            `❌ This command can only be used in project topics, not general chat.\n\nUse /new-topic to create a project topic, then run commands there.`
+            '❌ This command can only be used in project topics, not general chat.\n\nUse /new-topic to create a project topic, then run commands there.'
           );
           return;
         }
@@ -123,7 +123,9 @@ export async function handleMessage(
 
         // Get bot instance for Telegram (needed for /new-topic)
         const bot =
-          platform.getPlatformType() === 'telegram' ? (platform as TelegramAdapter).getBot() : undefined;
+          platform.getPlatformType() === 'telegram'
+            ? (platform as TelegramAdapter).getBot()
+            : undefined;
 
         const result = await commandHandler.handleCommand(conversation, message, bot);
         await platform.sendMessage(conversationId, result.message);
@@ -149,7 +151,10 @@ export async function handleMessage(
         const commandArgs = args.slice(1);
 
         if (!conversation.codebase_id) {
-          await platform.sendMessage(conversationId, 'No codebase configured. Use /clone for a new repo or /repos to list your current repos you can switch to.');
+          await platform.sendMessage(
+            conversationId,
+            'No codebase configured. Use /clone for a new repo or /repos to list your current repos you can switch to.'
+          );
           return;
         }
 
@@ -208,7 +213,9 @@ export async function handleMessage(
             console.log('[Orchestrator] Appended issue/PR context to template prompt');
           }
 
-          console.log(`[Orchestrator] Executing template '${command}' with ${String(args.length)} args`);
+          console.log(
+            `[Orchestrator] Executing template '${command}' with ${String(args.length)} args`
+          );
         } else {
           // Unknown command
           await platform.sendMessage(
@@ -221,7 +228,10 @@ export async function handleMessage(
     } else {
       // Regular message - route through router template
       if (!conversation.codebase_id) {
-        await platform.sendMessage(conversationId, 'No codebase configured. Use /clone for a new repo or /repos to list your current repos you can switch to.');
+        await platform.sendMessage(
+          conversationId,
+          'No codebase configured. Use /clone for a new repo or /repos to list your current repos you can switch to.'
+        );
         return;
       }
 
@@ -253,7 +263,8 @@ export async function handleMessage(
     const codebase = conversation.codebase_id
       ? await codebaseDb.getCodebase(conversation.codebase_id)
       : null;
-    let cwd = conversation.worktree_path ?? conversation.cwd ?? codebase?.default_cwd ?? '/workspace';
+    let cwd =
+      conversation.worktree_path ?? conversation.cwd ?? codebase?.default_cwd ?? '/workspace';
 
     // Validate cwd exists - handle stale worktree paths gracefully
     try {
@@ -286,9 +297,9 @@ export async function handleMessage(
     // - plan-feature → execute (regular workflow)
     // - plan-feature-github → execute-github (GitHub workflow with staging)
     const needsNewSession =
-     
       (commandName === 'execute' && session?.metadata?.lastCommand === 'plan-feature') ||
-      (commandName === 'execute-github' && session?.metadata?.lastCommand === 'plan-feature-github');
+      (commandName === 'execute-github' &&
+        session?.metadata?.lastCommand === 'plan-feature-github');
 
     if (needsNewSession) {
       console.log('[Orchestrator] Plan→Execute transition: creating new session');
@@ -402,7 +413,7 @@ export async function handleMessage(
         // Apply response formatting for Telegram batch mode (non-technical audiences)
         if (platform.getPlatformType() === 'telegram' && mode === 'batch') {
           finalMessage = formatForNonTechnical(finalMessage);
-          console.log(`[Orchestrator] Applied non-technical formatting for Telegram`);
+          console.log('[Orchestrator] Applied non-technical formatting for Telegram');
         }
 
         console.log(`[Orchestrator] Sending final message (${String(finalMessage.length)} chars)`);

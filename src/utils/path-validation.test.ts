@@ -78,7 +78,9 @@ describe('path-validation', () => {
       // Use resolve() for platform-specific paths
       expect(validateAndResolvePath('/workspace/repo')).toBe(resolve('/workspace/repo'));
       expect(validateAndResolvePath('repo', '/workspace')).toBe(resolve('/workspace/repo'));
-      expect(validateAndResolvePath('./src', '/workspace/repo')).toBe(resolve('/workspace/repo/src'));
+      expect(validateAndResolvePath('./src', '/workspace/repo')).toBe(
+        resolve('/workspace/repo/src')
+      );
     });
 
     test('should throw for path traversal attempts', async () => {
@@ -109,7 +111,9 @@ describe('path-validation', () => {
       const { validateAndResolvePath } = await import('./path-validation');
       const customWorkspace = resolve('/my/custom/workspace');
       // Valid path under custom workspace
-      expect(validateAndResolvePath('/my/custom/workspace/repo')).toBe(resolve('/my/custom/workspace/repo'));
+      expect(validateAndResolvePath('/my/custom/workspace/repo')).toBe(
+        resolve('/my/custom/workspace/repo')
+      );
       // Path under default workspace should now throw with custom workspace in message
       expect(() => validateAndResolvePath('/workspace/repo')).toThrow(
         `Path must be within ${customWorkspace} directory`

@@ -7,10 +7,13 @@
  */
 export function stripCodeBlocks(message: string): string {
   // Remove fenced code blocks (```...```)
-  message = message.replace(/```[\s\S]*?```/g, '[Code changes made - use /show-changes to see details]');
+  message = message.replace(
+    /```[\s\S]*?```/g,
+    '[Code changes made - use /show-changes to see details]'
+  );
 
   // Remove inline code (`...`)
-  message = message.replace(/`[^`]+`/g, (match) => {
+  message = message.replace(/`[^`]+`/g, match => {
     // Preserve file paths and commands starting with /
     if (match.includes('/') || match.startsWith('`/')) {
       return match;
