@@ -283,6 +283,17 @@ async function main(): Promise<void> {
   // JSON parsing for all other endpoints
   app.use(express.json());
 
+  // Serve mind map web app
+  const mindmapDist = resolve(__dirname, '../client/mindmap/dist');
+  app.use('/mindmap', express.static(mindmapDist));
+
+  // Fallback for React Router (future-proofing)
+  app.get('/mindmap/*', (_req, res) => {
+    res.sendFile(resolve(__dirname, '../client/mindmap/dist/index.html'));
+  });
+
+  console.log('[Express] Mind map web app served at /mindmap');
+
   // Health check endpoints
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
@@ -375,7 +386,8 @@ async function main(): Promise<void> {
   // Initialize Telegram adapter (conditional)
   let telegram: TelegramAdapter | null = null;
   if (process.env.TELEGRAM_BOT_TOKEN) {
-    const streamingMode = (process.env.TELEGRAM_STREAMING_MODE ?? 'stream') as 'stream' | 'batch';
+    // Force batch mode for non-technical summaries (topics feature)
+    const streamingMode = 'batch';
     telegram = new TelegramAdapter(process.env.TELEGRAM_BOT_TOKEN, streamingMode);
 
     // Register message handler (auth is handled internally by adapter)

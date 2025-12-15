@@ -274,6 +274,55 @@ LOAD_BUILTIN_COMMANDS=true  # Load maintained workflow templates on startup
 
 **Loading:** Use `dotenv` package, load in `src/index.ts`
 
+### Telegram Topics (Multi-Project Development)
+
+Enable parallel work on multiple projects using Telegram supergroup topics. Each topic acts as an isolated workspace with its own codebase, AI session, and working directory.
+
+**Group Setup:**
+1. Create a Telegram supergroup
+2. Enable topics (Settings > Forum > Enable Topics)
+3. Add bot as administrator with permissions to manage topics
+4. Get group chat ID (negative number, e.g., -1003484800871):
+   - Forward a message from the group to @userinfobot
+   - The bot will reply with the chat ID
+5. Set `TELEGRAM_GROUP_CHAT_ID` in environment variables
+
+**Usage:**
+- **General chat**: Use `/new-topic <name>` to create projects
+- **Topics**: Each topic = isolated project workspace
+- Click between topics to switch projects instantly
+- All topics run in parallel (like separate terminal windows)
+- Commands in general chat are restricted (only `/new-topic`, `/help`, `/status`, `/commands`, `/templates`)
+
+**Response Format:**
+- Batch mode only (final summaries, no streaming)
+- No code blocks shown
+- Brief, non-technical language
+- "What and why" explanations included
+
+**Conversation ID Format:**
+- General chat: `chatId` (e.g., `-1003484800871`)
+- Topic: `chatId:threadId` (e.g., `-1003484800871:1234`)
+
+**Example Workflow:**
+```
+# In general chat
+You: /new-topic Github search agent
+Bot: ✅ Project "Github search agent" created...
+     📁 Codebase: github-search-agent
+     🔗 GitHub: https://github.com/you/github-search-agent
+     💬 Telegram Topic: Created (ID: 5678)
+
+# Switch to the new topic (click on it)
+You: /status
+Bot: Platform: telegram
+     Codebase: github-search-agent
+     Path: /workspace/github-search-agent
+
+You: Build a search interface...
+Bot: [Works on the project...]
+```
+
 ### Worktree Symbiosis (Skill + App)
 
 The app can work alongside the worktree-manager Claude Code skill. Both use git worktrees for isolated development, and can share the same base directory.

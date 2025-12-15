@@ -13,6 +13,7 @@ import * as commandHandler from '../handlers/command-handler';
 import { formatToolCall } from '../utils/tool-formatter';
 import { substituteVariables } from '../utils/variable-substitution';
 import { classifyAndFormatError } from '../utils/error-formatter';
+import { formatForNonTechnical } from '../utils/response-formatter';
 import { getAssistantClient } from '../clients/factory';
 
 /**
@@ -69,12 +70,29 @@ export async function handleMessage(
       }
     }
 
+    // Check if this is Telegram general chat (no topic)
+    const isGeneralChat = platform.getPlatformType() === 'telegram' &&
+                          !conversationId.includes(':');
+
     // Parse command upfront if it's a slash command
     let promptToSend = message;
     let commandName: string | null = null;
 
     if (message.startsWith('/')) {
       const { command, args } = commandHandler.parseCommand(message);
+
+      // If general chat, only allow specific commands
+      if (isGeneralChat) {
+        const allowedInGeneralChat = ['new-topic', 'help', 'status', 'commands', 'templates'];
+
+        if (!allowedInGeneralChat.includes(command)) {
+          await platform.sendMessage(
+            conversationId,
+            `❌ This command can only be used in project topics, not general chat.\n\nUse /new-topic to create a project topic, then run commands there.`
+          );
+          return;
+        }
+      }
 
       // List of deterministic commands (handled by command-handler, no AI)
       const deterministicCommands = [
@@ -374,6 +392,12 @@ export async function handleMessage(
       }
 
       if (finalMessage) {
+        // Apply response formatting for Telegram batch mode (non-technical audiences)
+        if (platform.getPlatformType() === 'telegram' && mode === 'batch') {
+          finalMessage = formatForNonTechnical(finalMessage);
+          console.log(`[Orchestrator] Applied non-technical formatting for Telegram`);
+        }
+
         console.log(`[Orchestrator] Sending final message (${String(finalMessage.length)} chars)`);
         await platform.sendMessage(conversationId, finalMessage);
       }

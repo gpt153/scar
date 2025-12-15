@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "build:client": "cd client/mindmap && npm install && npm run build",
+    "build:all": "npm run build && npm run build:client",
+    "dev:client": "cd client/mindmap && npm run dev",
     "start": "node dist/index.js",
     "setup-auth": "node dist/scripts/setup-auth.js",
     "test": "jest",

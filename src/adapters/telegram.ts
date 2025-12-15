@@ -22,6 +22,7 @@ export class TelegramAdapter implements IPlatformAdapter {
   private bot: Telegraf;
   private streamingMode: 'stream' | 'batch';
   private allowedUserIds: number[];
+  private groupChatId: string | null;
   private messageHandler: ((ctx: TelegramMessageContext) => Promise<void>) | null = null;
 
   constructor(token: string, mode: 'stream' | 'batch' = 'stream') {
@@ -43,6 +44,12 @@ export class TelegramAdapter implements IPlatformAdapter {
       );
     } else {
       console.log('[Telegram] User whitelist disabled (open access)');
+    }
+
+    // Store group chat ID for topic-based multi-project development
+    this.groupChatId = process.env.TELEGRAM_GROUP_CHAT_ID ?? null;
+    if (this.groupChatId) {
+      console.log(`[Telegram] Configured for group: ${this.groupChatId}`);
     }
 
     console.log(`[Telegram] Adapter initialized (mode: ${mode}, timeout: disabled)`);
@@ -173,12 +180,21 @@ export class TelegramAdapter implements IPlatformAdapter {
 
   /**
    * Extract conversation ID from Telegram context
+   * Returns format: chatId:threadId for forum topics, or just chatId for general chat
    */
   getConversationId(ctx: Context): string {
     if (!ctx.chat) {
       throw new Error('No chat in context');
     }
-    return ctx.chat.id.toString();
+    const chatId = ctx.chat.id.toString();
+
+    // Check for forum topic (message_thread_id present)
+    const threadId = 'message' in ctx && ctx.message?.message_thread_id;
+    if (threadId) {
+      return `${chatId}:${String(threadId)}`;
+    }
+
+    return chatId; // General chat (no topic)
   }
 
   /**
