@@ -9,6 +9,7 @@ import { join, resolve } from 'path';
 import { Telegraf } from 'telegraf';
 import { createRepository } from '../utils/github-repo';
 import * as codebaseDb from '../db/codebases';
+import * as conversationDb from '../db/conversations';
 
 const execFileAsync = promisify(execFile);
 
@@ -194,6 +195,11 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
     console.log('[NewTopic] Creating Telegram topic');
     const topic = await bot.telegram.createForumTopic(parseInt(groupChatId), projectName);
 
+    // 10. Create conversation record linking topic to codebase
+    console.log('[NewTopic] Creating conversation record');
+    const conversationId = `${groupChatId}:${String(topic.message_thread_id)}`;
+    await conversationDb.getOrCreateConversation('telegram', conversationId, codebase.id);
+
     return {
       success: true,
       message: `✅ Project "${projectName}" created successfully!
@@ -201,10 +207,14 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
 📁 **Codebase**: ${projectName}
 📂 **Path**: ${repoPath}
 🔗 **GitHub**: ${repo.htmlUrl}
-📊 **Archon Project**: ${archonProjectId} (to be created)
 💬 **Telegram Topic**: Created (ID: ${String(topic.message_thread_id)})
 
-Switch to the new topic to start working!`,
+✨ **Next Steps:**
+1. Switch to the new topic above
+2. Ask the AI to create an Archon project (if needed)
+3. Start working on your project!
+
+All slash commands and templates are ready to use.`,
       topicId: topic.message_thread_id,
       codebaseId: codebase.id,
     };
