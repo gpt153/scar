@@ -13,7 +13,6 @@ import * as commandHandler from '../handlers/command-handler';
 import { formatToolCall } from '../utils/tool-formatter';
 import { substituteVariables } from '../utils/variable-substitution';
 import { classifyAndFormatError } from '../utils/error-formatter';
-import { formatForNonTechnical } from '../utils/response-formatter';
 import { getAssistantClient } from '../clients/factory';
 import { TelegramAdapter } from '../adapters/telegram';
 
@@ -410,12 +409,6 @@ export async function handleMessage(
       }
 
       if (finalMessage) {
-        // Apply response formatting for Telegram batch mode (non-technical audiences)
-        if (platform.getPlatformType() === 'telegram' && mode === 'batch') {
-          finalMessage = formatForNonTechnical(finalMessage);
-          console.log('[Orchestrator] Applied non-technical formatting for Telegram');
-        }
-
         console.log(`[Orchestrator] Sending final message (${String(finalMessage.length)} chars)`);
         await platform.sendMessage(conversationId, finalMessage);
       }
