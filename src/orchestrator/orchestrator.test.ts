@@ -233,7 +233,8 @@ describe('orchestrator', () => {
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         wrapCommandForExecution('plan', 'Plan the following: Add dark mode'),
         '/workspace/project',
-        'claude-session-xyz'
+        'claude-session-xyz',
+        undefined
       );
     });
 
@@ -249,7 +250,8 @@ describe('orchestrator', () => {
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         wrapCommandForExecution('plan', 'Command text here') + '\n\n---\n\nIssue #42: Fix the bug',
         expect.any(String),
-        'claude-session-xyz' // Uses existing session's ID
+        'claude-session-xyz', // Uses existing session's ID
+        undefined
       );
     });
   });
@@ -295,7 +297,8 @@ describe('orchestrator', () => {
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         'Router prompt with fix the login bug',
         '/workspace/project',
-        'claude-session-xyz'
+        'claude-session-xyz',
+        undefined
       );
     });
 
@@ -310,7 +313,8 @@ describe('orchestrator', () => {
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         'fix the login bug',
         '/workspace/project',
-        'claude-session-xyz'
+        'claude-session-xyz',
+        undefined
       );
     });
   });
@@ -347,7 +351,8 @@ describe('orchestrator', () => {
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         wrapCommandForExecution('plan', 'Plan command'),
         '/workspace/project',
-        'claude-session-xyz'
+        'claude-session-xyz',
+        undefined
       );
     });
 
@@ -513,7 +518,8 @@ describe('orchestrator', () => {
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         wrapCommandForExecution('plan', 'Plan command'),
         '/workspace/project', // conversation.cwd
-        'claude-session-xyz' // Uses existing session's ID
+        'claude-session-xyz', // Uses existing session's ID
+        undefined
       );
     });
 
@@ -533,7 +539,8 @@ describe('orchestrator', () => {
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         wrapCommandForExecution('plan', 'Plan command'),
         '/workspace/test-project', // codebase.default_cwd
-        'claude-session-xyz' // Uses existing session's ID
+        'claude-session-xyz', // Uses existing session's ID
+        undefined
       );
     });
   });
@@ -609,7 +616,8 @@ describe('orchestrator', () => {
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         wrapCommandForExecution('plan', 'Plan command'),
         '/workspace/test-project', // Falls back to codebase default_cwd
-        undefined // New session created (assistant_session_id is null -> undefined)
+        undefined, // New session created (assistant_session_id is null -> undefined)
+        undefined
       );
     });
 
@@ -659,7 +667,8 @@ describe('orchestrator', () => {
       expect(mockClient.sendQuery).toHaveBeenCalledWith(
         wrapCommandForExecution('plan', 'Plan command'),
         '/workspace/project',
-        'claude-session-xyz'
+        'claude-session-xyz',
+        undefined
       );
     });
   });
