@@ -1,8 +1,9 @@
 /**
- * Telegram platform adapter using Telegraf SDK
+ * Telegram platform adapter using Grammy SDK
  * Handles message sending with 4096 character limit splitting
+ * Migrated from Telegraf to Grammy for better connection reliability
  */
-import { Telegraf, Context } from 'telegraf';
+import { Bot, Context } from 'grammy';
 import { IPlatformAdapter, ImageAttachment } from '../types';
 import { parseAllowedUserIds, isUserAuthorized } from '../utils/telegram-auth';
 import { convertToTelegramMarkdown, stripMarkdown } from '../utils/telegram-markdown';
@@ -20,7 +21,7 @@ export interface TelegramMessageContext {
 }
 
 export class TelegramAdapter implements IPlatformAdapter {
-  private bot: Telegraf;
+  private bot: Bot;
   private streamingMode: 'stream' | 'batch';
   private allowedUserIds: number[];
   private groupChatId: string | null;
@@ -28,11 +29,7 @@ export class TelegramAdapter implements IPlatformAdapter {
   private messageHandler: ((ctx: TelegramMessageContext) => Promise<void>) | null = null;
 
   constructor(token: string, mode: 'stream' | 'batch' = 'stream') {
-    // Disable handler timeout to support long-running AI operations
-    // Default is 90 seconds which is too short for complex coding tasks
-    this.bot = new Telegraf(token, {
-      handlerTimeout: Infinity,
-    });
+    this.bot = new Bot(token);
     this.streamingMode = mode;
 
     // Parse Telegram user whitelist (optional - empty = open access)
@@ -75,7 +72,7 @@ export class TelegramAdapter implements IPlatformAdapter {
     }
     console.log(`[Telegram] Topic filter: ${JSON.stringify(this.topicFilter)}`);
 
-    console.log(`[Telegram] Adapter initialized (mode: ${mode}, timeout: disabled)`);
+    console.log(`[Telegram] Grammy adapter initialized (mode: ${mode})`);
   }
 
   /**
@@ -160,7 +157,7 @@ export class TelegramAdapter implements IPlatformAdapter {
       for (const line of lines) {
         if (subChunk.length + line.length + 1 > MAX_LENGTH - 100) {
           if (subChunk) {
-            await this.bot.telegram.sendMessage(id, subChunk, {
+            await this.bot.api.sendMessage(id, subChunk, {
               message_thread_id: threadId,
             });
           }
@@ -170,7 +167,7 @@ export class TelegramAdapter implements IPlatformAdapter {
         }
       }
       if (subChunk) {
-        await this.bot.telegram.sendMessage(id, subChunk, {
+        await this.bot.api.sendMessage(id, subChunk, {
           message_thread_id: threadId,
         });
       }
@@ -180,7 +177,7 @@ export class TelegramAdapter implements IPlatformAdapter {
     // Try MarkdownV2 formatting
     const formatted = convertToTelegramMarkdown(chunk);
     try {
-      await this.bot.telegram.sendMessage(id, formatted, {
+      await this.bot.api.sendMessage(id, formatted, {
         parse_mode: 'MarkdownV2',
         message_thread_id: threadId,
       });
@@ -195,16 +192,16 @@ export class TelegramAdapter implements IPlatformAdapter {
         '[Telegram] Formatted chunk (around byte 4059):',
         formatted.substring(4000, 4100)
       );
-      await this.bot.telegram.sendMessage(id, stripMarkdown(chunk), {
+      await this.bot.api.sendMessage(id, stripMarkdown(chunk), {
         message_thread_id: threadId,
       });
     }
   }
 
   /**
-   * Get the Telegraf bot instance
+   * Get the Grammy bot instance
    */
-  getBot(): Telegraf {
+  getBot(): Bot {
     return this.bot;
   }
 
@@ -233,7 +230,7 @@ export class TelegramAdapter implements IPlatformAdapter {
     const chatId = ctx.chat.id.toString();
 
     // Check for forum topic (message_thread_id present)
-    const threadId = 'message' in ctx && ctx.message?.message_thread_id;
+    const threadId = ctx.message?.message_thread_id;
     if (threadId) {
       return `${chatId}:${String(threadId)}`;
     }
@@ -254,23 +251,23 @@ export class TelegramAdapter implements IPlatformAdapter {
    */
   async start(): Promise<void> {
     // Register message handler before launch
-    this.bot.on('message', async ctx => {
+    this.bot.on('message', async (ctx) => {
       // Extract message text and photos
       let message = '';
       const images: ImageAttachment[] = [];
 
       // Handle text messages
-      if ('text' in ctx.message) {
-        message = ctx.message.text || '';
+      if (ctx.message.text) {
+        message = ctx.message.text;
       }
 
       // Handle photo messages (screenshots)
-      if ('photo' in ctx.message && ctx.message.photo && ctx.message.photo.length > 0) {
+      if (ctx.message.photo && ctx.message.photo.length > 0) {
         // Get the largest photo (last one in array)
         const photo = ctx.message.photo[ctx.message.photo.length - 1];
 
         // Use caption as message text if present
-        if ('caption' in ctx.message && ctx.message.caption) {
+        if (ctx.message.caption) {
           message = ctx.message.caption;
         } else if (!message) {
           // No text and no caption - provide default message
@@ -279,8 +276,9 @@ export class TelegramAdapter implements IPlatformAdapter {
 
         try {
           // Download the photo
-          const fileLink = await ctx.telegram.getFileLink(photo.file_id);
-          const response = await fetch(fileLink.href);
+          const file = await ctx.api.getFile(photo.file_id);
+          const fileUrl = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
+          const response = await fetch(fileUrl);
           const buffer = Buffer.from(await response.arrayBuffer());
 
           images.push({
@@ -300,16 +298,16 @@ export class TelegramAdapter implements IPlatformAdapter {
       if (!message && images.length === 0) return;
 
       // Authorization check - verify sender is in whitelist
-      const userId = ctx.from.id;
-      if (!isUserAuthorized(userId, this.allowedUserIds)) {
+      const userId = ctx.from?.id;
+      if (!userId || !isUserAuthorized(userId, this.allowedUserIds)) {
         // Log unauthorized attempt (mask user ID for privacy)
-        const maskedId = `${String(userId).slice(0, 4)}***`;
+        const maskedId = userId ? `${String(userId).slice(0, 4)}***` : 'unknown';
         console.log(`[Telegram] Unauthorized message from user ${maskedId}`);
         return; // Silent rejection
       }
 
       // Topic filtering check
-      const threadId = 'message' in ctx && ctx.message?.message_thread_id;
+      const threadId = ctx.message.message_thread_id;
       if (this.topicFilter === 'none' && threadId) {
         // Configured to only respond in general chat, ignore topics
         console.log(`[Telegram] Ignoring message in topic ${String(threadId)} (filter: none)`);
@@ -357,17 +355,19 @@ export class TelegramAdapter implements IPlatformAdapter {
           conversationId,
           message,
           userId,
-          images: images.length > 0 ? images : undefined
+          images: images.length > 0 ? images : undefined,
         });
       }
     });
 
-    // Drop pending updates on startup to prevent reprocessing messages after container restart
-    // This ensures a clean slate - old unprocessed messages won't be handled
-    await this.bot.launch({
-      dropPendingUpdates: true,
+    // Start the bot
+    console.log('[Telegram] Starting Grammy bot...');
+    await this.bot.start({
+      drop_pending_updates: true,
+      onStart: (info) => {
+        console.log(`[Telegram] ✅ Bot started: @${info.username}`);
+      },
     });
-    console.log('[Telegram] Bot started (polling mode, pending updates dropped)');
   }
 
   /**

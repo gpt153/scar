@@ -6,7 +6,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { writeFile, cp } from 'fs/promises';
 import { join, resolve } from 'path';
-import { Telegraf } from 'telegraf';
+import { Bot } from 'grammy';
 import { createRepository } from '../utils/github-repo';
 import * as codebaseDb from '../db/codebases';
 import * as conversationDb from '../db/conversations';
@@ -18,7 +18,7 @@ export interface NewTopicOptions {
   groupChatId: string;
   githubToken: string;
   workspacePath: string;
-  bot: Telegraf;
+  bot: Bot;
 }
 
 export interface NewTopicResult {
@@ -193,7 +193,7 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
 
     // 9. Create Telegram topic
     console.log('[NewTopic] Creating Telegram topic');
-    const topic = await bot.telegram.createForumTopic(parseInt(groupChatId), projectName);
+    const topic = await bot.api.createForumTopic(parseInt(groupChatId), projectName);
 
     // 10. Create conversation record linking topic to codebase
     console.log('[NewTopic] Creating conversation record');

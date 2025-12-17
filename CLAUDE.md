@@ -2,6 +2,27 @@
 
 **Remote Agentic Coding Platform**: Control AI coding assistants (Claude Code SDK, Codex SDK) remotely from Slack, Telegram, and GitHub. Built with **Node.js + TypeScript + PostgreSQL**, single-developer tool for practitioners of the Dynamous Agentic Coding Course. Architecture prioritizes simplicity, flexibility, and user control.
 
+## Important Terminology
+
+**Health-Agent-Builder (HAB):**
+- Telegram topic 10 ("health-agent-builder")
+- Used for BUILDING/DEVELOPING the health-agent codebase
+- Controlled by remote-coding-agent (this project)
+- Workspace: `/home/samuel/workspace/health-agent`
+- Purpose: Claude Code SDK for editing Python code, running tests, etc.
+
+**Health-Agent (Odin-Health):**
+- The actual PydanticAI agent being built
+- Separate Python bot (not this project)
+- Uses `python-telegram-bot` library
+- Also responds in topic 10 (both bots active there)
+- Purpose: Health tracking AI assistant (the product)
+
+**Key Distinction:**
+- When developing health-agent code → Use HAB (topic 10, remote-coding-agent)
+- When testing health-agent features → Use health-agent bot (topic 10, Python bot)
+- Both bots operate in topic 10 simultaneously (no filter conflicts)
+
 ## Core Principles
 
 **Single-Developer Tool**

@@ -6,7 +6,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { readFile, writeFile, readdir, access, rm } from 'fs/promises';
 import { join, basename, resolve, relative } from 'path';
-import { Telegraf } from 'telegraf';
+import { Bot } from 'grammy';
 import { Conversation, CommandResult } from '../types';
 import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
@@ -100,7 +100,7 @@ export function parseCommand(text: string): { command: string; args: string[] } 
 export async function handleCommand(
   conversation: Conversation,
   message: string,
-  bot?: Telegraf
+  bot?: Bot
 ): Promise<CommandResult> {
   const { command, args } = parseCommand(message);
 

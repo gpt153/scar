@@ -381,8 +381,7 @@ async function main(): Promise<void> {
   // Initialize Telegram adapter (conditional)
   let telegram: TelegramAdapter | null = null;
   if (process.env.TELEGRAM_BOT_TOKEN) {
-    // Force batch mode for non-technical summaries (topics feature)
-    const streamingMode = 'batch';
+    const streamingMode = (process.env.TELEGRAM_STREAMING_MODE ?? 'stream') as 'stream' | 'batch';
     telegram = new TelegramAdapter(process.env.TELEGRAM_BOT_TOKEN, streamingMode);
 
     // Register message handler (auth is handled internally by adapter)
