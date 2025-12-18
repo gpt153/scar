@@ -252,6 +252,13 @@ export async function handleMessage(
       console.log('[Orchestrator] Prepended thread context to prompt');
     }
 
+    // Inject system-wide workflow intelligence
+    const systemContextTemplate = await templateDb.getTemplate('system-context');
+    if (systemContextTemplate) {
+      promptToSend = `${systemContextTemplate.content}\n\n---\n\n${promptToSend}`;
+      console.log('[Orchestrator] Injected system-wide workflow intelligence');
+    }
+
     console.log('[Orchestrator] Starting AI conversation');
 
     // Dynamically get the appropriate AI client based on conversation's assistant type
