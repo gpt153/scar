@@ -11,7 +11,7 @@ services:
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:
-      - ${WORKSPACE_PATH:-./workspace}:/workspace
+      - /home/samuel/.archon/workspaces:/workspace
     restart: unless-stopped
     dns:
       - 8.8.8.8
@@ -30,10 +30,17 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/remote_coding_agent
       # Override WORKSPACE_PATH for container (host path differs from container path)
       WORKSPACE_PATH: /workspace
+      # Worktree base directory (separate from workspace)
+      WORKTREE_BASE: /worktrees
+      # Playwright browser cache location
+      PLAYWRIGHT_BROWSERS_PATH: /home/appuser/.cache/ms-playwright
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:
-      - ${WORKSPACE_PATH:-./workspace}:/workspace
+      - /home/samuel/.archon/workspaces:/workspace
+      - /home/samuel/.archon/worktrees:/worktrees
+      # Persistent Playwright browser storage
+      - /home/samuel/dockerMCP/playwright-browsers:/home/appuser/.cache/ms-playwright
     restart: unless-stopped
     dns:
       - 8.8.8.8
