@@ -33,7 +33,7 @@ describe('TelegramAdapter', () => {
       const adapter = new TelegramAdapter('fake-token-for-testing');
       const bot = adapter.getBot();
       expect(bot).toBeDefined();
-      expect(bot.telegram).toBeDefined();
+      expect(bot.api).toBeDefined(); // Grammy uses 'api' instead of 'telegram'
     });
   });
 
@@ -45,8 +45,8 @@ describe('TelegramAdapter', () => {
     beforeEach(() => {
       adapter = new TelegramAdapter('fake-token-for-testing');
       mockSendMessage = jest.fn().mockResolvedValue(undefined);
-      // Override bot's sendMessage
-      (adapter.getBot().telegram as unknown as { sendMessage: jest.Mock }).sendMessage =
+      // Override bot's sendMessage (Grammy uses 'api' instead of 'telegram')
+      (adapter.getBot().api as unknown as { sendMessage: jest.Mock }).sendMessage =
         mockSendMessage;
       mockConvert.mockClear();
     });

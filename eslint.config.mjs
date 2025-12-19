@@ -10,6 +10,7 @@ export default tseslint.config(
       'dist/**',
       'coverage/**',
       '.agents/examples/**',
+      '.template/**', // Ignore template directory
       'workspace/**',
       'worktrees/**',
       'client/**', // Ignore client projects (separate configs)
