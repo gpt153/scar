@@ -607,10 +607,9 @@ ${userComment}`;
     // 8. Ensure repo ready (clone if needed, sync if new conversation)
     await this.ensureRepoReady(owner, repo, defaultBranch, repoPath, isNewConversation);
 
-    // 9. Auto-load commands if new codebase
-    if (isNewCodebase) {
-      await this.autoDetectAndLoadCommands(repoPath, codebase.id);
-    }
+    // 9. Auto-load commands (always, not just for new codebases)
+    // This ensures commands are refreshed when new .claude/commands files are added
+    await this.autoDetectAndLoadCommands(repoPath, codebase.id);
 
     // 10. Create worktree for this issue/PR (if conversation doesn't have one)
     let worktreePath: string | null = null;
