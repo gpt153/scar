@@ -15,6 +15,8 @@ import * as templateDb from '../db/command-templates';
 import { isPathWithinWorkspace } from '../utils/path-validation';
 import { listWorktrees } from '../utils/git';
 import { handleNewTopic } from './new-topic-handler';
+import { ArchonClient, type CrawlProgress } from '../clients/archon';
+import type { IPlatformAdapter } from '../types';
 
 const execFileAsync = promisify(execFile);
 
@@ -100,7 +102,8 @@ export function parseCommand(text: string): { command: string; args: string[] } 
 export async function handleCommand(
   conversation: Conversation,
   message: string,
-  bot?: Bot
+  bot?: Bot,
+  platform?: IPlatformAdapter
 ): Promise<CommandResult> {
   const { command, args } = parseCommand(message);
 
@@ -188,7 +191,11 @@ Session:
   /status - Show state
   /reset - Clear session
   /reset-context - Reset AI context, keep worktree
-  /help - Show help`,
+  /help - Show help
+
+Knowledge Base (Archon):
+  /crawl <url> - Crawl and index documentation website
+  /crawl-status <progressId> - Check crawl progress`,
       };
 
     case 'status': {
@@ -588,6 +595,145 @@ Session:
         msg += `${name} - ${def.path}\n`;
       }
       return { success: true, message: msg };
+    }
+
+    case 'crawl': {
+      const url = args[0];
+      if (!url) {
+        return {
+          success: false,
+          message: 'Usage: /crawl <url>\n\nExample: /crawl https://docs.anthropic.com',
+        };
+      }
+
+      // Feature detection
+      if (!process.env.ARCHON_URL) {
+        return {
+          success: false,
+          message:
+            'Archon integration not configured.\n\nSet ARCHON_URL in .env to enable crawling.\nSee docs/archon-integration.md for setup.',
+        };
+      }
+
+      try {
+        const client = new ArchonClient();
+
+        // Health check first
+        const healthStatus = await client.health();
+        if (!healthStatus.ready) {
+          return {
+            success: false,
+            message: `Archon server not ready.\n\nStatus: ${healthStatus.status}\n\nEnsure Archon is running: docker compose up -d`,
+          };
+        }
+
+        // Get codebase name for tagging
+        const codebase = conversation.codebase_id
+          ? await codebaseDb.getCodebase(conversation.codebase_id)
+          : null;
+        const tags = codebase ? [codebase.name, 'scar-crawl'] : ['scar-crawl'];
+
+        // Start crawl
+        const crawlResponse = await client.startCrawl({
+          url,
+          knowledge_type: 'technical',
+          tags,
+          max_depth: 2,
+          extract_code_examples: true,
+        });
+
+        // Send initial progress message
+        if (platform) {
+          await platform.sendMessage(
+            conversation.platform_conversation_id,
+            `🔍 Started crawling ${url}\n\nProgress ID: ${crawlResponse.progressId}\nEstimated duration: ${crawlResponse.estimatedDuration}\n\n⏳ Polling for completion...`
+          );
+        }
+
+        // Poll with progress updates
+        const finalProgress = await client.pollProgress(
+          crawlResponse.progressId,
+          async (progress: CrawlProgress) => {
+            // Send progress updates every 10%
+            if (platform && progress.progress % 10 === 0 && progress.progress > 0) {
+              await platform.sendMessage(
+                conversation.platform_conversation_id,
+                `⏳ Progress: ${progress.progress}%\nProcessed: ${progress.processedPages}/${progress.totalPages} pages\nCurrent: ${progress.currentUrl}`
+              );
+            }
+          }
+        );
+
+        if (finalProgress.status === 'completed') {
+          return {
+            success: true,
+            message: `✅ Crawl completed!\n\n📊 Summary:\n- Total pages: ${finalProgress.totalPages}\n- Pages processed: ${finalProgress.processedPages}\n- Crawl type: ${finalProgress.crawlType}\n\n💡 Knowledge is now available for all conversations`,
+          };
+        } else if (finalProgress.status === 'error') {
+          return {
+            success: false,
+            message: `❌ Crawl failed\n\nError: ${finalProgress.log}`,
+          };
+        } else {
+          return {
+            success: false,
+            message: `⚠️ Crawl status: ${finalProgress.status}\n\nLast update: ${finalProgress.log}`,
+          };
+        }
+      } catch (error) {
+        console.error('[Crawl] Command failed:', error);
+        return {
+          success: false,
+          message: `Failed to crawl ${url}\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nCheck that Archon is running and accessible.`,
+        };
+      }
+    }
+
+    case 'crawl-status': {
+      const progressId = args[0];
+      if (!progressId) {
+        return {
+          success: false,
+          message:
+            'Usage: /crawl-status <progressId>\n\nGet the progress ID from /crawl command output.',
+        };
+      }
+
+      if (!process.env.ARCHON_URL) {
+        return {
+          success: false,
+          message: 'Archon integration not configured. Set ARCHON_URL in .env',
+        };
+      }
+
+      try {
+        const client = new ArchonClient();
+        const progress = await client.getProgress(progressId);
+
+        const statusEmoji =
+          {
+            starting: '🔄',
+            in_progress: '⏳',
+            completed: '✅',
+            error: '❌',
+            cancelled: '⚠️',
+          }[progress.status] ?? '❓';
+
+        return {
+          success: true,
+          message:
+            `${statusEmoji} Crawl Status: ${progress.status}\n\n` +
+            `Progress: ${progress.progress}%\n` +
+            `Pages: ${progress.processedPages}/${progress.totalPages}\n` +
+            `Current URL: ${progress.currentUrl}\n\n` +
+            `Log: ${progress.log}`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `Failed to get crawl status\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        };
+      }
     }
 
     case 'repos': {
