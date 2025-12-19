@@ -77,7 +77,7 @@ export async function releasePort(port: number): Promise<boolean> {
     [port]
   );
 
-  return result.rowCount > 0;
+  return (result.rowCount ?? 0) > 0;
 }
 
 /**
@@ -216,7 +216,7 @@ export async function cleanupStaleAllocations(): Promise<number> {
     RETURNING id`
   );
 
-  let deletedCount = deleteOldResult.rowCount;
+  let deletedCount = deleteOldResult.rowCount ?? 0;
 
   // Check for orphaned worktrees (worktree_path set but directory doesn't exist)
   const worktreeAllocations = await pool.query<{ id: string; port: number; worktree_path: string }>(
