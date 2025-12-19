@@ -356,10 +356,13 @@ export class GitHubAdapter implements IPlatformAdapter {
   }
 
   /**
-   * Auto-detect and load commands from .claude/commands or .agents/commands
+   * Auto-detect and load commands from .claude/commands AND .agents/commands
    */
   private async autoDetectAndLoadCommands(repoPath: string, codebaseId: string): Promise<void> {
     const commandFolders = ['.claude/commands', '.agents/commands'];
+    let totalLoaded = 0;
+
+    const commands = await codebaseDb.getCodebaseCommands(codebaseId);
 
     for (const folder of commandFolders) {
       try {
@@ -369,7 +372,6 @@ export class GitHubAdapter implements IPlatformAdapter {
         const files = (await readdir(fullPath)).filter(f => f.endsWith('.md'));
         if (files.length === 0) continue;
 
-        const commands = await codebaseDb.getCodebaseCommands(codebaseId);
         files.forEach(file => {
           commands[file.replace('.md', '')] = {
             path: join(folder, file),
@@ -377,12 +379,16 @@ export class GitHubAdapter implements IPlatformAdapter {
           };
         });
 
-        await codebaseDb.updateCodebaseCommands(codebaseId, commands);
+        totalLoaded += files.length;
         console.log(`[GitHub] Loaded ${String(files.length)} commands from ${folder}`);
-        return;
       } catch {
         continue;
       }
+    }
+
+    if (totalLoaded > 0) {
+      await codebaseDb.updateCodebaseCommands(codebaseId, commands);
+      console.log(`[GitHub] Total commands loaded: ${totalLoaded}`);
     }
   }
 
