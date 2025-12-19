@@ -65,9 +65,37 @@ If blockers exist, STOP and report them. Don't plan the impossible.
 
 **Before diving into the codebase, research externally:**
 
-### 2.0 Web Search for Context
+### 2.0 Check Archon Knowledge Base (PRIORITY)
 
-Use web search to find:
+**IMPORTANT: If Archon MCP is available, check there FIRST before web search:**
+
+1. **Get available sources**: `mcp__archon__rag_get_available_sources()`
+   - Returns list of indexed documentation with: id, title, url, created_at
+
+2. **Search for relevant docs**: `mcp__archon__rag_search_knowledge_base(query="[technology name] [topic]", match_count=5)`
+   - Use concise queries (2-5 keywords)
+   - Example: "React hooks patterns", "Supabase real-time", "FastAPI authentication"
+
+3. **Search for code examples**: `mcp__archon__rag_search_code_examples(query="[implementation pattern]", match_count=3)`
+   - Find similar implementations already indexed
+   - Example: "Discord bot message handler", "API rate limiting"
+
+**If documentation found in Archon:**
+- Include references in your plan: `[Source: React Docs (Archon) - Hooks Section]`
+- Cite specific sections and page references
+- Note: "Documentation sourced from Archon knowledge base"
+
+**If documentation NOT found in Archon:**
+- Fall back to web search (below)
+- Note in plan: "Recommend indexing [dependency] docs for future reference"
+
+---
+
+### 2.1 Web Search for Context (Fallback)
+
+**Use web search when Archon doesn't have the documentation:**
+
+Search for:
 - **Official documentation** for any libraries/APIs involved
 - **Latest version info** and any breaking changes
 - **Common implementation patterns** and best practices

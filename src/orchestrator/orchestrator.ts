@@ -15,6 +15,10 @@ import { substituteVariables } from '../utils/variable-substitution';
 import { classifyAndFormatError } from '../utils/error-formatter';
 import { getAssistantClient } from '../clients/factory';
 import { TelegramAdapter } from '../adapters/telegram';
+import {
+  analyzeAndPrepareArchonInstructions,
+  isArchonMcpEnabled,
+} from './archon-auto-research';
 
 /**
  * Wraps command content with execution context to signal the AI should execute immediately
@@ -257,6 +261,15 @@ export async function handleMessage(
     if (systemContextTemplate) {
       promptToSend = `${systemContextTemplate.content}\n\n---\n\n${promptToSend}`;
       console.log('[Orchestrator] Injected system-wide workflow intelligence');
+    }
+
+    // Inject Archon auto-research instructions if enabled
+    if (isArchonMcpEnabled()) {
+      const archonInstructions = analyzeAndPrepareArchonInstructions(message);
+      if (archonInstructions) {
+        promptToSend = `${archonInstructions}${promptToSend}`;
+        console.log('[Orchestrator] Injected Archon auto-research instructions');
+      }
     }
 
     console.log('[Orchestrator] Starting AI conversation');
