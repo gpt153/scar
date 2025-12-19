@@ -12,6 +12,7 @@ import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
 import * as sessionDb from '../db/sessions';
 import * as templateDb from '../db/command-templates';
+import * as portDb from '../db/port-allocations';
 import { isPathWithinWorkspace } from '../utils/path-validation';
 import { listWorktrees } from '../utils/git';
 import { handleNewTopic } from './new-topic-handler';
@@ -186,6 +187,14 @@ Worktrees:
   /worktree create <branch> - Create isolated worktree
   /worktree list - Show worktrees for this repo
   /worktree remove [--force] - Remove current worktree
+
+Port Management:
+  /port-allocate <name> [env] [port] - Allocate port
+  /port-list [--worktree|--codebase|--all] - List ports
+  /port-release <port> - Release port
+  /port-check <port> - Check port status
+  /port-stats [env] - Show port utilization
+  /port-cleanup [--dry-run] - Clean stale allocations
 
 Session:
   /status - Show state
@@ -1183,10 +1192,40 @@ Knowledge Base (Archon):
               await sessionDb.deactivateSession(session.id);
             }
 
+            // Allocate a development port for this worktree
+            let portAllocation;
+            try {
+              const serviceName = codebase?.name
+                ? `${codebase.name}-${branchName}`
+                : `worktree-${branchName}`;
+
+              portAllocation = await portDb.allocatePort({
+                service_name: serviceName,
+                description: `Development server for ${branchName}`,
+                environment: 'dev',
+                codebase_id: conversation.codebase_id || undefined,
+                conversation_id: conversation.id,
+                worktree_path: worktreePath,
+              });
+            } catch (portErr: any) {
+              console.error('[Worktree] Port allocation failed:', portErr);
+              // Continue without port allocation - non-critical error
+            }
+
             const shortPath = shortenPath(worktreePath, mainPath);
+            let message = `Worktree created!\n\nBranch: ${branchName}\nPath: ${shortPath}`;
+
+            if (portAllocation) {
+              message += `\nAllocated Port: ${portAllocation.port}`;
+              message += `\n\nUse: PORT=${portAllocation.port} npm run dev`;
+            } else {
+              message += `\n\nThis conversation now works in isolation.`;
+              message += `\nRun dependency install if needed (e.g., npm install).`;
+            }
+
             return {
               success: true,
-              message: `Worktree created!\n\nBranch: ${branchName}\nPath: ${shortPath}\n\nThis conversation now works in isolation.\nRun dependency install if needed (e.g., npm install).`,
+              message,
               modified: true,
             };
           } catch (error) {
@@ -1253,6 +1292,21 @@ Knowledge Base (Archon):
 
             await execFileAsync('git', gitArgs);
 
+            // Release all ports associated with this worktree
+            let releasedPorts = 0;
+            try {
+              const worktreePorts = await portDb.getPortsByWorktree(worktreePath);
+              for (const allocation of worktreePorts) {
+                const released = await portDb.releasePort(allocation.port);
+                if (released) {
+                  releasedPorts++;
+                }
+              }
+            } catch (portErr: any) {
+              console.error('[Worktree] Port release failed:', portErr);
+              // Continue - non-critical error
+            }
+
             // Clear worktree_path, keep cwd pointing to main repo
             await db.updateConversation(conversation.id, {
               worktree_path: null,
@@ -1266,9 +1320,15 @@ Knowledge Base (Archon):
             }
 
             const shortPath = shortenPath(worktreePath, mainPath);
+            let message = `Worktree removed: ${shortPath}`;
+            if (releasedPorts > 0) {
+              message += `\nReleased ${releasedPorts} port${releasedPorts > 1 ? 's' : ''}`;
+            }
+            message += `\n\nSwitched back to main repo.`;
+
             return {
               success: true,
-              message: `Worktree removed: ${shortPath}\n\nSwitched back to main repo.`,
+              message,
               modified: true,
             };
           } catch (error) {
@@ -1323,6 +1383,259 @@ Knowledge Base (Archon):
             message:
               'Usage:\n  /worktree create <branch>\n  /worktree list\n  /worktree remove [--force]\n  /worktree orphans',
           };
+      }
+    }
+
+    case 'port-allocate': {
+      // Usage: /port-allocate <service-name> [dev|production|test] [preferred-port]
+      if (args.length < 1) {
+        return {
+          success: false,
+          message:
+            'Usage: /port-allocate <service-name> [environment] [preferred-port]\n\n' +
+            'Environment: dev (default), production, test\n\n' +
+            'Example: /port-allocate api-server dev\n' +
+            'Example: /port-allocate frontend dev 8080',
+        };
+      }
+
+      const serviceName = args[0];
+      const environment = (args[1] as 'dev' | 'production' | 'test') || 'dev';
+      const preferredPort = args[2] ? parseInt(args[2]) : undefined;
+
+      if (!['dev', 'production', 'test'].includes(environment)) {
+        return {
+          success: false,
+          message: '❌ Invalid environment. Use: dev, production, or test',
+        };
+      }
+
+      try {
+        const allocation = await portDb.allocatePort({
+          service_name: serviceName,
+          environment,
+          preferred_port: preferredPort,
+          codebase_id: conversation.codebase_id || undefined,
+          conversation_id: conversation.id,
+          worktree_path: conversation.worktree_path || undefined,
+        });
+
+        return {
+          success: true,
+          message:
+            `✅ Port allocated!\n\n` +
+            `Port: ${allocation.port}\n` +
+            `Service: ${allocation.service_name}\n` +
+            `Environment: ${allocation.environment}\n\n` +
+            `Use: PORT=${allocation.port} npm run dev`,
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `❌ Failed to allocate port: ${err.message}`,
+        };
+      }
+    }
+
+    case 'port-list': {
+      // Usage: /port-list [--worktree] [--codebase] [--environment dev|prod|test] [--all]
+      const showWorktree = args.includes('--worktree');
+      const showCodebase = args.includes('--codebase');
+      const showAll = args.includes('--all');
+      const envIndex = args.findIndex(arg => arg === '--environment');
+      const environment = envIndex >= 0 ? (args[envIndex + 1] as 'dev' | 'production' | 'test') : undefined;
+
+      try {
+        let allocations;
+
+        if (showAll) {
+          allocations = await portDb.listAllocations();
+        } else if (showWorktree && conversation.worktree_path) {
+          allocations = await portDb.getPortsByWorktree(conversation.worktree_path);
+        } else if (showCodebase && conversation.codebase_id) {
+          allocations = await portDb.getPortsByCodebase(conversation.codebase_id);
+        } else if (environment) {
+          allocations = await portDb.listAllocations({ environment });
+        } else {
+          // Default: show ports for current conversation
+          allocations = await portDb.listAllocations({
+            conversation_id: conversation.id,
+            status: 'allocated',
+          });
+        }
+
+        if (allocations.length === 0) {
+          return {
+            success: true,
+            message: '📋 No port allocations found.\n\nUse `/port-allocate <service-name>` to allocate a port.',
+          };
+        }
+
+        let msg = '📋 Port Allocations:\n\n';
+        for (const alloc of allocations) {
+          const status = alloc.status === 'allocated' ? '🟢' : alloc.status === 'released' ? '🔴' : '🟡';
+          msg += `${status} Port ${alloc.port} - ${alloc.service_name} (${alloc.environment})\n`;
+          if (alloc.description) {
+            msg += `   ${alloc.description}\n`;
+          }
+        }
+
+        return { success: true, message: msg };
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `❌ Failed to list ports: ${err.message}`,
+        };
+      }
+    }
+
+    case 'port-release': {
+      // Usage: /port-release <port>
+      if (args.length < 1) {
+        return {
+          success: false,
+          message: 'Usage: /port-release <port>\n\nExample: /port-release 8080',
+        };
+      }
+
+      const port = parseInt(args[0]);
+      if (isNaN(port)) {
+        return {
+          success: false,
+          message: '❌ Invalid port number',
+        };
+      }
+
+      try {
+        const released = await portDb.releasePort(port);
+        if (!released) {
+          return {
+            success: false,
+            message: `❌ Port ${port} was not allocated or already released`,
+          };
+        }
+
+        return {
+          success: true,
+          message: `✅ Port ${port} released successfully`,
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `❌ Failed to release port: ${err.message}`,
+        };
+      }
+    }
+
+    case 'port-check': {
+      // Usage: /port-check <port>
+      if (args.length < 1) {
+        return {
+          success: false,
+          message: 'Usage: /port-check <port>\n\nExample: /port-check 8080',
+        };
+      }
+
+      const port = parseInt(args[0]);
+      if (isNaN(port)) {
+        return {
+          success: false,
+          message: '❌ Invalid port number',
+        };
+      }
+
+      try {
+        const allocation = await portDb.getPortAllocation(port);
+
+        if (!allocation) {
+          return {
+            success: true,
+            message: `✅ Port ${port} is available`,
+          };
+        }
+
+        const statusIcon = allocation.status === 'allocated' ? '🟢' : allocation.status === 'released' ? '🔴' : '🟡';
+
+        let msg = `${statusIcon} Port ${port} Information:\n\n`;
+        msg += `Service: ${allocation.service_name}\n`;
+        msg += `Status: ${allocation.status}\n`;
+        msg += `Environment: ${allocation.environment}\n`;
+        if (allocation.description) {
+          msg += `Description: ${allocation.description}\n`;
+        }
+        msg += `Allocated: ${allocation.allocated_at.toLocaleString()}\n`;
+
+        if (allocation.status === 'released' && allocation.released_at) {
+          msg += `Released: ${allocation.released_at.toLocaleString()}\n`;
+        }
+
+        return { success: true, message: msg };
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `❌ Failed to check port: ${err.message}`,
+        };
+      }
+    }
+
+    case 'port-cleanup': {
+      // Usage: /port-cleanup [--dry-run]
+      const dryRun = args.includes('--dry-run');
+
+      try {
+        if (dryRun) {
+          return {
+            success: true,
+            message:
+              '🔍 Dry run mode: would remove stale allocations (released > 30 days ago)\n\n' +
+              'Run `/port-cleanup` without --dry-run to perform cleanup.',
+          };
+        }
+
+        const cleaned = await portDb.cleanupStaleAllocations();
+
+        return {
+          success: true,
+          message: `✅ Cleaned up ${cleaned} stale port allocation(s)`,
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `❌ Failed to cleanup ports: ${err.message}`,
+        };
+      }
+    }
+
+    case 'port-stats': {
+      // Usage: /port-stats [environment]
+      const environment = (args[0] as 'dev' | 'production' | 'test') || 'dev';
+
+      if (!['dev', 'production', 'test'].includes(environment)) {
+        return {
+          success: false,
+          message: '❌ Invalid environment. Use: dev, production, or test',
+        };
+      }
+
+      try {
+        const stats = await portDb.getPortRangeUtilization(environment);
+
+        let msg = `📊 Port Range Statistics (${environment}):\n\n`;
+        msg += `Total Ports: ${stats.total}\n`;
+        msg += `Allocated: ${stats.allocated}\n`;
+        msg += `Available: ${stats.available}\n`;
+        msg += `Utilization: ${stats.utilizationPercent}%\n`;
+
+        if (stats.utilizationPercent > 80) {
+          msg += `\n⚠️ Warning: ${environment} port range is ${stats.utilizationPercent}% full!`;
+        }
+
+        return { success: true, message: msg };
+      } catch (err: any) {
+        return {
+          success: false,
+          message: `❌ Failed to get stats: ${err.message}`,
+        };
       }
     }
 

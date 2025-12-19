@@ -21,6 +21,10 @@ export interface Codebase {
   default_cwd: string;
   ai_assistant_type: string;
   commands: Record<string, { path: string; description: string }>;
+  port_config?: {
+    primary_port?: number;
+    service_ports?: Record<string, number>;
+  };
   created_at: Date;
   updated_at: Date;
 }
@@ -128,4 +132,41 @@ export interface IAssistantClient {
    * Get the assistant type identifier
    */
   getType(): string;
+}
+
+/**
+ * Port allocation tracking
+ */
+export interface PortAllocation {
+  id: string;
+  port: number;
+  service_name: string;
+  description: string | null;
+  codebase_id: string | null;
+  conversation_id: string | null;
+  worktree_path: string | null;
+  environment: 'dev' | 'production' | 'test';
+  status: 'allocated' | 'active' | 'released';
+  allocated_at: Date;
+  released_at: Date | null;
+  last_checked: Date | null;
+  process_id: number | null;
+}
+
+export interface PortAllocationRequest {
+  service_name: string;
+  description?: string;
+  environment: 'dev' | 'production' | 'test';
+  preferred_port?: number;
+  codebase_id?: string;
+  conversation_id?: string;
+  worktree_path?: string;
+}
+
+export interface PortAllocationFilters {
+  codebase_id?: string;
+  conversation_id?: string;
+  worktree_path?: string;
+  environment?: 'dev' | 'production' | 'test';
+  status?: 'allocated' | 'active' | 'released';
 }
