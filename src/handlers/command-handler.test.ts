@@ -10,6 +10,7 @@ jest.mock('../db/conversations');
 jest.mock('../db/codebases');
 jest.mock('../db/sessions');
 jest.mock('../utils/path-validation');
+jest.mock('../utils/github-repo');
 jest.mock('fs/promises');
 jest.mock('child_process', () => ({
   exec: jest.fn(),

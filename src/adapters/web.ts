@@ -19,7 +19,7 @@ export class WebAdapter implements IPlatformAdapter {
   private messageHandler:
     | ((message: WebMessage & { images?: ImageAttachment[] }) => Promise<void>)
     | null = null;
-  private clients: Map<string, Set<string>> = new Map(); // conversationId -> Set of socket IDs
+  private clients = new Map<string, Set<string>>(); // conversationId -> Set of socket IDs
 
   constructor(httpServer: HTTPServer, mode: 'stream' | 'batch' = 'stream') {
     this.streamingMode = mode;

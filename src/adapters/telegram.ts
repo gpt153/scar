@@ -342,7 +342,7 @@ export class TelegramAdapter implements IPlatformAdapter {
         const isBlacklist = this.topicFilter.some((id) => id < 0);
         if (!isBlacklist) {
           // Whitelist mode - ignore general chat
-          console.log(`[Telegram] Ignoring general chat message (topic whitelist active)`);
+          console.log('[Telegram] Ignoring general chat message (topic whitelist active)');
           return;
         }
         // Blacklist mode - process general chat (it's not blacklisted)

@@ -15,5 +15,8 @@ module.exports = {
     },
   },
   verbose: true,
-  transformIgnorePatterns: ['node_modules/(?!(@octokit)/)'],
+  transformIgnorePatterns: ['node_modules/(?!(@octokit|@anthropic-ai)/)'],
+  moduleNameMapper: {
+    '^@octokit/rest$': '<rootDir>/src/test/__mocks__/@octokit/rest.ts',
+  },
 };
