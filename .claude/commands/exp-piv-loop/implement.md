@@ -67,11 +67,38 @@ Follow the plan's **Tasks** section top-to-bottom.
 
 For each task:
 1. Read the **Mirror** reference
-2. Make the change
-3. Run the task's **Verify** command
-4. If verify fails → fix it → re-verify → continue
+2. **Research if needed** (see Step 3.1 below)
+3. Make the change
+4. Run the task's **Verify** command
+5. If verify fails → fix it → re-verify → continue
 
-**If stuck**: Research (web search), adapt, continue. Don't stop.
+**If stuck**: Research (see Step 3.1), adapt, continue. Don't stop.
+
+### Step 3.1: Research During Implementation
+
+**PRIORITY ORDER for finding implementation details:**
+
+1. **Check Archon FIRST** (if MCP available):
+   - Search knowledge base: `mcp__archon__rag_search_knowledge_base(query="[API method] syntax", match_count=5)`
+   - Find code examples: `mcp__archon__rag_search_code_examples(query="[pattern]", match_count=3)`
+   - Example: "React useEffect cleanup", "Discord.js button interaction", "Supabase auth flow"
+
+2. **Fall back to Web Search** (if not found in Archon):
+   - Search official docs
+   - Find working examples
+
+**Why Archon first?**
+- Indexed docs are already vetted and version-specific
+- Faster than web search (no parsing needed)
+- Consistent with plan's research (if plan used Archon)
+
+**Update plan citations**: When using Archon during implementation, note sources in code comments:
+```typescript
+// Implementation based on: React Hooks Docs (Archon) - useEffect section
+useEffect(() => {
+  // cleanup pattern from Archon indexed docs
+}, []);
+```
 
 ---
 

@@ -12,6 +12,7 @@ Control AI coding assistants (Claude Code, Codex) remotely from Telegram, GitHub
 - **Codebase Management**: Clone and work with any GitHub repository
 - **Flexible Streaming**: Real-time or batch message delivery per platform
 - **Generic Command System**: User-defined commands versioned with Git
+- **Archon Auto-Research**: Automatically detects dependencies and indexes documentation for knowledge-first AI workflows (optional)
 - **Docker Ready**: Simple deployment with Docker Compose
 
 ## Prerequisites

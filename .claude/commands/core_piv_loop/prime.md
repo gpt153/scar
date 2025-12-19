@@ -10,6 +10,36 @@ Build comprehensive understanding of the codebase by analyzing structure, docume
 
 ## Process
 
+### 0. Check Archon Knowledge Base (If Available)
+
+**PRIORITY: If Archon MCP is enabled, check indexed documentation FIRST:**
+
+1. **List available sources**: `mcp__archon__rag_get_available_sources()`
+   - Shows all previously indexed documentation
+   - Displays: title, URL, creation date
+
+2. **Search for project-related docs**:
+   - Identify technologies from package.json/requirements.txt
+   - Search Archon for each: `mcp__archon__rag_search_knowledge_base(query="[technology]", match_count=3)`
+   - Example: If project uses React, search: `mcp__archon__rag_search_knowledge_base(query="React", match_count=3)`
+
+3. **Report findings**:
+   - **Indexed dependencies**: List which technologies already have documentation in Archon
+   - **Missing dependencies**: Identify important dependencies not yet indexed
+   - **Recommendations**: Suggest which docs to index for better AI assistance
+
+**Example Output**:
+```
+📚 Archon Knowledge Base Status:
+✅ Indexed: React (v18 docs, 3,456 chunks), PostgreSQL (Official docs, 2,134 chunks)
+❌ Missing: Express.js, Jest
+💡 Recommend: /crawl https://expressjs.com for Express documentation
+```
+
+If Archon is not available, skip to Step 1.
+
+---
+
 ### 1. Analyze Project Structure
 
 List all tracked files:
@@ -44,6 +74,12 @@ Check current branch and status:
 ## Output Report
 
 Provide a concise summary covering:
+
+### Archon Knowledge Base (If Available)
+- **Indexed Dependencies**: Which technologies already have docs in Archon
+- **Missing Dependencies**: Key dependencies that should be indexed
+- **Recommendations**: Suggested crawl commands to improve knowledge base
+- **Coverage**: Percentage of major dependencies covered by Archon
 
 ### Project Overview
 - Purpose and type of application
