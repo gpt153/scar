@@ -764,9 +764,15 @@ try {
 
 ### GitHub-Specific Patterns
 
+**Production Setup (gpt153/scar):**
+- **Webhook URL**: `https://code.153.se/webhooks/github`
+- **Bot Mention**: `@scar` (configured via `GITHUB_BOT_MENTION=scar` in `.env`)
+- **Port**: 3001 (not 3000 - conflict with Next.js dev server)
+- **Cloudflare Tunnel**: `code.153.se` → `localhost:3001`
+
 **Authentication:**
 - GitHub CLI operations: Use `GITHUB_TOKEN` (personal access token)
-- Webhook events: Use GitHub App credentials (`GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`)
+- Webhook events: Same `GITHUB_TOKEN` with `WEBHOOK_SECRET` for signature verification
 
 **Operations:**
 ```bash
@@ -784,21 +790,36 @@ gh pr review 15 --comment -b "Looks good!"
 ```
 
 **@Mention Detection:**
-- Parse `@coding-assistant` in issue/PR descriptions and comments
+- Bot mention configurable via `GITHUB_BOT_MENTION` env var (default: `remote-agent`)
+- **Production uses**: `@scar` (set in `.env`)
+- Parse mentions in issue/PR descriptions and comments
 - Events: `issues`, `issue_comment`, `pull_request`
+
+**Webhook Setup:**
+1. GitHub repo settings → Webhooks → Add webhook
+2. Payload URL: `https://code.153.se/webhooks/github`
+3. Content type: `application/json`
+4. Secret: Value from `WEBHOOK_SECRET` env var
+5. Events: Issues, Issue comments, Pull requests
 
 ## Common Workflows
 
 **Fix Issue (GitHub):**
-1. User: `@coding-assistant fix this` on issue #42
+1. User: `@scar fix this` on issue #42
 2. Webhook: Trigger detected, conversationId = `user/repo#42`
 3. Clone repo if needed
 4. AI: Analyze issue, make changes, commit
 5. `gh pr create` with "Fixes #42"
 6. Comment on issue with PR link
 
+**Plan Feature (GitHub):**
+1. User: `@scar /command-invoke plan-feature "Feature description"` on issue
+2. AI: Creates comprehensive implementation plan
+3. Plan saved to feature branch in `.agents/plans/`
+4. Use `@scar /command-invoke execute` to implement
+
 **Review PR (GitHub):**
-1. User: `@coding-assistant review` on PR #15
+1. User: `@scar review` on PR #15
 2. Fetch PR diff: `gh pr diff 15`
 3. AI: Review code, generate feedback
 4. `gh pr review 15 --comment -b "feedback"`
