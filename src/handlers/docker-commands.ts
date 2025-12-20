@@ -5,6 +5,8 @@
 import {
   getComposeProjectContainers,
   getContainerLogs,
+  restartComposeProject,
+  waitForHealthy,
 } from '../clients/docker';
 import {
   getDockerConfig,
@@ -401,4 +403,124 @@ async function addContainer(
       `Check status: /docker-status`,
     modified: true,
   };
+}
+
+/**
+ * Handle /docker-restart command
+ * Restarts all containers in the Docker Compose project
+ * Requires confirmation from user
+ */
+export async function handleDockerRestartCommand(
+  codebaseId: string | null,
+  confirmed: boolean = false
+): Promise<CommandResult> {
+  if (!codebaseId) {
+    return {
+      success: false,
+      message: '❌ No codebase linked. Use /codebase to link a project first.',
+    };
+  }
+
+  const codebase = await getCodebase(codebaseId);
+  if (!codebase) {
+    return {
+      success: false,
+      message: '❌ Codebase not found.',
+    };
+  }
+
+  const dockerConfig = await getDockerConfig(codebaseId);
+  if (!dockerConfig || !dockerConfig.enabled) {
+    return {
+      success: false,
+      message: '❌ Docker not configured for this codebase.',
+    };
+  }
+
+  // Get current containers
+  const containers = await getComposeProjectContainers(dockerConfig.compose_project);
+
+  if (containers.length === 0) {
+    return {
+      success: false,
+      message: '❌ No containers found for this project.',
+    };
+  }
+
+  // If not confirmed, show confirmation prompt
+  if (!confirmed) {
+    let message = `⚠️ **Restart Production Containers** - ${codebase.name}\n\n`;
+    message += `This will restart all containers in the \`${dockerConfig.compose_project}\` project:\n\n`;
+
+    for (const container of containers) {
+      message += `  • ${container.name} (${container.state})\n`;
+    }
+
+    message += `\n**Estimated downtime**: 10-30 seconds\n`;
+    message += `\n⚠️ This will temporarily interrupt the service!\n\n`;
+    message += `To confirm, run: \`/docker-restart confirm\``;
+
+    return {
+      success: true,
+      message,
+    };
+  }
+
+  // Perform restart
+  try {
+    let message = `🔄 Restarting containers for ${codebase.name}...\n\n`;
+
+    const result = await restartComposeProject(dockerConfig.compose_project);
+
+    if (result.restarted.length > 0) {
+      message += `✅ **Restarted** (${result.restarted.length}):\n`;
+      for (const name of result.restarted) {
+        message += `  • ${name}\n`;
+      }
+    }
+
+    if (result.failed.length > 0) {
+      message += `\n❌ **Failed** (${result.failed.length}):\n`;
+      for (const name of result.failed) {
+        message += `  • ${name}\n`;
+      }
+    }
+
+    // Wait for containers to become healthy
+    message += `\n🔍 Checking health...`;
+
+    const healthChecks = await Promise.all(
+      result.restarted.map(async (name) => ({
+        name,
+        healthy: await waitForHealthy(name, 30000),
+      }))
+    );
+
+    const allHealthy = healthChecks.every((check) => check.healthy);
+
+    message += `\n\n`;
+
+    if (allHealthy) {
+      message += `✅ All containers are healthy!\n\n`;
+      message += `Check status: /docker-status`;
+    } else {
+      message += `⚠️ Some containers may not be healthy:\n`;
+      for (const check of healthChecks) {
+        const emoji = check.healthy ? '✅' : '❌';
+        message += `  ${emoji} ${check.name}\n`;
+      }
+      message += `\nCheck logs: /docker-logs [container]`;
+    }
+
+    return {
+      success: result.success && allHealthy,
+      message,
+      modified: true,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `❌ Error restarting containers: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
+  }
 }
