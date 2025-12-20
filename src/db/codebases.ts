@@ -2,7 +2,8 @@
  * Database operations for codebases
  */
 import { pool } from './connection';
-import { Codebase } from '../types';
+import { Codebase, DockerConfig } from '../types';
+import { deserializeDockerConfig, serializeDockerConfig } from '../utils/dockerConfig';
 
 export async function createCodebase(data: {
   name: string;
@@ -103,4 +104,57 @@ export async function deleteCodebase(id: string): Promise<void> {
   );
   // Then delete the codebase
   await pool.query('DELETE FROM remote_agent_codebases WHERE id = $1', [id]);
+}
+
+/**
+ * Get Docker configuration for a codebase
+ */
+export async function getDockerConfig(id: string): Promise<DockerConfig | null> {
+  const result = await pool.query<{ docker_config: unknown }>(
+    'SELECT docker_config FROM remote_agent_codebases WHERE id = $1',
+    [id]
+  );
+
+  if (!result.rows[0]) {
+    return null;
+  }
+
+  return deserializeDockerConfig(result.rows[0].docker_config);
+}
+
+/**
+ * Update Docker configuration for a codebase
+ */
+export async function updateDockerConfig(id: string, config: DockerConfig | null): Promise<void> {
+  await pool.query(
+    'UPDATE remote_agent_codebases SET docker_config = $1, updated_at = NOW() WHERE id = $2',
+    [config ? JSON.stringify(serializeDockerConfig(config)) : null, id]
+  );
+}
+
+/**
+ * Get all codebases with Docker enabled
+ */
+export async function getDockerEnabledCodebases(): Promise<Codebase[]> {
+  const result = await pool.query<Codebase>(
+    `SELECT * FROM remote_agent_codebases
+     WHERE docker_config IS NOT NULL
+     AND docker_config->>'enabled' = 'true'
+     ORDER BY updated_at DESC`
+  );
+  return result.rows;
+}
+
+/**
+ * Find codebase by Docker Compose project name
+ */
+export async function findCodebaseByComposeProject(projectName: string): Promise<Codebase | null> {
+  const result = await pool.query<Codebase>(
+    `SELECT * FROM remote_agent_codebases
+     WHERE docker_config->>'compose_project' = $1
+     AND docker_config->>'enabled' = 'true'
+     LIMIT 1`,
+    [projectName]
+  );
+  return result.rows[0] || null;
 }
