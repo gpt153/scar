@@ -25,8 +25,34 @@ export interface Codebase {
     primary_port?: number;
     service_ports?: Record<string, number>;
   };
+  docker_config?: DockerConfig;
   created_at: Date;
   updated_at: Date;
+}
+
+/**
+ * Docker configuration for managing production containers
+ */
+export interface DockerConfig {
+  enabled: boolean;
+  compose_project: string;
+  compose_file: string;
+  containers: Record<string, ContainerConfig>;
+  deploy?: DeployConfig;
+}
+
+export interface ContainerConfig {
+  service: string;
+  health_check_url?: string;
+  restart_policy: 'auto' | 'manual' | 'never';
+}
+
+export interface DeployConfig {
+  auto_deploy: boolean;
+  deploy_on_merge: boolean;
+  build_command?: string;
+  pre_deploy_command?: string;
+  post_deploy_command?: string;
 }
 
 export interface Session {

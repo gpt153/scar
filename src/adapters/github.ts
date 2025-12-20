@@ -603,7 +603,6 @@ ${userComment}`;
     const {
       codebase,
       repoPath,
-      isNew: isNewCodebase,
     } = await this.getOrCreateCodebaseForRepo(owner, repo);
 
     // 7. Get default branch
