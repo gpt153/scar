@@ -78,7 +78,7 @@ export async function getComposeProjectContainers(
  */
 export async function getContainerLogs(
   containerName: string,
-  lines: number = 50
+  lines = 50
 ): Promise<string> {
   try {
     const container = docker.getContainer(containerName);
@@ -256,8 +256,8 @@ export async function isContainerHealthy(containerName: string): Promise<boolean
  */
 export async function waitForHealthy(
   containerName: string,
-  timeoutMs: number = 30000,
-  intervalMs: number = 1000
+  timeoutMs = 30000,
+  intervalMs = 1000
 ): Promise<boolean> {
   const startTime = Date.now();
 

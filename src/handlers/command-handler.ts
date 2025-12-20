@@ -1213,7 +1213,7 @@ Knowledge Base (Archon):
                 conversation_id: conversation.id,
                 worktree_path: worktreePath,
               });
-            } catch (portErr: any) {
+            } catch (portErr: unknown) {
               console.error('[Worktree] Port allocation failed:', portErr);
               // Continue without port allocation - non-critical error
             }
@@ -1225,8 +1225,8 @@ Knowledge Base (Archon):
               message += `\nAllocated Port: ${portAllocation.port}`;
               message += `\n\nUse: PORT=${portAllocation.port} npm run dev`;
             } else {
-              message += `\n\nThis conversation now works in isolation.`;
-              message += `\nRun dependency install if needed (e.g., npm install).`;
+              message += '\n\nThis conversation now works in isolation.';
+              message += '\nRun dependency install if needed (e.g., npm install).';
             }
 
             return {
@@ -1308,7 +1308,7 @@ Knowledge Base (Archon):
                   releasedPorts++;
                 }
               }
-            } catch (portErr: any) {
+            } catch (portErr: unknown) {
               console.error('[Worktree] Port release failed:', portErr);
               // Continue - non-critical error
             }
