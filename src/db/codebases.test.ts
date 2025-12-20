@@ -1,5 +1,6 @@
 import { createQueryResult } from '../test/mocks/database';
-import { Codebase } from '../types';
+import { Codebase, DockerConfig } from '../types';
+import { createDefaultDockerConfig, addContainerToConfig } from '../utils/dockerConfig';
 
 const mockQuery = jest.fn();
 
@@ -19,6 +20,10 @@ import {
   findCodebaseByRepoUrl,
   findCodebaseByDefaultCwd,
   deleteCodebase,
+  getDockerConfig,
+  updateDockerConfig,
+  getDockerEnabledCodebases,
+  findCodebaseByComposeProject,
 } from './codebases';
 
 describe('codebases', () => {
@@ -343,6 +348,186 @@ describe('codebases', () => {
       await deleteCodebase('codebase-456');
 
       expect(mockQuery).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('Docker Configuration', () => {
+    const mockDockerConfig: DockerConfig = {
+      enabled: true,
+      compose_project: 'po',
+      compose_file: 'docker-compose.yml',
+      containers: {
+        backend: {
+          service: 'api',
+          restart_policy: 'auto',
+          health_check_url: 'http://localhost:3000/health',
+        },
+        frontend: {
+          service: 'web',
+          restart_policy: 'manual',
+        },
+      },
+      deploy: {
+        auto_deploy: false,
+        deploy_on_merge: true,
+        build_command: 'npm run build',
+      },
+    };
+
+    describe('getDockerConfig', () => {
+      test('should return Docker config when exists', async () => {
+        mockQuery.mockResolvedValueOnce(
+          createQueryResult([{ docker_config: mockDockerConfig }])
+        );
+
+        const result = await getDockerConfig('codebase-123');
+
+        expect(result).toEqual(mockDockerConfig);
+        expect(mockQuery).toHaveBeenCalledWith(
+          'SELECT docker_config FROM remote_agent_codebases WHERE id = $1',
+          ['codebase-123']
+        );
+      });
+
+      test('should return null when codebase not found', async () => {
+        mockQuery.mockResolvedValueOnce(createQueryResult([]));
+
+        const result = await getDockerConfig('non-existent');
+
+        expect(result).toBeNull();
+      });
+
+      test('should return null when docker_config is null', async () => {
+        mockQuery.mockResolvedValueOnce(createQueryResult([{ docker_config: null }]));
+
+        const result = await getDockerConfig('codebase-123');
+
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('updateDockerConfig', () => {
+      test('should update Docker config', async () => {
+        mockQuery.mockResolvedValueOnce(createQueryResult([], 1));
+
+        await updateDockerConfig('codebase-123', mockDockerConfig);
+
+        expect(mockQuery).toHaveBeenCalledWith(
+          'UPDATE remote_agent_codebases SET docker_config = $1, updated_at = NOW() WHERE id = $2',
+          [JSON.stringify(mockDockerConfig), 'codebase-123']
+        );
+      });
+
+      test('should set docker_config to null when config is null', async () => {
+        mockQuery.mockResolvedValueOnce(createQueryResult([], 1));
+
+        await updateDockerConfig('codebase-123', null);
+
+        expect(mockQuery).toHaveBeenCalledWith(
+          'UPDATE remote_agent_codebases SET docker_config = $1, updated_at = NOW() WHERE id = $2',
+          [null, 'codebase-123']
+        );
+      });
+
+      test('should handle complex Docker config', async () => {
+        const complexConfig = createDefaultDockerConfig('test', 'docker/production.yml');
+        let updated = addContainerToConfig(
+          complexConfig,
+          'api',
+          'backend',
+          'auto',
+          'http://localhost:8080/health'
+        );
+        updated = addContainerToConfig(updated, 'web', 'frontend', 'manual');
+        updated.deploy = {
+          auto_deploy: true,
+          deploy_on_merge: true,
+          build_command: 'npm run build',
+          pre_deploy_command: 'npm run migrate',
+          post_deploy_command: 'npm run health-check',
+        };
+
+        mockQuery.mockResolvedValueOnce(createQueryResult([], 1));
+
+        await updateDockerConfig('codebase-123', updated);
+
+        expect(mockQuery).toHaveBeenCalledWith(
+          expect.any(String),
+          [expect.stringContaining('"compose_project":"test"'), 'codebase-123']
+        );
+      });
+    });
+
+    describe('getDockerEnabledCodebases', () => {
+      test('should return all Docker-enabled codebases', async () => {
+        const mockCodebases: Codebase[] = [
+          {
+            ...mockCodebase,
+            id: 'cb-1',
+            docker_config: mockDockerConfig,
+          },
+          {
+            ...mockCodebase,
+            id: 'cb-2',
+            docker_config: { ...mockDockerConfig, compose_project: 'other' },
+          },
+        ];
+
+        mockQuery.mockResolvedValueOnce(createQueryResult(mockCodebases));
+
+        const result = await getDockerEnabledCodebases();
+
+        expect(result).toEqual(mockCodebases);
+        expect(mockQuery).toHaveBeenCalledWith(
+          expect.stringContaining('docker_config IS NOT NULL')
+        );
+      });
+
+      test('should return empty array when no Docker-enabled codebases', async () => {
+        mockQuery.mockResolvedValueOnce(createQueryResult([]));
+
+        const result = await getDockerEnabledCodebases();
+
+        expect(result).toEqual([]);
+      });
+    });
+
+    describe('findCodebaseByComposeProject', () => {
+      test('should find codebase by compose project name', async () => {
+        const mockCodebaseWithDocker: Codebase = {
+          ...mockCodebase,
+          docker_config: mockDockerConfig,
+        };
+
+        mockQuery.mockResolvedValueOnce(createQueryResult([mockCodebaseWithDocker]));
+
+        const result = await findCodebaseByComposeProject('po');
+
+        expect(result).toEqual(mockCodebaseWithDocker);
+        expect(mockQuery).toHaveBeenCalledWith(
+          expect.stringContaining("docker_config->>'compose_project'"),
+          ['po']
+        );
+      });
+
+      test('should return null when compose project not found', async () => {
+        mockQuery.mockResolvedValueOnce(createQueryResult([]));
+
+        const result = await findCodebaseByComposeProject('nonexistent');
+
+        expect(result).toBeNull();
+      });
+
+      test('should only return enabled Docker configs', async () => {
+        mockQuery.mockResolvedValueOnce(createQueryResult([]));
+
+        await findCodebaseByComposeProject('po');
+
+        expect(mockQuery).toHaveBeenCalledWith(
+          expect.stringContaining("docker_config->>'enabled' = 'true'"),
+          ['po']
+        );
+      });
     });
   });
 });

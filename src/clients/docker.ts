@@ -78,7 +78,7 @@ export async function getComposeProjectContainers(
  */
 export async function getContainerLogs(
   containerName: string,
-  lines: number = 50
+  lines = 50
 ): Promise<string> {
   try {
     const container = docker.getContainer(containerName);
@@ -93,20 +93,6 @@ export async function getContainerLogs(
   } catch (error) {
     console.error(`[Docker] Failed to get logs for ${containerName}:`, error);
     throw error;
-  }
-}
-
-/**
- * Restart a specific container
- */
-export async function restartContainer(containerName: string): Promise<boolean> {
-  try {
-    const container = docker.getContainer(containerName);
-    await container.restart();
-    return true;
-  } catch (error) {
-    console.error(`[Docker] Failed to restart ${containerName}:`, error);
-    return false;
   }
 }
 
@@ -179,4 +165,108 @@ function extractPorts(portBindings: Docker.PortMap | undefined): { internal: num
   }
 
   return ports;
+}
+
+/**
+ * Restart a container by name
+ * @param containerName - Name or ID of container to restart
+ * @returns true if successful, false otherwise
+ */
+export async function restartContainer(containerName: string): Promise<boolean> {
+  try {
+    const container = docker.getContainer(containerName);
+    await container.restart({ t: 10 }); // 10 second graceful shutdown
+    return true;
+  } catch (error) {
+    console.error(`[Docker Client] Failed to restart container ${containerName}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Restart all containers in a Docker Compose project
+ * @param projectName - Docker Compose project name
+ * @returns Object with success status and list of restarted containers
+ */
+export async function restartComposeProject(projectName: string): Promise<{
+  success: boolean;
+  restarted: string[];
+  failed: string[];
+}> {
+  const result = {
+    success: true,
+    restarted: [] as string[],
+    failed: [] as string[],
+  };
+
+  try {
+    // Get all containers in the project
+    const containers = await getComposeProjectContainers(projectName);
+
+    // Restart each container
+    for (const container of containers) {
+      const success = await restartContainer(container.name);
+      if (success) {
+        result.restarted.push(container.name);
+      } else {
+        result.failed.push(container.name);
+        result.success = false;
+      }
+    }
+  } catch (error) {
+    console.error(`[Docker Client] Failed to restart project ${projectName}:`, error);
+    result.success = false;
+  }
+
+  return result;
+}
+
+/**
+ * Check if a container is healthy
+ * @param containerName - Name or ID of container
+ * @returns true if container is running and healthy (or has no health check)
+ */
+export async function isContainerHealthy(containerName: string): Promise<boolean> {
+  try {
+    const status = await getContainerStatus(containerName);
+    if (!status) return false;
+
+    // Container must be running
+    if (status.state !== 'running') return false;
+
+    // If health check exists, must be healthy
+    if (status.health && status.health !== 'none') {
+      return status.health === 'healthy';
+    }
+
+    // No health check = assume healthy if running
+    return true;
+  } catch (error) {
+    console.error(`[Docker Client] Failed to check health for ${containerName}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Wait for a container to become healthy
+ * @param containerName - Name or ID of container
+ * @param timeoutMs - Maximum time to wait (default 30s)
+ * @param intervalMs - Check interval (default 1s)
+ * @returns true if container became healthy, false if timeout
+ */
+export async function waitForHealthy(
+  containerName: string,
+  timeoutMs = 30000,
+  intervalMs = 1000
+): Promise<boolean> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeoutMs) {
+    if (await isContainerHealthy(containerName)) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+
+  return false;
 }

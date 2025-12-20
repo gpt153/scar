@@ -30,20 +30,28 @@ const RESERVED_PORTS = new Set(RESERVED_PORTS_STR.split(',').map((p: string) => 
  * Allocate a port for a service
  */
 export async function allocatePort(request: PortAllocationRequest): Promise<PortAllocation> {
-  const { service_name, description, environment, preferred_port, codebase_id, conversation_id, worktree_path } = request;
+  const {
+    service_name: serviceName,
+    description,
+    environment,
+    preferred_port: preferredPort,
+    codebase_id: codebaseId,
+    conversation_id: conversationId,
+    worktree_path: worktreePath,
+  } = request;
 
   let port: number;
 
-  if (preferred_port) {
+  if (preferredPort) {
     // Check if preferred port is available
-    const existing = await getPortAllocation(preferred_port);
+    const existing = await getPortAllocation(preferredPort);
     if (existing && existing.status !== 'released') {
-      throw new Error(`Port ${preferred_port} is already allocated to ${existing.service_name}`);
+      throw new Error(`Port ${preferredPort} is already allocated to ${existing.service_name}`);
     }
-    if (RESERVED_PORTS.has(preferred_port)) {
-      throw new Error(`Port ${preferred_port} is reserved and cannot be allocated`);
+    if (RESERVED_PORTS.has(preferredPort)) {
+      throw new Error(`Port ${preferredPort} is reserved and cannot be allocated`);
     }
-    port = preferred_port;
+    port = preferredPort;
   } else {
     // Find next available port in range
     const availablePort = await findAvailablePort(environment);
@@ -59,7 +67,7 @@ export async function allocatePort(request: PortAllocationRequest): Promise<Port
       (port, service_name, description, codebase_id, conversation_id, worktree_path, environment, status)
     VALUES ($1, $2, $3, $4, $5, $6, $7, 'allocated')
     RETURNING *`,
-    [port, service_name, description || null, codebase_id || null, conversation_id || null, worktree_path || null, environment]
+    [port, serviceName, description || null, codebaseId || null, conversationId || null, worktreePath || null, environment]
   );
 
   return result.rows[0];
@@ -124,7 +132,7 @@ export async function getPortAllocation(port: number): Promise<PortAllocation | 
  */
 export async function listAllocations(filters?: PortAllocationFilters): Promise<PortAllocation[]> {
   const conditions: string[] = [];
-  const params: any[] = [];
+  const params: unknown[] = [];
   let paramIndex = 1;
 
   if (filters?.codebase_id) {
@@ -191,7 +199,7 @@ export async function checkPortConflicts(port: number): Promise<boolean> {
  */
 export async function updatePortStatus(port: number, status: 'allocated' | 'active' | 'released'): Promise<void> {
   const updates: string[] = ['status = $1', 'last_checked = NOW()'];
-  const params: any[] = [status, port];
+  const params: unknown[] = [status, port];
 
   if (status === 'released') {
     updates.push('released_at = NOW()');

@@ -18,6 +18,12 @@ import { listWorktrees } from '../utils/git';
 import { handleNewTopic } from './new-topic-handler';
 import { ArchonClient, type CrawlProgress } from '../clients/archon';
 import type { IPlatformAdapter } from '../types';
+import {
+  handleDockerConfigCommand,
+  handleDockerStatusCommand,
+  handleDockerLogsCommand,
+  handleDockerRestartCommand,
+} from './docker-commands';
 
 const execFileAsync = promisify(execFile);
 
@@ -1207,7 +1213,7 @@ Knowledge Base (Archon):
                 conversation_id: conversation.id,
                 worktree_path: worktreePath,
               });
-            } catch (portErr: any) {
+            } catch (portErr: unknown) {
               console.error('[Worktree] Port allocation failed:', portErr);
               // Continue without port allocation - non-critical error
             }
@@ -1219,8 +1225,8 @@ Knowledge Base (Archon):
               message += `\nAllocated Port: ${portAllocation.port}`;
               message += `\n\nUse: PORT=${portAllocation.port} npm run dev`;
             } else {
-              message += `\n\nThis conversation now works in isolation.`;
-              message += `\nRun dependency install if needed (e.g., npm install).`;
+              message += '\n\nThis conversation now works in isolation.';
+              message += '\nRun dependency install if needed (e.g., npm install).';
             }
 
             return {
@@ -1302,7 +1308,7 @@ Knowledge Base (Archon):
                   releasedPorts++;
                 }
               }
-            } catch (portErr: any) {
+            } catch (portErr: unknown) {
               console.error('[Worktree] Port release failed:', portErr);
               // Continue - non-critical error
             }
@@ -1637,6 +1643,28 @@ Knowledge Base (Archon):
           message: `❌ Failed to get stats: ${err.message}`,
         };
       }
+    }
+
+    // Docker Management Commands
+    case 'docker-config': {
+      // Usage: /docker-config [set|show|add-container] [args...]
+      return await handleDockerConfigCommand(conversation.codebase_id, args);
+    }
+
+    case 'docker-status': {
+      // Usage: /docker-status
+      return await handleDockerStatusCommand(conversation.codebase_id);
+    }
+
+    case 'docker-logs': {
+      // Usage: /docker-logs [container] [lines]
+      return await handleDockerLogsCommand(conversation.codebase_id, args);
+    }
+
+    case 'docker-restart': {
+      // Usage: /docker-restart [confirm]
+      const confirmed = args[0]?.toLowerCase() === 'confirm';
+      return await handleDockerRestartCommand(conversation.codebase_id, confirmed);
     }
 
     default:
