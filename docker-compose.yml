@@ -39,6 +39,8 @@ services:
     volumes:
       - /home/samuel/.archon/workspaces:/workspace
       - /home/samuel/.archon/worktrees:/worktrees
+      # Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock
       # Persistent Playwright browser storage
       - /home/samuel/dockerMCP/playwright-browsers:/home/appuser/.cache/ms-playwright
     restart: unless-stopped
