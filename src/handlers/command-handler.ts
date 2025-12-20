@@ -18,6 +18,11 @@ import { listWorktrees } from '../utils/git';
 import { handleNewTopic } from './new-topic-handler';
 import { ArchonClient, type CrawlProgress } from '../clients/archon';
 import type { IPlatformAdapter } from '../types';
+import {
+  handleDockerConfigCommand,
+  handleDockerStatusCommand,
+  handleDockerLogsCommand,
+} from './docker-commands';
 
 const execFileAsync = promisify(execFile);
 
@@ -1637,6 +1642,22 @@ Knowledge Base (Archon):
           message: `❌ Failed to get stats: ${err.message}`,
         };
       }
+    }
+
+    // Docker Management Commands
+    case 'docker-config': {
+      // Usage: /docker-config [set|show|add-container] [args...]
+      return await handleDockerConfigCommand(conversation.codebase_id, args);
+    }
+
+    case 'docker-status': {
+      // Usage: /docker-status
+      return await handleDockerStatusCommand(conversation.codebase_id);
+    }
+
+    case 'docker-logs': {
+      // Usage: /docker-logs [container] [lines]
+      return await handleDockerLogsCommand(conversation.codebase_id, args);
     }
 
     default:
