@@ -1,233 +1,255 @@
 /**
- * Google Cloud Platform client for Cloud Run management
- * Handles deployment, service management, and logging
+ * GCP client for Cloud Run deployment and management
+ * Provides programmatic access to Google Cloud Platform via gcloud CLI
  */
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync } from 'fs';
+import { CloudRunService, CloudRunDeploymentResult, GCPConfig } from '../types';
 
 /**
- * Cloud Run service configuration
+ * Check if gcloud CLI is installed and authenticated
  */
-export interface CloudRunConfig {
-  serviceName: string;
-  region: string;
-  image?: string;
-  memory?: string;
-  cpu?: string;
-  timeout?: number;
-  maxInstances?: number;
-  minInstances?: number;
-  envVarsFile?: string;
-}
-
-/**
- * Deployment result
- */
-export interface DeploymentResult {
-  success: boolean;
-  message: string;
-  url?: string;
-  steps: {
-    authenticate: boolean;
-    build: boolean;
-    push: boolean;
-    deploy: boolean;
-  };
-  errors: string[];
-}
-
-/**
- * Service status information
- */
-export interface ServiceStatus {
-  name: string;
-  url: string;
-  status: string;
-  region: string;
-  lastDeployed: string;
-  traffic: string;
-  image: string;
-}
-
-/**
- * Initialize GCP authentication
- */
-export function authenticateGCP(): boolean {
+export async function checkGCloudAccess(): Promise<{
+  installed: boolean;
+  authenticated: boolean;
+  version?: string;
+}> {
   try {
-    const keyPath = process.env.GCP_SERVICE_ACCOUNT_KEY_PATH;
-    if (!keyPath || !existsSync(keyPath)) {
-      console.error('[GCP] Service account key not found:', keyPath);
-      return false;
-    }
+    // Check if gcloud is installed
+    const versionOutput = execSync('gcloud version', { encoding: 'utf-8' });
+    const versionMatch = versionOutput.match(/Google Cloud SDK ([\d.]+)/);
+    const version = versionMatch ? versionMatch[1] : undefined;
 
-    execSync(`gcloud auth activate-service-account --key-file="${keyPath}"`, {
+    // Check if authenticated
+    try {
+      execSync('gcloud auth list --filter=status:ACTIVE --format="value(account)"', {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      });
+      return { installed: true, authenticated: true, version };
+    } catch {
+      return { installed: true, authenticated: false, version };
+    }
+  } catch (error) {
+    console.error('[GCP Client] gcloud CLI not found:', error);
+    return { installed: false, authenticated: false };
+  }
+}
+
+/**
+ * Authenticate with GCP using service account
+ */
+export async function authenticateGCP(): Promise<boolean> {
+  const keyPath = process.env.GCP_SERVICE_ACCOUNT_KEY_PATH || '/app/credentials/gcp-key.json';
+
+  if (!existsSync(keyPath)) {
+    console.error(`[GCP Client] Service account key not found at ${keyPath}`);
+    return false;
+  }
+
+  try {
+    execSync(`gcloud auth activate-service-account --key-file=${keyPath}`, {
       stdio: 'pipe',
     });
 
+    // Set default project if configured
     const projectId = process.env.GCP_PROJECT_ID;
     if (projectId) {
       execSync(`gcloud config set project ${projectId}`, { stdio: 'pipe' });
     }
 
-    console.log('[GCP] Authentication successful');
+    // Configure Docker credential helper
+    execSync('gcloud auth configure-docker --quiet', { stdio: 'pipe' });
+
+    console.log('[GCP Client] Authentication successful');
     return true;
   } catch (error) {
-    console.error('[GCP] Authentication failed:', error);
+    console.error('[GCP Client] Authentication failed:', error);
     return false;
   }
 }
 
 /**
- * Build and push Docker image to Google Container Registry
+ * Build and push Docker image to Container Registry
  */
 export async function buildAndPushImage(
-  projectPath: string,
+  workspacePath: string,
   projectId: string,
-  imageName: string,
-  tag: string = 'latest'
-): Promise<{ success: boolean; image?: string; error?: string }> {
-  try {
-    const fullImageName = `gcr.io/${projectId}/${imageName}:${tag}`;
+  serviceName: string,
+  config: GCPConfig
+): Promise<{ success: boolean; imageUrl: string; error?: string }> {
+  const registry = config.container_registry || 'gcr';
+  const dockerfile = config.build_config?.dockerfile || 'Dockerfile';
+  const context = config.build_config?.context || '.';
 
-    // Check if Dockerfile exists
-    const dockerfilePath = join(projectPath, 'Dockerfile');
-    if (!existsSync(dockerfilePath)) {
-      return {
-        success: false,
-        error: `Dockerfile not found at ${dockerfilePath}`,
-      };
+  // Construct image URL based on registry type
+  let imageUrl: string;
+  if (registry === 'artifact-registry' && config.registry_url) {
+    imageUrl = `${config.registry_url}/${projectId}/${serviceName}:latest`;
+  } else {
+    // Default to GCR
+    imageUrl = `gcr.io/${projectId}/${serviceName}:latest`;
+  }
+
+  try {
+    // Build image
+    console.log(`[GCP Client] Building Docker image: ${imageUrl}`);
+    let buildCommand = `docker build -t ${imageUrl} -f ${dockerfile}`;
+
+    // Add build args if specified
+    if (config.build_config?.build_args) {
+      for (const [key, value] of Object.entries(config.build_config.build_args)) {
+        buildCommand += ` --build-arg ${key}=${value}`;
+      }
     }
 
-    // Build image
-    console.log(`[GCP] Building image: ${fullImageName}`);
-    execSync(`docker build -t ${fullImageName} "${projectPath}"`, {
+    buildCommand += ` ${context}`;
+
+    execSync(buildCommand, {
+      cwd: workspacePath,
       stdio: 'pipe',
+      timeout: parseInt(process.env.CLOUDRUN_BUILD_TIMEOUT || '600000'), // 10 min default
     });
 
-    // Configure Docker for GCR
-    execSync(`gcloud auth configure-docker --quiet`, { stdio: 'pipe' });
+    console.log(`[GCP Client] Image built successfully`);
 
-    // Push to registry
-    console.log(`[GCP] Pushing image to GCR...`);
-    execSync(`docker push ${fullImageName}`, { stdio: 'pipe' });
+    // Push image
+    console.log(`[GCP Client] Pushing image to registry...`);
+    execSync(`docker push ${imageUrl}`, {
+      stdio: 'pipe',
+      timeout: 600000, // 10 minutes
+    });
 
-    return { success: true, image: fullImageName };
+    console.log(`[GCP Client] Image pushed successfully`);
+    return { success: true, imageUrl };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[GCP Client] Build/push failed:', errorMessage);
+    return { success: false, imageUrl, error: errorMessage };
   }
 }
 
 /**
- * Deploy service to Cloud Run
+ * Deploy image to Cloud Run
  */
 export async function deployToCloudRun(
-  config: CloudRunConfig,
-  _projectId: string,
-  imageName?: string
-): Promise<DeploymentResult> {
-  const result: DeploymentResult = {
+  imageUrl: string,
+  projectId: string,
+  region: string,
+  serviceName: string,
+  config: GCPConfig
+): Promise<CloudRunDeploymentResult> {
+  const result: CloudRunDeploymentResult = {
     success: false,
     message: '',
-    steps: { authenticate: false, build: false, push: false, deploy: false },
+    steps: { build: true, push: true, deploy: false },
     errors: [],
   };
 
-  // Authenticate
-  result.steps.authenticate = authenticateGCP();
-  if (!result.steps.authenticate) {
-    result.errors.push('GCP authentication failed');
-    result.message = '❌ Failed to authenticate with GCP';
-    return result;
-  }
-
   try {
-    // Build deploy command
-    let deployCmd = `gcloud run deploy ${config.serviceName}`;
+    // Build gcloud run deploy command
+    let deployCommand = `gcloud run deploy ${serviceName}`;
+    deployCommand += ` --image=${imageUrl}`;
+    deployCommand += ` --region=${region}`;
+    deployCommand += ` --project=${projectId}`;
+    deployCommand += ` --platform=managed`;
+    deployCommand += ` --allow-unauthenticated`; // Default to public access
 
-    // Add image if provided
-    if (imageName) {
-      deployCmd += ` --image=${imageName}`;
+    // Add service configuration
+    const serviceConfig = config.service_config;
+    if (serviceConfig) {
+      if (serviceConfig.memory) deployCommand += ` --memory=${serviceConfig.memory}`;
+      if (serviceConfig.cpu) deployCommand += ` --cpu=${serviceConfig.cpu}`;
+      if (serviceConfig.timeout) deployCommand += ` --timeout=${serviceConfig.timeout}`;
+      if (serviceConfig.max_instances)
+        deployCommand += ` --max-instances=${serviceConfig.max_instances}`;
+      if (serviceConfig.min_instances)
+        deployCommand += ` --min-instances=${serviceConfig.min_instances}`;
+      if (serviceConfig.concurrency)
+        deployCommand += ` --concurrency=${serviceConfig.concurrency}`;
+      if (serviceConfig.ingress) deployCommand += ` --ingress=${serviceConfig.ingress}`;
     }
 
-    // Add region
-    deployCmd += ` --region=${config.region}`;
-
-    // Add resource limits
-    if (config.memory) deployCmd += ` --memory=${config.memory}`;
-    if (config.cpu) deployCmd += ` --cpu=${config.cpu}`;
-    if (config.timeout) deployCmd += ` --timeout=${config.timeout}`;
-    if (config.maxInstances !== undefined)
-      deployCmd += ` --max-instances=${config.maxInstances}`;
-    if (config.minInstances !== undefined)
-      deployCmd += ` --min-instances=${config.minInstances}`;
-
-    // Add environment variables file
-    if (config.envVarsFile && existsSync(config.envVarsFile)) {
-      deployCmd += ` --env-vars-file="${config.envVarsFile}"`;
+    // Add environment variables from file if specified
+    if (config.env_vars_file) {
+      deployCommand += ` --env-vars-file=${config.env_vars_file}`;
     }
 
-    // Add common flags
-    deployCmd += ` --platform=managed --allow-unauthenticated --quiet`;
+    deployCommand += ` --format=json`;
 
-    console.log(`[GCP] Deploying to Cloud Run: ${config.serviceName}`);
-    const output = execSync(deployCmd, { encoding: 'utf-8' });
+    console.log(`[GCP Client] Deploying to Cloud Run: ${serviceName}`);
+    const output = execSync(deployCommand, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 600000, // 10 minutes
+    });
 
-    // Extract service URL from output
-    const urlMatch = output.match(/Service URL: (https:\/\/[^\s]+)/);
-    if (urlMatch) {
-      result.url = urlMatch[1];
-    }
-
+    // Parse deployment result
+    const deployResult = JSON.parse(output);
     result.steps.deploy = true;
     result.success = true;
-    result.message = `✅ Deployed successfully to ${config.region}`;
+    result.serviceUrl = deployResult.status?.url || deployResult.status?.address?.url;
+    result.revision = deployResult.status?.latestCreatedRevisionName;
+    result.message = 'Deployment completed successfully';
 
-    return result;
+    console.log(`[GCP Client] Deployment successful: ${result.serviceUrl}`);
   } catch (error) {
-    result.errors.push(
-      error instanceof Error ? error.message : 'Deployment failed'
-    );
-    result.message = '❌ Cloud Run deployment failed';
-    return result;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    result.errors.push(`Deployment failed: ${errorMessage}`);
+    result.message = 'Deployment failed';
+    console.error('[GCP Client] Deployment failed:', errorMessage);
   }
+
+  return result;
 }
 
 /**
  * Get Cloud Run service status
  */
-export async function getServiceStatus(
-  serviceName: string,
-  region: string
-): Promise<ServiceStatus | null> {
+export async function getCloudRunService(
+  projectId: string,
+  region: string,
+  serviceName: string
+): Promise<CloudRunService | null> {
   try {
-    if (!authenticateGCP()) {
-      throw new Error('Authentication failed');
-    }
-
     const output = execSync(
-      `gcloud run services describe ${serviceName} --region=${region} --format=json`,
-      { encoding: 'utf-8' }
+      `gcloud run services describe ${serviceName} --region=${region} --project=${projectId} --format=json`,
+      {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      }
     );
 
-    const data = JSON.parse(output);
+    const service = JSON.parse(output);
+
+    // Extract traffic information
+    const traffic =
+      service.status?.traffic?.map((t: any) => ({
+        revision: t.revisionName,
+        percent: t.percent,
+      })) || [];
+
+    // Extract conditions
+    const conditions =
+      service.status?.conditions?.map((c: any) => ({
+        type: c.type,
+        status: c.status,
+        message: c.message,
+      })) || [];
 
     return {
-      name: serviceName,
-      url: data.status?.url || 'N/A',
-      status: data.status?.conditions?.[0]?.status || 'Unknown',
-      region: region,
-      lastDeployed:
-        data.metadata?.annotations?.['serving.knative.dev/lastModifier'] ||
-        'Unknown',
-      traffic: '100%', // Simplified
-      image: data.spec?.template?.spec?.containers?.[0]?.image || 'Unknown',
+      name: service.metadata?.name || serviceName,
+      region,
+      url: service.status?.url || service.status?.address?.url || '',
+      ready: conditions.some((c: any) => c.type === 'Ready' && c.status === 'True'),
+      latestRevision: service.status?.latestCreatedRevisionName || '',
+      latestDeployed: new Date(service.metadata?.creationTimestamp || Date.now()),
+      image: service.spec?.template?.spec?.containers?.[0]?.image || '',
+      traffic,
+      conditions,
     };
   } catch (error) {
-    console.error(`[GCP] Failed to get service status:`, error);
+    console.error(`[GCP Client] Failed to get service status for ${serviceName}:`, error);
     return null;
   }
 }
@@ -235,44 +257,71 @@ export async function getServiceStatus(
 /**
  * Get Cloud Run service logs
  */
-export async function getServiceLogs(
-  serviceName: string,
+export async function getCloudRunLogs(
+  projectId: string,
   region: string,
-  lines: number = 50
+  serviceName: string,
+  lines = 50
 ): Promise<string> {
   try {
-    if (!authenticateGCP()) {
-      throw new Error('Authentication failed');
-    }
-
     const output = execSync(
-      `gcloud run services logs read ${serviceName} --region=${region} --limit=${lines}`,
-      { encoding: 'utf-8' }
+      `gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=${serviceName}" --limit=${lines} --project=${projectId} --format="value(timestamp,textPayload,jsonPayload.message)" --order=desc`,
+      {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+        timeout: 30000, // 30 seconds
+      }
     );
 
-    return output;
+    return output || 'No logs found';
   } catch (error) {
-    return `Failed to fetch logs: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[GCP Client] Failed to get logs for ${serviceName}:`, errorMessage);
+    throw error;
   }
 }
 
 /**
  * List all Cloud Run services in a region
  */
-export async function listServices(region: string): Promise<string[]> {
+export async function listCloudRunServices(
+  projectId: string,
+  region: string
+): Promise<CloudRunService[]> {
   try {
-    if (!authenticateGCP()) {
-      throw new Error('Authentication failed');
-    }
-
     const output = execSync(
-      `gcloud run services list --region=${region} --format="value(name)"`,
-      { encoding: 'utf-8' }
+      `gcloud run services list --region=${region} --project=${projectId} --format=json`,
+      {
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      }
     );
 
-    return output.trim().split('\n').filter(Boolean);
+    const services = JSON.parse(output);
+    return services.map((service: any) => ({
+      name: service.metadata?.name || '',
+      region,
+      url: service.status?.url || service.status?.address?.url || '',
+      ready: service.status?.conditions?.some(
+        (c: any) => c.type === 'Ready' && c.status === 'True'
+      ),
+      latestRevision: service.status?.latestCreatedRevisionName || '',
+      latestDeployed: new Date(service.metadata?.creationTimestamp || Date.now()),
+      image: service.spec?.template?.spec?.containers?.[0]?.image || '',
+      traffic:
+        service.status?.traffic?.map((t: any) => ({
+          revision: t.revisionName,
+          percent: t.percent,
+        })) || [],
+      conditions:
+        service.status?.conditions?.map((c: any) => ({
+          type: c.type,
+          status: c.status,
+          message: c.message,
+        })) || [],
+    }));
   } catch (error) {
-    console.error(`[GCP] Failed to list services:`, error);
+    console.error(`[GCP Client] Failed to list services:`, error);
     return [];
   }
 }
@@ -280,43 +329,84 @@ export async function listServices(region: string): Promise<string[]> {
 /**
  * Rollback to previous revision
  */
-export async function rollbackService(
-  serviceName: string,
+export async function rollbackCloudRun(
+  projectId: string,
   region: string,
-  revisionName?: string
+  serviceName: string,
+  targetRevision?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    if (!authenticateGCP()) {
-      return { success: false, message: 'Authentication failed' };
+    // Get current service to find previous revision
+    const service = await getCloudRunService(projectId, region, serviceName);
+    if (!service) {
+      return { success: false, message: 'Service not found' };
     }
 
-    let cmd = `gcloud run services update-traffic ${serviceName} --region=${region}`;
+    // If no target revision specified, find the previous one
+    let revisionName = targetRevision;
+    if (!revisionName) {
+      // Get all revisions
+      const output = execSync(
+        `gcloud run revisions list --service=${serviceName} --region=${region} --project=${projectId} --format=json --limit=2`,
+        {
+          encoding: 'utf-8',
+          stdio: 'pipe',
+        }
+      );
 
-    if (revisionName) {
-      cmd += ` --to-revisions=${revisionName}=100`;
-    } else {
-      // Get previous revision
-      const revisions = execSync(
-        `gcloud run revisions list --service=${serviceName} --region=${region} --format="value(name)" --limit=2`,
-        { encoding: 'utf-8' }
-      )
-        .trim()
-        .split('\n');
-
+      const revisions = JSON.parse(output);
       if (revisions.length < 2) {
-        return { success: false, message: 'No previous revision available' };
+        return { success: false, message: 'No previous revision found' };
       }
 
-      cmd += ` --to-revisions=${revisions[1]}=100`;
+      revisionName = revisions[1].metadata.name; // Second revision (previous)
     }
 
-    execSync(cmd, { stdio: 'pipe' });
+    // Update traffic to route 100% to target revision
+    execSync(
+      `gcloud run services update-traffic ${serviceName} --to-revisions=${revisionName}=100 --region=${region} --project=${projectId}`,
+      {
+        stdio: 'pipe',
+      }
+    );
 
-    return { success: true, message: '✅ Rolled back successfully' };
-  } catch (error) {
     return {
-      success: false,
-      message: `Failed to rollback: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      success: true,
+      message: `Successfully rolled back to revision: ${revisionName}`,
     };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[GCP Client] Rollback failed:`, errorMessage);
+    return { success: false, message: `Rollback failed: ${errorMessage}` };
+  }
+}
+
+/**
+ * Update traffic routing
+ */
+export async function updateTraffic(
+  projectId: string,
+  region: string,
+  serviceName: string,
+  trafficSplit: Record<string, number>
+): Promise<{ success: boolean; message: string }> {
+  try {
+    // Build traffic split argument
+    const trafficArgs = Object.entries(trafficSplit)
+      .map(([revision, percent]) => `${revision}=${percent}`)
+      .join(',');
+
+    execSync(
+      `gcloud run services update-traffic ${serviceName} --to-revisions=${trafficArgs} --region=${region} --project=${projectId}`,
+      {
+        stdio: 'pipe',
+      }
+    );
+
+    return { success: true, message: 'Traffic updated successfully' };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[GCP Client] Traffic update failed:`, errorMessage);
+    return { success: false, message: `Traffic update failed: ${errorMessage}` };
   }
 }

@@ -29,12 +29,20 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Google Cloud SDK
+RUN curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts \
+    && /root/google-cloud-sdk/install.sh --quiet \
+    && ln -s /root/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
+    && ln -s /root/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
+    && ln -s /root/google-cloud-sdk/bin/docker-credential-gcloud /usr/local/bin/docker-credential-gcloud \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user for running Claude Code
 # Claude Code refuses to run with --dangerously-skip-permissions as root for security
 # Add appuser to docker group for Docker socket access
 RUN useradd -m -u 1001 -s /bin/bash appuser \
     && usermod -aG docker appuser \
-    && mkdir -p /workspace \
+    && mkdir -p /workspace /app/credentials \
     && chown -R appuser:appuser /app /workspace
 
 # Copy package files
@@ -70,5 +78,5 @@ RUN git config --global --add safe.directory /workspace && \
 # Expose port
 EXPOSE 3000
 
-# Setup Codex authentication from environment variables, then start app
-CMD ["sh", "-c", "npm run setup-auth && npm start"]
+# Setup Codex authentication and GCP authentication (if enabled), then start app
+CMD ["sh", "-c", "npm run setup-auth && ([ \"$GCP_ENABLED\" = \"true\" ] && node dist/scripts/setup-gcp-auth.js || true) && npm start"]

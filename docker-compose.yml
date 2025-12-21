@@ -12,10 +12,15 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       - /home/samuel/.archon/workspaces:/workspace
+<<<<<<< HEAD
       # Production directories for docker-deploy command
       - /home/samuel/po:/home/samuel/po
       - /home/samuel/odin-health:/home/samuel/odin-health
       - /home/samuel/scar:/home/samuel/scar
+=======
+      # GCP service account key (read-only) - Optional
+      - ~/scar-gcp-key.json:/app/credentials/gcp-key.json:ro
+>>>>>>> db6eea6 (feat: Add GCP Cloud Run integration for deployment management)
     restart: unless-stopped
     dns:
       - 8.8.8.8
@@ -47,12 +52,17 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # Persistent Playwright browser storage
       - /home/samuel/dockerMCP/playwright-browsers:/home/appuser/.cache/ms-playwright
+<<<<<<< HEAD
       # Production directories for docker-deploy command
       - /home/samuel/po:/home/samuel/po
       - /home/samuel/odin-health:/home/samuel/odin-health
       - /home/samuel/scar:/home/samuel/scar
     group_add:
       - "108"  # Host docker group GID
+=======
+      # GCP service account key (read-only) - Optional
+      - ~/scar-gcp-key.json:/app/credentials/gcp-key.json:ro
+>>>>>>> db6eea6 (feat: Add GCP Cloud Run integration for deployment management)
     restart: unless-stopped
     dns:
       - 8.8.8.8
