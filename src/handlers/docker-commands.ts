@@ -7,6 +7,7 @@ import {
   getContainerLogs,
   restartComposeProject,
   waitForHealthy,
+  deployToProduction,
 } from '../clients/docker';
 import {
   getDockerConfig,
@@ -521,6 +522,129 @@ export async function handleDockerRestartCommand(
     return {
       success: false,
       message: `❌ Error restarting containers: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
+  }
+}
+
+/**
+ * Handle /docker-deploy command
+ * Deploys workspace changes to production
+ * Requires confirmation from user
+ */
+export async function handleDockerDeployCommand(
+  codebaseId: string | null,
+  confirmed: boolean = false
+): Promise<CommandResult> {
+  if (!codebaseId) {
+    return {
+      success: false,
+      message: '❌ No codebase linked. Use /codebase to link a project first.',
+    };
+  }
+
+  const codebase = await getCodebase(codebaseId);
+  if (!codebase) {
+    return {
+      success: false,
+      message: '❌ Codebase not found.',
+    };
+  }
+
+  const dockerConfig = await getDockerConfig(codebaseId);
+  if (!dockerConfig || !dockerConfig.enabled) {
+    return {
+      success: false,
+      message: '❌ Docker not configured for this codebase.\\n\\nRun /docker-config set first.',
+    };
+  }
+
+  // Determine paths
+  const workspacePath = codebase.default_cwd;
+  const productionPath = workspacePath.replace('/workspace/', '/home/samuel/');
+
+  // If not confirmed, show confirmation prompt
+  if (!confirmed) {
+    let message = `🚀 **Deploy Workspace → Production** - ${codebase.name}\n\n`;
+    message += `**Source:** \`${workspacePath}\`\n`;
+    message += `**Target:** \`${productionPath}\`\n`;
+    message += `**Project:** \`${dockerConfig.compose_project}\`\n\n`;
+    message += `**Steps:**\n`;
+    message += `1. Sync files (workspace → production)\n`;
+    message += `2. Rebuild Docker images\n`;
+    message += `3. Restart containers\n\n`;
+    message += `⚠️ This will update production!\n\n`;
+    message += `Reply \`/docker-deploy yes\` to confirm.`;
+
+    return {
+      success: true,
+      message,
+    };
+  }
+
+  // Execute deployment
+  try {
+    let message = `🚀 **Deploying** ${codebase.name}...\n\n`;
+    message += `📦 Step 1/3: Syncing files...`;
+
+    const result = await deployToProduction(
+      workspacePath,
+      productionPath,
+      dockerConfig.compose_project
+    );
+
+    if (!result.success) {
+      message = `❌ **Deployment Failed**\n\n`;
+
+      if (!result.steps.sync) {
+        message += `Failed at: File sync\n`;
+      } else if (!result.steps.build) {
+        message += `Failed at: Docker build\n`;
+      } else if (!result.steps.restart) {
+        message += `Failed at: Container restart\n`;
+      }
+
+      if (result.errors.length > 0) {
+        message += `\n**Errors:**\n`;
+        for (const error of result.errors) {
+          message += `• ${error}\n`;
+        }
+      }
+
+      return {
+        success: false,
+        message,
+      };
+    }
+
+    // Success - get container statuses
+    message = `✅ **Deployment Complete!**\n\n`;
+    message += `✅ Files synced\n`;
+    message += `✅ Images rebuilt\n`;
+    message += `✅ Containers restarted\n\n`;
+
+    // Get updated container status
+    const containers = await getComposeProjectContainers(dockerConfig.compose_project);
+
+    if (containers.length > 0) {
+      message += `**Container Status:**\n`;
+      for (const container of containers) {
+        const emoji = container.state === 'running' ? '✅' : '❌';
+        message += `${emoji} ${container.name}: ${container.state} (${container.uptime})\n`;
+      }
+    }
+
+    message += `\nCheck status: /docker-status\n`;
+    message += `View logs: /docker-logs`;
+
+    return {
+      success: true,
+      message,
+      modified: true,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `❌ Deployment error: ${error instanceof Error ? error.message : 'Unknown error'}`,
     };
   }
 }

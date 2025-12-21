@@ -23,6 +23,7 @@ import {
   handleDockerStatusCommand,
   handleDockerLogsCommand,
   handleDockerRestartCommand,
+  handleDockerDeployCommand,
 } from './docker-commands';
 
 const execFileAsync = promisify(execFile);
@@ -1665,6 +1666,12 @@ Knowledge Base (Archon):
       // Usage: /docker-restart [confirm]
       const confirmed = args[0]?.toLowerCase() === 'confirm';
       return await handleDockerRestartCommand(conversation.codebase_id, confirmed);
+    }
+
+    case 'docker-deploy': {
+      // Usage: /docker-deploy [yes|confirm]
+      const confirmed = args[0]?.toLowerCase() === 'yes' || args[0]?.toLowerCase() === 'confirm';
+      return await handleDockerDeployCommand(conversation.codebase_id, confirmed);
     }
 
     default:

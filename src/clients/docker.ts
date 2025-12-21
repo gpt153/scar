@@ -270,3 +270,84 @@ export async function waitForHealthy(
 
   return false;
 }
+
+/**
+ * Deployment result information
+ */
+export interface DeploymentResult {
+  success: boolean;
+  message: string;
+  steps: {
+    sync: boolean;
+    build: boolean;
+    restart: boolean;
+  };
+  errors: string[];
+}
+
+/**
+ * Deploy workspace changes to production
+ * @param workspacePath - Source workspace directory
+ * @param productionPath - Target production directory
+ * @param composeProject - Docker Compose project name
+ * @returns Deployment result with success status and details
+ */
+export async function deployToProduction(
+  workspacePath: string,
+  productionPath: string,
+  composeProject: string
+): Promise<DeploymentResult> {
+  const result: DeploymentResult = {
+    success: false,
+    message: '',
+    steps: { sync: false, build: false, restart: false },
+    errors: [],
+  };
+
+  try {
+    const { execSync } = await import('child_process');
+
+    // Step 1: Sync files from workspace to production
+    try {
+      execSync(
+        `rsync -av --delete --exclude .git --exclude node_modules --exclude __pycache__ --exclude '*.pyc' --exclude .env "${workspacePath}/" "${productionPath}/"`,
+        { stdio: 'pipe' }
+      );
+      result.steps.sync = true;
+    } catch (error) {
+      result.errors.push(`File sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return result;
+    }
+
+    // Step 2: Rebuild Docker images (if docker-compose.yml or Dockerfile changed)
+    try {
+      execSync(`cd "${productionPath}" && docker compose -p "${composeProject}" build`, {
+        stdio: 'pipe',
+        timeout: 300000, // 5 minute timeout for build
+      });
+      result.steps.build = true;
+    } catch (error) {
+      result.errors.push(`Docker build failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return result;
+    }
+
+    // Step 3: Restart containers with new images
+    try {
+      execSync(`cd "${productionPath}" && docker compose -p "${composeProject}" up -d`, {
+        stdio: 'pipe',
+        timeout: 60000, // 1 minute timeout
+      });
+      result.steps.restart = true;
+    } catch (error) {
+      result.errors.push(`Container restart failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return result;
+    }
+
+    result.success = true;
+    result.message = 'Deployment completed successfully';
+    return result;
+  } catch (error) {
+    result.errors.push(`Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return result;
+  }
+}
