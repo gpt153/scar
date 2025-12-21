@@ -31,7 +31,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 
 # Create non-root user for running Claude Code
 # Claude Code refuses to run with --dangerously-skip-permissions as root for security
+# Add appuser to docker group for Docker socket access
 RUN useradd -m -u 1001 -s /bin/bash appuser \
+    && usermod -aG docker appuser \
     && mkdir -p /workspace \
     && chown -R appuser:appuser /app /workspace
 

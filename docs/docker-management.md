@@ -49,12 +49,18 @@ This is acceptable because:
 
 ### Installation
 
-1. **Update Dockerfile** (add Docker CLI):
+1. **Update Dockerfile** (add Docker CLI and user permissions):
 ```dockerfile
 # Install Docker CLI (for managing other containers)
 RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
     sh get-docker.sh && \
     rm get-docker.sh
+
+# Add appuser to docker group for Docker socket access
+RUN useradd -m -u 1001 -s /bin/bash appuser \
+    && usermod -aG docker appuser \
+    && mkdir -p /workspace \
+    && chown -R appuser:appuser /app /workspace
 ```
 
 2. **Update docker-compose.yml** (mount socket):
@@ -198,13 +204,20 @@ docker exec -it scar-app-with-db-1 node
 
 **Problem**: SCAR container can't access Docker socket
 
-**Solution**: Ensure socket has correct permissions:
-```bash
-# On host
-sudo chmod 666 /var/run/docker.sock
+**Solution**: The Dockerfile already adds appuser to the docker group. If you still see permission errors:
 
-# Or add appuser to docker group (requires container rebuild)
+1. **Verify the container was rebuilt** after the Dockerfile update:
+```bash
+docker compose --profile with-db build
+docker compose --profile with-db up -d
 ```
+
+2. **Alternative: Change socket permissions on host** (temporary fix):
+```bash
+sudo chmod 666 /var/run/docker.sock
+```
+
+Note: The usermod approach (Option 1) is permanent and survives container restarts.
 
 ### "Docker daemon not accessible"
 
