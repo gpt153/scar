@@ -138,7 +138,6 @@ export async function handleCloudRunLogsCommand(
   try {
     const logs = await gcpClient.getCloudRunLogs(
       gcpConfig.project_id,
-      gcpConfig.region,
       gcpConfig.service_name,
       lines
     );

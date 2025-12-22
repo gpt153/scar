@@ -3,7 +3,7 @@
  * Provides programmatic access to Google Cloud Platform via gcloud CLI
  */
 import { execSync } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import { CloudRunService, CloudRunDeploymentResult, GCPConfig } from '../types';
 
 /**
@@ -259,7 +259,6 @@ export async function getCloudRunService(
  */
 export async function getCloudRunLogs(
   projectId: string,
-  region: string,
   serviceName: string,
   lines = 50
 ): Promise<string> {
