@@ -26,6 +26,7 @@ export interface Codebase {
     service_ports?: Record<string, number>;
   };
   docker_config?: DockerConfig;
+  gcp_config?: GCPConfig;
   created_at: Date;
   updated_at: Date;
 }
@@ -195,4 +196,74 @@ export interface PortAllocationFilters {
   worktree_path?: string;
   environment?: 'dev' | 'production' | 'test';
   status?: 'allocated' | 'active' | 'released';
+}
+
+/**
+ * GCP Cloud Run configuration
+ */
+export interface GCPConfig {
+  enabled: boolean;
+  project_id: string;
+  region: string;
+  service_name: string;
+  env_vars_file?: string;
+  container_registry?: 'gcr' | 'artifact-registry';
+  registry_url?: string;
+  build_config?: {
+    dockerfile?: string;
+    context?: string;
+    build_args?: Record<string, string>;
+  };
+  service_config?: {
+    memory?: string;
+    cpu?: string;
+    timeout?: number;
+    max_instances?: number;
+    min_instances?: number;
+    concurrency?: number;
+    ingress?: 'all' | 'internal' | 'internal-and-cloud-load-balancing';
+  };
+  deploy?: {
+    auto_deploy?: boolean;
+    pre_deploy_command?: string;
+    post_deploy_command?: string;
+  };
+}
+
+/**
+ * Cloud Run service status
+ */
+export interface CloudRunService {
+  name: string;
+  region: string;
+  url: string;
+  ready: boolean;
+  latestRevision: string;
+  latestDeployed: Date;
+  image: string;
+  traffic: {
+    revision: string;
+    percent: number;
+  }[];
+  conditions: {
+    type: string;
+    status: string;
+    message?: string;
+  }[];
+}
+
+/**
+ * Cloud Run deployment result
+ */
+export interface CloudRunDeploymentResult {
+  success: boolean;
+  message: string;
+  serviceUrl?: string;
+  revision?: string;
+  steps: {
+    build: boolean;
+    push: boolean;
+    deploy: boolean;
+  };
+  errors: string[];
 }

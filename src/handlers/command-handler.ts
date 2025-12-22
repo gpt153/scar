@@ -25,6 +25,14 @@ import {
   handleDockerRestartCommand,
   handleDockerDeployCommand,
 } from './docker-commands';
+import {
+  handleCloudRunStatusCommand,
+  handleCloudRunLogsCommand,
+  handleCloudRunDeployCommand,
+  handleCloudRunRollbackCommand,
+  handleCloudRunConfigCommand,
+  handleCloudRunListCommand,
+} from './gcp-commands';
 
 const execFileAsync = promisify(execFile);
 
@@ -1331,7 +1339,7 @@ Knowledge Base (Archon):
             if (releasedPorts > 0) {
               message += `\nReleased ${releasedPorts} port${releasedPorts > 1 ? 's' : ''}`;
             }
-            message += `\n\nSwitched back to main repo.`;
+            message += '\n\nSwitched back to main repo.';
 
             return {
               success: true,
@@ -1430,7 +1438,7 @@ Knowledge Base (Archon):
         return {
           success: true,
           message:
-            `✅ Port allocated!\n\n` +
+            '✅ Port allocated!\n\n' +
             `Port: ${allocation.port}\n` +
             `Service: ${allocation.service_name}\n` +
             `Environment: ${allocation.environment}\n\n` +
@@ -1672,6 +1680,39 @@ Knowledge Base (Archon):
       // Usage: /docker-deploy [yes|confirm]
       const confirmed = args[0]?.toLowerCase() === 'yes' || args[0]?.toLowerCase() === 'confirm';
       return await handleDockerDeployCommand(conversation.codebase_id, confirmed);
+    }
+
+    // GCP Cloud Run commands
+    case 'cloudrun-status': {
+      // Usage: /cloudrun-status
+      return await handleCloudRunStatusCommand(conversation.codebase_id);
+    }
+
+    case 'cloudrun-logs': {
+      // Usage: /cloudrun-logs [lines]
+      return await handleCloudRunLogsCommand(conversation.codebase_id, args);
+    }
+
+    case 'cloudrun-deploy': {
+      // Usage: /cloudrun-deploy [yes]
+      return await handleCloudRunDeployCommand(conversation.codebase_id, conversation.cwd, args);
+    }
+
+    case 'cloudrun-rollback': {
+      // Usage: /cloudrun-rollback [revision]
+      return await handleCloudRunRollbackCommand(conversation.codebase_id, args);
+    }
+
+    case 'cloudrun-config':
+    case 'gcp-config': {
+      // Usage: /cloudrun-config [action] [args...]
+      // Alias: /gcp-config
+      return await handleCloudRunConfigCommand(conversation.codebase_id, args);
+    }
+
+    case 'cloudrun-list': {
+      // Usage: /cloudrun-list
+      return await handleCloudRunListCommand(conversation.codebase_id);
     }
 
     default:

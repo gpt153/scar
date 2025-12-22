@@ -32,6 +32,7 @@ jest.mock('../db/codebases', () => ({
   updateCodebase: jest.fn(),
   getCodebaseByRepo: jest.fn(),
   findCodebaseByRepoUrl: jest.fn(),
+  getCodebaseCommands: jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock('../db/sessions', () => ({

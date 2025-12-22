@@ -158,3 +158,59 @@ export async function findCodebaseByComposeProject(projectName: string): Promise
   );
   return result.rows[0] || null;
 }
+
+/**
+ * Get GCP configuration for a codebase
+ */
+export async function getGCPConfig(id: string): Promise<import('../types').GCPConfig | null> {
+  const result = await pool.query<{ gcp_config: unknown }>(
+    'SELECT gcp_config FROM remote_agent_codebases WHERE id = $1',
+    [id]
+  );
+
+  if (!result.rows[0]?.gcp_config) {
+    return null;
+  }
+
+  return result.rows[0].gcp_config as import('../types').GCPConfig;
+}
+
+/**
+ * Update GCP configuration for a codebase
+ */
+export async function updateGCPConfig(
+  id: string,
+  config: import('../types').GCPConfig | null
+): Promise<void> {
+  await pool.query(
+    'UPDATE remote_agent_codebases SET gcp_config = $1, updated_at = NOW() WHERE id = $2',
+    [config ? JSON.stringify(config) : null, id]
+  );
+}
+
+/**
+ * Get all codebases with GCP enabled
+ */
+export async function getGCPEnabledCodebases(): Promise<Codebase[]> {
+  const result = await pool.query<Codebase>(
+    `SELECT * FROM remote_agent_codebases
+     WHERE gcp_config IS NOT NULL
+     AND gcp_config->>'enabled' = 'true'
+     ORDER BY updated_at DESC`
+  );
+  return result.rows;
+}
+
+/**
+ * Find codebase by Cloud Run service name
+ */
+export async function findCodebaseByCloudRunService(serviceName: string): Promise<Codebase | null> {
+  const result = await pool.query<Codebase>(
+    `SELECT * FROM remote_agent_codebases
+     WHERE gcp_config->>'service_name' = $1
+     AND gcp_config->>'enabled' = 'true'
+     LIMIT 1`,
+    [serviceName]
+  );
+  return result.rows[0] || null;
+}
