@@ -7,6 +7,30 @@ import { existsSync } from 'fs';
 import { CloudRunService, CloudRunDeploymentResult, GCPConfig } from '../types';
 
 /**
+ * TypeScript interfaces for GCP API responses
+ */
+interface GCPServiceResponse {
+  metadata?: {
+    name?: string;
+    creationTimestamp?: string;
+  };
+  status?: {
+    url?: string;
+    address?: { url?: string };
+    latestCreatedRevisionName?: string;
+    traffic?: { revisionName: string; percent: number }[];
+    conditions?: { type: string; status: string; message?: string }[];
+  };
+  spec?: {
+    template?: {
+      spec?: {
+        containers?: { image?: string }[];
+      };
+    };
+  };
+}
+
+/**
  * Check if gcloud CLI is installed and authenticated
  */
 export async function checkGCloudAccess(): Promise<{
@@ -221,18 +245,18 @@ export async function getCloudRunService(
       }
     );
 
-    const service = JSON.parse(output);
+    const service = JSON.parse(output) as GCPServiceResponse;
 
     // Extract traffic information
     const traffic =
-      service.status?.traffic?.map((t: { revisionName: string; percent: number }) => ({
+      service.status?.traffic?.map((t) => ({
         revision: t.revisionName,
         percent: t.percent,
       })) || [];
 
     // Extract conditions
     const conditions =
-      service.status?.conditions?.map((c: { type: string; status: string; message?: string }) => ({
+      service.status?.conditions?.map((c) => ({
         type: c.type,
         status: c.status,
         message: c.message,
@@ -242,7 +266,7 @@ export async function getCloudRunService(
       name: service.metadata?.name || serviceName,
       region,
       url: service.status?.url || service.status?.address?.url || '',
-      ready: conditions.some((c: any) => c.type === 'Ready' && c.status === 'True'),
+      ready: conditions.some((c) => c.type === 'Ready' && c.status === 'True'),
       latestRevision: service.status?.latestCreatedRevisionName || '',
       latestDeployed: new Date(service.metadata?.creationTimestamp || Date.now()),
       image: service.spec?.template?.spec?.containers?.[0]?.image || '',
@@ -297,24 +321,24 @@ export async function listCloudRunServices(
       }
     );
 
-    const services = JSON.parse(output);
-    return services.map((service: any) => ({
+    const services = JSON.parse(output) as GCPServiceResponse[];
+    return services.map((service) => ({
       name: service.metadata?.name || '',
       region,
       url: service.status?.url || service.status?.address?.url || '',
       ready: service.status?.conditions?.some(
-        (c: any) => c.type === 'Ready' && c.status === 'True'
-      ),
+        (c) => c.type === 'Ready' && c.status === 'True'
+      ) ?? false,
       latestRevision: service.status?.latestCreatedRevisionName || '',
       latestDeployed: new Date(service.metadata?.creationTimestamp || Date.now()),
       image: service.spec?.template?.spec?.containers?.[0]?.image || '',
       traffic:
-        service.status?.traffic?.map((t: any) => ({
+        service.status?.traffic?.map((t) => ({
           revision: t.revisionName,
           percent: t.percent,
         })) || [],
       conditions:
-        service.status?.conditions?.map((c: any) => ({
+        service.status?.conditions?.map((c) => ({
           type: c.type,
           status: c.status,
           message: c.message,
