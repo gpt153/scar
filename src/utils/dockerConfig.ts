@@ -122,7 +122,7 @@ function validateDeployConfig(config: unknown): config is DeployConfig {
  */
 export function createDefaultDockerConfig(
   composeProject: string,
-  composeFile: string = 'docker-compose.yml'
+  composeFile = 'docker-compose.yml'
 ): DockerConfig {
   return {
     enabled: true,
@@ -193,7 +193,7 @@ export function getContainerConfig(
   config: DockerConfig | null | undefined,
   containerName: string
 ): ContainerConfig | null {
-  if (!config || !config.enabled) {
+  if (!config?.enabled) {
     return null;
   }
 
@@ -204,7 +204,7 @@ export function getContainerConfig(
  * Get all container names from configuration
  */
 export function getContainerNames(config: DockerConfig | null | undefined): string[] {
-  if (!config || !config.enabled) {
+  if (!config?.enabled) {
     return [];
   }
 

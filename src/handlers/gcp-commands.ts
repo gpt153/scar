@@ -29,12 +29,12 @@ export async function handleCloudRunStatusCommand(
   }
 
   const gcpConfig = await getGCPConfig(codebaseId);
-  if (!gcpConfig || !gcpConfig.enabled) {
+  if (!gcpConfig?.enabled) {
     return {
       success: false,
       message:
-        `❌ GCP Cloud Run not configured for this codebase.\n\n` +
-        `Use /cloudrun-config set <service-name> <region> to configure.`,
+        '❌ GCP Cloud Run not configured for this codebase.\n\n' +
+        'Use /cloudrun-config set <service-name> <region> to configure.',
     };
   }
 
@@ -44,7 +44,7 @@ export async function handleCloudRunStatusCommand(
     return {
       success: false,
       message:
-        `❌ gcloud CLI not accessible.\n\n` +
+        '❌ gcloud CLI not accessible.\n\n' +
         `Installed: ${access.installed ? '✓' : '✗'}\n` +
         `Authenticated: ${access.authenticated ? '✓' : '✗'}`,
     };
@@ -77,7 +77,7 @@ export async function handleCloudRunStatusCommand(
 
     // Traffic distribution
     if (service.traffic.length > 0) {
-      message += `\n🚦 Traffic Distribution:\n`;
+      message += '\n🚦 Traffic Distribution:\n';
       service.traffic.forEach((t) => {
         message += `  ${t.percent}% → ${t.revision}\n`;
       });
@@ -85,12 +85,12 @@ export async function handleCloudRunStatusCommand(
 
     // Conditions
     if (service.conditions.length > 0) {
-      message += `\nConditions:\n`;
+      message += '\nConditions:\n';
       service.conditions.forEach((c) => {
         const icon = c.status === 'True' ? '✓' : '✗';
         message += `  ${icon} ${c.type}`;
         if (c.message) message += `: ${c.message}`;
-        message += `\n`;
+        message += '\n';
       });
     }
 
@@ -120,7 +120,7 @@ export async function handleCloudRunLogsCommand(
   }
 
   const gcpConfig = await getGCPConfig(codebaseId);
-  if (!gcpConfig || !gcpConfig.enabled) {
+  if (!gcpConfig?.enabled) {
     return {
       success: false,
       message: '❌ GCP Cloud Run not configured for this codebase.',
@@ -187,7 +187,7 @@ export async function handleCloudRunDeployCommand(
   }
 
   const gcpConfig = await getGCPConfig(codebaseId);
-  if (!gcpConfig || !gcpConfig.enabled) {
+  if (!gcpConfig?.enabled) {
     return {
       success: false,
       message: '❌ GCP Cloud Run not configured for this codebase.',
@@ -208,13 +208,13 @@ export async function handleCloudRunDeployCommand(
     message += `**Source:** ${cwd}\n`;
     message += `**Target:** ${imageUrl}\n`;
     message += `**Region:** ${gcpConfig.region}\n\n`;
-    message += `**Steps:**\n`;
-    message += `1. Build Docker image\n`;
-    message += `2. Push to Container Registry\n`;
-    message += `3. Deploy to Cloud Run\n`;
-    message += `4. Route 100% traffic to new revision\n\n`;
-    message += `⚠️  This will update production!\n\n`;
-    message += `Reply \`/cloudrun-deploy yes\` to confirm.`;
+    message += '**Steps:**\n';
+    message += '1. Build Docker image\n';
+    message += '2. Push to Container Registry\n';
+    message += '3. Deploy to Cloud Run\n';
+    message += '4. Route 100% traffic to new revision\n\n';
+    message += '⚠️  This will update production!\n\n';
+    message += 'Reply `/cloudrun-deploy yes` to confirm.';
 
     return { success: true, message };
   }
@@ -223,7 +223,7 @@ export async function handleCloudRunDeployCommand(
   try {
     // Run pre-deploy command if configured
     if (gcpConfig.deploy?.pre_deploy_command) {
-      console.log(`[Cloud Run Deploy] Running pre-deploy command...`);
+      console.log('[Cloud Run Deploy] Running pre-deploy command...');
       // Would execute pre-deploy command here
     }
 
@@ -260,14 +260,14 @@ export async function handleCloudRunDeployCommand(
 
     // Run post-deploy command if configured
     if (gcpConfig.deploy?.post_deploy_command) {
-      console.log(`[Cloud Run Deploy] Running post-deploy command...`);
+      console.log('[Cloud Run Deploy] Running post-deploy command...');
       // Would execute post-deploy command here
     }
 
-    let message = `✅ Deployment complete!\n\n`;
+    let message = '✅ Deployment complete!\n\n';
     message += `🔗 Service URL: ${deployResult.serviceUrl}\n`;
     message += `📦 Revision: ${deployResult.revision}\n`;
-    message += `🎉 Production updated successfully!`;
+    message += '🎉 Production updated successfully!';
 
     return { success: true, message };
   } catch (error) {
@@ -295,7 +295,7 @@ export async function handleCloudRunRollbackCommand(
   }
 
   const gcpConfig = await getGCPConfig(codebaseId);
-  if (!gcpConfig || !gcpConfig.enabled) {
+  if (!gcpConfig?.enabled) {
     return {
       success: false,
       message: '❌ GCP Cloud Run not configured for this codebase.',
@@ -384,11 +384,11 @@ export async function handleCloudRunConfigCommand(
     return {
       success: true,
       message:
-        `✅ GCP Cloud Run configured:\n\n` +
+        '✅ GCP Cloud Run configured:\n\n' +
         `Service: ${serviceName}\n` +
         `Region: ${region}\n` +
         `Project: ${projectId}\n\n` +
-        `Use /cloudrun-status to check service status.`,
+        'Use /cloudrun-status to check service status.',
       modified: true,
     };
   }
@@ -481,12 +481,12 @@ export async function handleCloudRunConfigCommand(
     success: false,
     message:
       `❌ Unknown subcommand: ${subcommand}\n\n` +
-      `Available commands:\n` +
-      `- show\n` +
-      `- set <service-name> <region>\n` +
-      `- set-memory <memory>\n` +
-      `- set-cpu <cpu>\n` +
-      `- set-env-file <path>`,
+      'Available commands:\n' +
+      '- show\n' +
+      '- set <service-name> <region>\n' +
+      '- set-memory <memory>\n' +
+      '- set-cpu <cpu>\n' +
+      '- set-env-file <path>',
   };
 }
 
@@ -496,7 +496,7 @@ export async function handleCloudRunConfigCommand(
 async function showGCPConfig(codebaseId: string): Promise<CommandResult> {
   const config = await getGCPConfig(codebaseId);
 
-  if (!config || !config.enabled) {
+  if (!config?.enabled) {
     return {
       success: false,
       message:
@@ -505,8 +505,8 @@ async function showGCPConfig(codebaseId: string): Promise<CommandResult> {
     };
   }
 
-  let message = `☁️  GCP Cloud Run Configuration\n\n`;
-  message += `Enabled: ✓\n`;
+  let message = '☁️  GCP Cloud Run Configuration\n\n';
+  message += 'Enabled: ✓\n';
   message += `Project ID: ${config.project_id}\n`;
   message += `Region: ${config.region}\n`;
   message += `Service: ${config.service_name}\n`;
@@ -516,7 +516,7 @@ async function showGCPConfig(codebaseId: string): Promise<CommandResult> {
   }
 
   if (config.service_config) {
-    message += `\nService Configuration:\n`;
+    message += '\nService Configuration:\n';
     if (config.service_config.memory) message += `  Memory: ${config.service_config.memory}\n`;
     if (config.service_config.cpu) message += `  CPU: ${config.service_config.cpu}\n`;
     if (config.service_config.timeout)
@@ -545,7 +545,7 @@ export async function handleCloudRunListCommand(
   }
 
   const gcpConfig = await getGCPConfig(codebaseId);
-  if (!gcpConfig || !gcpConfig.enabled) {
+  if (!gcpConfig?.enabled) {
     return {
       success: false,
       message: '❌ GCP Cloud Run not configured for this codebase.',

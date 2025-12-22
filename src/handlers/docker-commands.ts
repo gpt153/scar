@@ -97,7 +97,7 @@ export async function handleDockerStatusCommand(
   }
 
   const dockerConfig = await getDockerConfig(codebaseId);
-  if (!dockerConfig || !dockerConfig.enabled) {
+  if (!dockerConfig?.enabled) {
     return {
       success: false,
       message:
@@ -116,9 +116,9 @@ export async function handleDockerStatusCommand(
         message:
           `📊 **${codebase.name}** - No Running Containers\n\n` +
           `Compose Project: ${dockerConfig.compose_project}\n` +
-          `No containers found for this project.\n\n` +
-          `💡 Make sure containers are running:\n` +
-          `   cd production && docker compose up -d`,
+          'No containers found for this project.\n\n' +
+          '💡 Make sure containers are running:\n' +
+          '   cd production && docker compose up -d',
       };
     }
 
@@ -163,7 +163,7 @@ export async function handleDockerStatusCommand(
       statusMessage += '\n';
     }
 
-    statusMessage += `\n💡 View logs: /docker-logs [container] [lines]`;
+    statusMessage += '\n💡 View logs: /docker-logs [container] [lines]';
 
     return {
       success: true,
@@ -193,7 +193,7 @@ export async function handleDockerLogsCommand(
   }
 
   const dockerConfig = await getDockerConfig(codebaseId);
-  if (!dockerConfig || !dockerConfig.enabled) {
+  if (!dockerConfig?.enabled) {
     return {
       success: false,
       message: '❌ Docker not configured for this codebase.',
@@ -274,21 +274,21 @@ async function showDockerConfig(codebaseId: string): Promise<CommandResult> {
 
   const dockerConfig = await getDockerConfig(codebaseId);
 
-  if (!dockerConfig || !dockerConfig.enabled) {
+  if (!dockerConfig?.enabled) {
     return {
       success: true,
       message:
         `⚙️ **Docker Configuration** - ${codebase.name}\n\n` +
-        `Status: ❌ Not configured\n\n` +
-        `To set up Docker management:\n` +
-        `/docker-config set <compose-project> [compose-file]\n\n` +
-        `Example:\n` +
-        `/docker-config set po docker-compose.yml`,
+        'Status: ❌ Not configured\n\n' +
+        'To set up Docker management:\n' +
+        '/docker-config set <compose-project> [compose-file]\n\n' +
+        'Example:\n' +
+        '/docker-config set po docker-compose.yml',
     };
   }
 
   let message = `⚙️ **Docker Configuration** - ${codebase.name}\n\n`;
-  message += `Status: ✅ Enabled\n`;
+  message += 'Status: ✅ Enabled\n';
   message += `Compose Project: \`${dockerConfig.compose_project}\`\n`;
   message += `Compose File: \`${dockerConfig.compose_file}\`\n\n`;
 
@@ -304,13 +304,13 @@ async function showDockerConfig(codebaseId: string): Promise<CommandResult> {
       }
     }
   } else {
-    message += `**Managed Containers**: None configured\n`;
-    message += `\nAdd containers:\n`;
-    message += `/docker-config add-container <name> <service> [auto|manual|never]`;
+    message += '**Managed Containers**: None configured\n';
+    message += '\nAdd containers:\n';
+    message += '/docker-config add-container <name> <service> [auto|manual|never]';
   }
 
   if (dockerConfig.deploy) {
-    message += `\n\n**Deploy Settings**:\n`;
+    message += '\n\n**Deploy Settings**:\n';
     message += `  Auto-deploy: ${dockerConfig.deploy.auto_deploy ? '✅' : '❌'}\n`;
     message += `  Deploy on merge: ${dockerConfig.deploy.deploy_on_merge ? '✅' : '❌'}\n`;
     if (dockerConfig.deploy.build_command) {
@@ -347,7 +347,7 @@ async function setDockerConfig(
       success: false,
       message:
         `❌ Compose project "${composeProject}" is already used by codebase "${existing.name}".\n\n` +
-        `Each compose project can only be managed by one codebase.`,
+        'Each compose project can only be managed by one codebase.',
     };
   }
 
@@ -359,13 +359,13 @@ async function setDockerConfig(
   return {
     success: true,
     message:
-      `✅ Docker configuration saved\n\n` +
+      '✅ Docker configuration saved\n\n' +
       `Codebase: ${codebase.name}\n` +
       `Compose Project: \`${composeProject}\`\n` +
       `Compose File: \`${composeFile}\`\n\n` +
-      `Next steps:\n` +
-      `1. Add containers: /docker-config add-container <name> <service>\n` +
-      `2. Check status: /docker-status`,
+      'Next steps:\n' +
+      '1. Add containers: /docker-config add-container <name> <service>\n' +
+      '2. Check status: /docker-status',
     modified: true,
   };
 }
@@ -380,7 +380,7 @@ async function addContainer(
   restartPolicy: 'auto' | 'manual' | 'never'
 ): Promise<CommandResult> {
   const dockerConfig = await getDockerConfig(codebaseId);
-  if (!dockerConfig || !dockerConfig.enabled) {
+  if (!dockerConfig?.enabled) {
     return {
       success: false,
       message:
@@ -397,11 +397,11 @@ async function addContainer(
   return {
     success: true,
     message:
-      `✅ Container added to configuration\n\n` +
+      '✅ Container added to configuration\n\n' +
       `Container: ${containerName}\n` +
       `Service: ${service}\n` +
       `Restart Policy: ${restartPolicy}\n\n` +
-      `Check status: /docker-status`,
+      'Check status: /docker-status',
     modified: true,
   };
 }
@@ -413,7 +413,7 @@ async function addContainer(
  */
 export async function handleDockerRestartCommand(
   codebaseId: string | null,
-  confirmed: boolean = false
+  confirmed = false
 ): Promise<CommandResult> {
   if (!codebaseId) {
     return {
@@ -431,7 +431,7 @@ export async function handleDockerRestartCommand(
   }
 
   const dockerConfig = await getDockerConfig(codebaseId);
-  if (!dockerConfig || !dockerConfig.enabled) {
+  if (!dockerConfig?.enabled) {
     return {
       success: false,
       message: '❌ Docker not configured for this codebase.',
@@ -457,9 +457,9 @@ export async function handleDockerRestartCommand(
       message += `  • ${container.name} (${container.state})\n`;
     }
 
-    message += `\n**Estimated downtime**: 10-30 seconds\n`;
-    message += `\n⚠️ This will temporarily interrupt the service!\n\n`;
-    message += `To confirm, run: \`/docker-restart confirm\``;
+    message += '\n**Estimated downtime**: 10-30 seconds\n';
+    message += '\n⚠️ This will temporarily interrupt the service!\n\n';
+    message += 'To confirm, run: `/docker-restart confirm`';
 
     return {
       success: true,
@@ -488,7 +488,7 @@ export async function handleDockerRestartCommand(
     }
 
     // Wait for containers to become healthy
-    message += `\n🔍 Checking health...`;
+    message += '\n🔍 Checking health...';
 
     const healthChecks = await Promise.all(
       result.restarted.map(async (name) => ({
@@ -499,18 +499,18 @@ export async function handleDockerRestartCommand(
 
     const allHealthy = healthChecks.every((check) => check.healthy);
 
-    message += `\n\n`;
+    message += '\n\n';
 
     if (allHealthy) {
-      message += `✅ All containers are healthy!\n\n`;
-      message += `Check status: /docker-status`;
+      message += '✅ All containers are healthy!\n\n';
+      message += 'Check status: /docker-status';
     } else {
-      message += `⚠️ Some containers may not be healthy:\n`;
+      message += '⚠️ Some containers may not be healthy:\n';
       for (const check of healthChecks) {
         const emoji = check.healthy ? '✅' : '❌';
         message += `  ${emoji} ${check.name}\n`;
       }
-      message += `\nCheck logs: /docker-logs [container]`;
+      message += '\nCheck logs: /docker-logs [container]';
     }
 
     return {
@@ -533,7 +533,7 @@ export async function handleDockerRestartCommand(
  */
 export async function handleDockerDeployCommand(
   codebaseId: string | null,
-  confirmed: boolean = false
+  confirmed = false
 ): Promise<CommandResult> {
   if (!codebaseId) {
     return {
@@ -551,7 +551,7 @@ export async function handleDockerDeployCommand(
   }
 
   const dockerConfig = await getDockerConfig(codebaseId);
-  if (!dockerConfig || !dockerConfig.enabled) {
+  if (!dockerConfig?.enabled) {
     return {
       success: false,
       message: '❌ Docker not configured for this codebase.\\n\\nRun /docker-config set first.',
@@ -568,12 +568,12 @@ export async function handleDockerDeployCommand(
     message += `**Source:** \`${workspacePath}\`\n`;
     message += `**Target:** \`${productionPath}\`\n`;
     message += `**Project:** \`${dockerConfig.compose_project}\`\n\n`;
-    message += `**Steps:**\n`;
-    message += `1. Sync files (workspace → production)\n`;
-    message += `2. Rebuild Docker images\n`;
-    message += `3. Restart containers\n\n`;
-    message += `⚠️ This will update production!\n\n`;
-    message += `Reply \`/docker-deploy yes\` to confirm.`;
+    message += '**Steps:**\n';
+    message += '1. Sync files (workspace → production)\n';
+    message += '2. Rebuild Docker images\n';
+    message += '3. Restart containers\n\n';
+    message += '⚠️ This will update production!\n\n';
+    message += 'Reply `/docker-deploy yes` to confirm.';
 
     return {
       success: true,
@@ -584,7 +584,7 @@ export async function handleDockerDeployCommand(
   // Execute deployment
   try {
     let message = `🚀 **Deploying** ${codebase.name}...\n\n`;
-    message += `📦 Step 1/3: Syncing files...`;
+    message += '📦 Step 1/3: Syncing files...';
 
     const result = await deployToProduction(
       workspacePath,
@@ -593,18 +593,18 @@ export async function handleDockerDeployCommand(
     );
 
     if (!result.success) {
-      message = `❌ **Deployment Failed**\n\n`;
+      message = '❌ **Deployment Failed**\n\n';
 
       if (!result.steps.sync) {
-        message += `Failed at: File sync\n`;
+        message += 'Failed at: File sync\n';
       } else if (!result.steps.build) {
-        message += `Failed at: Docker build\n`;
+        message += 'Failed at: Docker build\n';
       } else if (!result.steps.restart) {
-        message += `Failed at: Container restart\n`;
+        message += 'Failed at: Container restart\n';
       }
 
       if (result.errors.length > 0) {
-        message += `\n**Errors:**\n`;
+        message += '\n**Errors:**\n';
         for (const error of result.errors) {
           message += `• ${error}\n`;
         }
@@ -617,24 +617,24 @@ export async function handleDockerDeployCommand(
     }
 
     // Success - get container statuses
-    message = `✅ **Deployment Complete!**\n\n`;
-    message += `✅ Files synced\n`;
-    message += `✅ Images rebuilt\n`;
-    message += `✅ Containers restarted\n\n`;
+    message = '✅ **Deployment Complete!**\n\n';
+    message += '✅ Files synced\n';
+    message += '✅ Images rebuilt\n';
+    message += '✅ Containers restarted\n\n';
 
     // Get updated container status
     const containers = await getComposeProjectContainers(dockerConfig.compose_project);
 
     if (containers.length > 0) {
-      message += `**Container Status:**\n`;
+      message += '**Container Status:**\n';
       for (const container of containers) {
         const emoji = container.state === 'running' ? '✅' : '❌';
         message += `${emoji} ${container.name}: ${container.state} (${container.uptime})\n`;
       }
     }
 
-    message += `\nCheck status: /docker-status\n`;
-    message += `View logs: /docker-logs`;
+    message += '\nCheck status: /docker-status\n';
+    message += 'View logs: /docker-logs';
 
     return {
       success: true,

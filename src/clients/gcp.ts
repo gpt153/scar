@@ -17,7 +17,8 @@ export async function checkGCloudAccess(): Promise<{
   try {
     // Check if gcloud is installed
     const versionOutput = execSync('gcloud version', { encoding: 'utf-8' });
-    const versionMatch = versionOutput.match(/Google Cloud SDK ([\d.]+)/);
+    const versionRegex = /Google Cloud SDK ([\d.]+)/;
+    const versionMatch = versionRegex.exec(versionOutput);
     const version = versionMatch ? versionMatch[1] : undefined;
 
     // Check if authenticated
@@ -111,16 +112,16 @@ export async function buildAndPushImage(
       timeout: parseInt(process.env.CLOUDRUN_BUILD_TIMEOUT || '600000'), // 10 min default
     });
 
-    console.log(`[GCP Client] Image built successfully`);
+    console.log('[GCP Client] Image built successfully');
 
     // Push image
-    console.log(`[GCP Client] Pushing image to registry...`);
+    console.log('[GCP Client] Pushing image to registry...');
     execSync(`docker push ${imageUrl}`, {
       stdio: 'pipe',
       timeout: 600000, // 10 minutes
     });
 
-    console.log(`[GCP Client] Image pushed successfully`);
+    console.log('[GCP Client] Image pushed successfully');
     return { success: true, imageUrl };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -152,8 +153,8 @@ export async function deployToCloudRun(
     deployCommand += ` --image=${imageUrl}`;
     deployCommand += ` --region=${region}`;
     deployCommand += ` --project=${projectId}`;
-    deployCommand += ` --platform=managed`;
-    deployCommand += ` --allow-unauthenticated`; // Default to public access
+    deployCommand += ' --platform=managed';
+    deployCommand += ' --allow-unauthenticated'; // Default to public access
 
     // Add service configuration
     const serviceConfig = config.service_config;
@@ -175,7 +176,7 @@ export async function deployToCloudRun(
       deployCommand += ` --env-vars-file=${config.env_vars_file}`;
     }
 
-    deployCommand += ` --format=json`;
+    deployCommand += ' --format=json';
 
     console.log(`[GCP Client] Deploying to Cloud Run: ${serviceName}`);
     const output = execSync(deployCommand, {
@@ -224,14 +225,14 @@ export async function getCloudRunService(
 
     // Extract traffic information
     const traffic =
-      service.status?.traffic?.map((t: any) => ({
+      service.status?.traffic?.map((t: { revisionName: string; percent: number }) => ({
         revision: t.revisionName,
         percent: t.percent,
       })) || [];
 
     // Extract conditions
     const conditions =
-      service.status?.conditions?.map((c: any) => ({
+      service.status?.conditions?.map((c: { type: string; status: string; message?: string }) => ({
         type: c.type,
         status: c.status,
         message: c.message,
@@ -320,7 +321,7 @@ export async function listCloudRunServices(
         })) || [],
     }));
   } catch (error) {
-    console.error(`[GCP Client] Failed to list services:`, error);
+    console.error('[GCP Client] Failed to list services:', error);
     return [];
   }
 }
@@ -375,7 +376,7 @@ export async function rollbackCloudRun(
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[GCP Client] Rollback failed:`, errorMessage);
+    console.error('[GCP Client] Rollback failed:', errorMessage);
     return { success: false, message: `Rollback failed: ${errorMessage}` };
   }
 }
@@ -405,7 +406,7 @@ export async function updateTraffic(
     return { success: true, message: 'Traffic updated successfully' };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`[GCP Client] Traffic update failed:`, errorMessage);
+    console.error('[GCP Client] Traffic update failed:', errorMessage);
     return { success: false, message: `Traffic update failed: ${errorMessage}` };
   }
 }

@@ -168,7 +168,7 @@ export async function getGCPConfig(id: string): Promise<import('../types').GCPCo
     [id]
   );
 
-  if (!result.rows[0] || !result.rows[0].gcp_config) {
+  if (!result.rows[0]?.gcp_config) {
     return null;
   }
 

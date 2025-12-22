@@ -241,15 +241,15 @@ export interface CloudRunService {
   latestRevision: string;
   latestDeployed: Date;
   image: string;
-  traffic: Array<{
+  traffic: {
     revision: string;
     percent: number;
-  }>;
-  conditions: Array<{
+  }[];
+  conditions: {
     type: string;
     status: string;
     message?: string;
-  }>;
+  }[];
 }
 
 /**

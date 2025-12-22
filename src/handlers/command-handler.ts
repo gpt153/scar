@@ -1339,7 +1339,7 @@ Knowledge Base (Archon):
             if (releasedPorts > 0) {
               message += `\nReleased ${releasedPorts} port${releasedPorts > 1 ? 's' : ''}`;
             }
-            message += `\n\nSwitched back to main repo.`;
+            message += '\n\nSwitched back to main repo.';
 
             return {
               success: true,
@@ -1438,7 +1438,7 @@ Knowledge Base (Archon):
         return {
           success: true,
           message:
-            `✅ Port allocated!\n\n` +
+            '✅ Port allocated!\n\n' +
             `Port: ${allocation.port}\n` +
             `Service: ${allocation.service_name}\n` +
             `Environment: ${allocation.environment}\n\n` +
