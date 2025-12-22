@@ -19,8 +19,13 @@ services:
       - /home/samuel/scar:/home/samuel/scar
 =======
       # GCP service account key (read-only) - Optional
+<<<<<<< HEAD
       - ~/scar-gcp-key.json:/app/credentials/gcp-key.json:ro
 >>>>>>> db6eea6 (feat: Add GCP Cloud Run integration for deployment management)
+=======
+      # Mount from /home/samuel/scar/gcp/ directory
+      - /home/samuel/scar/gcp/scar-gcp-key.json:/app/credentials/gcp-key.json:ro
+>>>>>>> b80cea9 (docs: Update GCP key storage location and add CLAUDE.md documentation)
     restart: unless-stopped
     dns:
       - 8.8.8.8
@@ -61,8 +66,13 @@ services:
       - "108"  # Host docker group GID
 =======
       # GCP service account key (read-only) - Optional
+<<<<<<< HEAD
       - ~/scar-gcp-key.json:/app/credentials/gcp-key.json:ro
 >>>>>>> db6eea6 (feat: Add GCP Cloud Run integration for deployment management)
+=======
+      # Mount from /home/samuel/scar/gcp/ directory
+      - /home/samuel/scar/gcp/scar-gcp-key.json:/app/credentials/gcp-key.json:ro
+>>>>>>> b80cea9 (docs: Update GCP key storage location and add CLAUDE.md documentation)
     restart: unless-stopped
     dns:
       - 8.8.8.8

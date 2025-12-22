@@ -757,10 +757,148 @@ try {
 **Volumes:**
 - `/workspace` - Cloned repositories
 - Mount via `WORKSPACE_PATH` env var
+- `/app/credentials/gcp-key.json` - GCP service account keys (read-only)
 
 **Networking:**
 - App: Port 3000 (configurable via `PORT` env var)
 - PostgreSQL: Port 5432 (exposed on localhost for local development)
+
+### GCP Cloud Run Deployment
+
+**Overview:**
+SCAR can deploy applications to Google Cloud Platform Cloud Run directly from Telegram or GitHub. Service account keys are stored in `/home/samuel/scar/gcp/` and mounted into the container.
+
+**Available Commands:**
+- `/cloudrun-status` - Check Cloud Run service status
+- `/cloudrun-logs [lines]` - View service logs (default: 50 lines)
+- `/cloudrun-deploy [yes]` - Deploy workspace to Cloud Run (requires confirmation)
+- `/cloudrun-rollback [revision]` - Rollback to previous revision
+- `/cloudrun-config` - Configure GCP settings per codebase
+- `/cloudrun-list` - List all Cloud Run services in project
+
+**Configuration:**
+```env
+# Enable GCP integration
+GCP_ENABLED=true
+GCP_PROJECT_ID=your-project-id
+GCP_REGION=europe-west1
+GCP_SERVICE_ACCOUNT_KEY_PATH=/app/credentials/gcp-key.json
+
+# Cloud Run defaults
+CLOUDRUN_MEMORY=1Gi
+CLOUDRUN_CPU=1
+CLOUDRUN_TIMEOUT=300
+CLOUDRUN_MAX_INSTANCES=10
+CLOUDRUN_MIN_INSTANCES=0
+```
+
+**Service Account Setup:**
+Each GCP project requires a service account with these IAM roles:
+- `roles/run.admin` - Cloud Run management
+- `roles/iam.serviceAccountUser` - Service account usage
+- `roles/storage.admin` - Container Registry access
+- `roles/cloudbuild.builds.editor` - Image building
+
+**Key Storage:**
+- Keys stored in: `/home/samuel/scar/gcp/`
+- Mounted in container as: `/app/credentials/gcp-key.json` (read-only)
+- docker-compose.yml mount: `~/scar-gcp-key.json:/app/credentials/gcp-key.json:ro`
+- Multiple projects supported by creating separate service accounts per project
+
+**Creating Service Account:**
+```bash
+export PROJECT_ID="your-project-id"
+export SERVICE_ACCOUNT="scar-deployer"
+
+# Create service account
+gcloud iam service-accounts create $SERVICE_ACCOUNT \
+  --display-name="SCAR Bot Deployer" \
+  --project=$PROJECT_ID
+
+# Grant required roles
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/storage.admin"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/cloudbuild.builds.editor"
+
+# Download key to host
+gcloud iam service-accounts keys create ~/scar-gcp-key.json \
+  --iam-account=$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com
+
+# Move to keys directory
+mv ~/scar-gcp-key.json /home/samuel/scar/gcp/${PROJECT_ID}-key.json
+chmod 600 /home/samuel/scar/gcp/${PROJECT_ID}-key.json
+```
+
+**Per-Codebase Configuration:**
+Each codebase can have its own GCP configuration stored in database:
+```sql
+UPDATE remote_agent_codebases
+SET gcp_config = '{
+  "enabled": true,
+  "project_id": "your-project-id",
+  "region": "europe-west1",
+  "service_name": "your-service",
+  "env_vars_file": ".env.production",
+  "service_config": {
+    "memory": "1Gi",
+    "cpu": "1",
+    "max_instances": 10,
+    "min_instances": 0
+  }
+}'::jsonb
+WHERE name = 'your-codebase';
+```
+
+Or via commands:
+```
+/cloudrun-config set your-service europe-west1
+/cloudrun-config set-memory 2Gi
+/cloudrun-config set-cpu 2
+```
+
+**Deployment Workflow:**
+1. User makes changes to workspace
+2. `/cloudrun-deploy` - Shows preview of what will be deployed
+3. `/cloudrun-deploy yes` - Confirms and executes:
+   - Builds Docker image from workspace
+   - Pushes to Google Container Registry (GCR) or Artifact Registry
+   - Deploys to Cloud Run with configured settings
+   - Returns service URL and revision
+
+**Example Usage:**
+```
+/setcwd /workspace/my-app
+/cloudrun-config set my-service europe-west1
+/cloudrun-deploy
+/cloudrun-deploy yes
+/cloudrun-status
+/cloudrun-logs 100
+```
+
+**Security Best Practices:**
+- ✅ Use service account (not user credentials)
+- ✅ Minimal IAM permissions (only what's needed)
+- ✅ Read-only key mounting in Docker
+- ✅ Never commit keys to git
+- ✅ Rotate keys every 90 days
+- ✅ One service account per GCP project
+
+**Documentation:**
+- Full setup guide: `docs/gcp-cloud-run-setup.md`
+- Implementation details: `.agents/plans/gcp-cloudrun-integration.md`
+- Troubleshooting section included in setup guide
 
 ### GitHub-Specific Patterns
 

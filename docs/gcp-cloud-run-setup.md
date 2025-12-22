@@ -60,8 +60,18 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 gcloud iam service-accounts keys create ~/scar-gcp-key.json \
   --iam-account=$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com
 
-# Set permissions
-chmod 600 ~/scar-gcp-key.json
+# Move to SCAR's GCP keys directory
+mkdir -p /home/samuel/scar/gcp
+mv ~/scar-gcp-key.json /home/samuel/scar/gcp/scar-gcp-key.json
+chmod 600 /home/samuel/scar/gcp/scar-gcp-key.json
+```
+
+**Note:** For multiple GCP projects, create separate service accounts and store keys with project-specific names:
+```bash
+# Example: openhorizon-cc project
+mv ~/scar-gcp-key.json /home/samuel/scar/gcp/openhorizon-cc-key.json
+
+# Then update docker-compose.yml to mount the specific key
 ```
 
 ### Step 2: Update SCAR Environment Variables
