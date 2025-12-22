@@ -14,6 +14,7 @@ import { formatToolCall } from '../utils/tool-formatter';
 import { substituteVariables } from '../utils/variable-substitution';
 import { classifyAndFormatError } from '../utils/error-formatter';
 import { getAssistantClient } from '../clients/factory';
+import { getMcpConfigHash } from '../clients/claude';
 import { TelegramAdapter } from '../adapters/telegram';
 import {
   analyzeAndPrepareArchonInstructions,
@@ -333,6 +334,10 @@ export async function handleMessage(
         codebase_id: conversation.codebase_id ?? undefined,
         ai_assistant_type: conversation.ai_assistant_type,
       });
+      // Store MCP config hash for session validation
+      await sessionDb.updateSessionMetadata(session.id, {
+        mcpConfigHash: getMcpConfigHash(),
+      });
     } else if (!session) {
       console.log('[Orchestrator] Creating new session');
       session = await sessionDb.createSession({
@@ -340,8 +345,35 @@ export async function handleMessage(
         codebase_id: conversation.codebase_id ?? undefined,
         ai_assistant_type: conversation.ai_assistant_type,
       });
+      // Store MCP config hash for session validation
+      await sessionDb.updateSessionMetadata(session.id, {
+        mcpConfigHash: getMcpConfigHash(),
+      });
     } else {
       console.log(`[Orchestrator] Resuming session ${session.id}`);
+
+      // Validate MCP configuration hasn't changed (prevents Claude Code crashes)
+      const currentMcpConfig = getMcpConfigHash();
+      const sessionMcpConfig = session.metadata?.mcpConfigHash;
+
+      if (sessionMcpConfig && sessionMcpConfig !== currentMcpConfig) {
+        console.warn('[Orchestrator] MCP config mismatch detected - creating new session');
+        console.log(`[Orchestrator] Old config: ${sessionMcpConfig}`);
+        console.log(`[Orchestrator] New config: ${currentMcpConfig}`);
+
+        // Deactivate old session to prevent crashes
+        await sessionDb.deactivateSession(session.id);
+
+        // Create new session with current MCP config
+        session = await sessionDb.createSession({
+          conversation_id: conversation.id,
+          codebase_id: conversation.codebase_id ?? undefined,
+          ai_assistant_type: conversation.ai_assistant_type,
+        });
+        await sessionDb.updateSessionMetadata(session.id, {
+          mcpConfigHash: currentMcpConfig,
+        });
+      }
     }
 
     // Send to AI and stream responses

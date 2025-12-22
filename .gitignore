@@ -65,3 +65,4 @@ worktrees
 .agents/PRDs
 .agents/context
 .agents/posts
+gcp/*.json

@@ -37,7 +37,6 @@
     "@octokit/rest": "^22.0.0",
     "@openai/codex-sdk": "^0.64.0",
     "@slack/bolt": "^4.6.0",
-    "@types/dockerode": "^3.3.47",
     "discord.js": "^14.16.0",
     "dockerode": "^4.0.9",
     "dotenv": "^17.2.3",
@@ -50,6 +49,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@types/dockerode": "^3.3.47",
     "@types/express": "^5.0.5",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",

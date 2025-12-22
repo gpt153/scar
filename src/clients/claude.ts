@@ -44,6 +44,20 @@ interface ContentBlock {
 }
 
 /**
+ * Generate a hash of MCP configuration for session validation
+ * Returns a string representing the current MCP server setup
+ */
+export function getMcpConfigHash(): string {
+  const config = {
+    archon: process.env.ENABLE_ARCHON_MCP === 'true',
+    playwright: process.env.ENABLE_PLAYWRIGHT_MCP === 'true',
+    github: process.env.ENABLE_GITHUB_MCP === 'true',
+    custom: process.env.MCP_HTTP_SERVERS || '',
+  };
+  return JSON.stringify(config);
+}
+
+/**
  * Build MCP server configuration from environment variables
  * Enables Archon, Playwright, and other MCP servers for bot-spawned Claude instances
  */
