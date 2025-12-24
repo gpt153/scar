@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     gnupg \
     postgresql-client \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (for managing other containers)
@@ -29,8 +31,10 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Google Cloud SDK
-RUN curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts \
+# Install Google Cloud SDK (requires Python)
+# Create python symlink for gcloud SDK installer
+RUN ln -s /usr/bin/python3 /usr/bin/python \
+    && curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts \
     && /root/google-cloud-sdk/install.sh --quiet \
     && ln -s /root/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
     && ln -s /root/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
