@@ -8,7 +8,7 @@
 - Telegram topic 10 ("health-agent-builder")
 - Used for BUILDING/DEVELOPING the health-agent codebase
 - Controlled by remote-coding-agent (this project)
-- Workspace: `/home/samuel/workspace/health-agent`
+- Workspace: `/home/samuel/.archon/workspaces/health-agent`
 - Purpose: Claude Code SDK for editing Python code, running tests, etc.
 
 **Health-Agent (Odin-Health):**

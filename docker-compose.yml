@@ -12,9 +12,6 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       - /home/samuel/.archon/workspaces:/workspace
-      # Production directories for docker-deploy command
-      - /home/samuel/po:/home/samuel/po
-      - /home/samuel/odin-health:/home/samuel/odin-health
       - /home/samuel/scar:/home/samuel/scar
       # GCP service account key (read-only) - Optional
       # Mount from /home/samuel/scar/gcp/ directory
@@ -50,9 +47,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # Persistent Playwright browser storage
       - /home/samuel/dockerMCP/playwright-browsers:/home/appuser/.cache/ms-playwright
-      # Production directories for docker-deploy command
-      - /home/samuel/po:/home/samuel/po
-      - /home/samuel/odin-health:/home/samuel/odin-health
       - /home/samuel/scar:/home/samuel/scar
       # GCP service account key (read-only) - Optional
       # Mount from /home/samuel/scar/gcp/ directory
