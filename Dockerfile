@@ -55,6 +55,10 @@ COPY package*.json ./
 # Install ALL dependencies (including devDependencies for build)
 RUN npm ci
 
+# Install Playwright browsers (required for UI/UX testing in workspaces)
+# This allows SCAR to run E2E tests in cloned projects
+RUN npx -y playwright install --with-deps chromium
+
 # Copy application code
 COPY . .
 

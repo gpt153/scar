@@ -13,6 +13,7 @@ Control AI coding assistants (Claude Code, Codex) remotely from Telegram, GitHub
 - **Flexible Streaming**: Real-time or batch message delivery per platform
 - **Generic Command System**: User-defined commands versioned with Git
 - **Archon Auto-Research**: Automatically detects dependencies and indexes documentation for knowledge-first AI workflows (optional)
+- **UI/UX Testing**: SCAR can run Playwright E2E tests to validate actual functionality from user perspective
 - **Docker Ready**: Simple deployment with Docker Compose
 
 ## Prerequisites
@@ -1071,3 +1072,61 @@ lsof -i :3000
 # Windows:
 netstat -ano | findstr :3000
 ```
+
+---
+
+## Adding Playwright to Existing Projects
+
+SCAR includes Playwright in its container. To add E2E testing to an existing project:
+
+### 1. Install Playwright
+
+```bash
+npm install --save-dev @playwright/test
+```
+
+### 2. Copy Template Configuration
+
+```bash
+# Copy config from SCAR templates
+cp .template/playwright-setup/playwright.config.ts ./
+mkdir -p e2e
+cp .template/playwright-setup/e2e/example.spec.ts e2e/
+```
+
+### 3. Update package.json
+
+Add test script:
+
+```json
+{
+  "scripts": {
+    "test:e2e": "npx playwright test"
+  }
+}
+```
+
+### 4. Write Your First Test
+
+Edit `e2e/example.spec.ts` with your actual feature tests. See template comments for patterns.
+
+### 5. Run Tests
+
+```bash
+npm run test:e2e
+```
+
+### 6. Update CLAUDE.md (Optional)
+
+Add E2E testing requirements to your project's CLAUDE.md:
+
+```markdown
+### E2E Testing
+
+```bash
+npm run test:e2e
+# All tests must pass
+```
+```
+
+**Image Size Impact**: Playwright + Chromium adds ~200MB to Docker image. This is a one-time cost, cached across builds.
