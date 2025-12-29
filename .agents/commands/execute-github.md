@@ -97,7 +97,23 @@ If any command fails:
 - Re-run the command
 - Continue only when it passes
 
-### 5. Final Verification
+### 5. UI/UX Testing (if configured)
+
+If the project has Playwright tests:
+
+```bash
+# Run E2E tests
+npx playwright test
+
+# Expected: All tests pass
+```
+
+If tests fail:
+- Fix the issue (UI bug, incorrect test, etc.)
+- Rerun all validations
+- Only create PR when all tests pass
+
+### 6. Final Verification
 
 Before creating pull request:
 
@@ -108,7 +124,7 @@ Before creating pull request:
 - ✅ Documentation added/updated as needed
 - ✅ All changes committed to feature branch
 
-### 6. Create Pull Request to Staging
+### 7. Create Pull Request to Staging
 
 Once all validation passes, create a pull request to the **staging** branch:
 
@@ -160,7 +176,7 @@ EOF
 - Use descriptive PR title that clearly indicates the feature
 - Include comprehensive PR description with testing results
 
-### 7. Capture PR Information
+### 8. Capture PR Information
 
 After creating the PR, capture the PR URL:
 
