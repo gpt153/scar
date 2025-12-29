@@ -137,7 +137,7 @@ export WORK_DIR
 **Why this is needed:**
 1. **Workspace cleanup:** The workspace is mounted from the host into the Docker container. If a directory exists on the host, git clone inside the container will fail with "directory already exists".
 2. **Database cleanup:** Test adapter conversations (e.g., `test-e2e`) persist across validation runs. Without cleanup, old conversations retain their original `ai_assistant_type` even if `DEFAULT_AI_ASSISTANT` environment variable has changed. This causes the test to use the wrong AI assistant.
-3. **WORKSPACE_PATH support:** Reads WORKSPACE_PATH from .env to support custom workspace directories (e.g., `C:\Users\colem\remote-agent-repos` on Windows or `/tmp/workspace` on Linux).
+3. **WORKSPACE_PATH support:** Reads WORKSPACE_PATH from .env to support custom workspace directories (e.g., `C:\Users\colem\scar-repos` on Windows or `/tmp/workspace` on Linux).
 4. **Remote database support:** Works with both local PostgreSQL and remote databases (like Supabase) by using `psql` with the connection string directly, with Node.js fallback.
 
 ### 2.1 Store ngrok URL
@@ -568,7 +568,7 @@ fi
 
 ## Phase 6: GitHub Issue Integration
 
-Test GitHub webhook integration with issue creation and @remote-agent mention.
+Test GitHub webhook integration with issue creation and @scar mention.
 
 ### 6.1 Create GitHub Issue
 ```bash
@@ -584,10 +584,10 @@ echo "Issue created: ${ISSUE_URL}"
 echo "Issue number: ${ISSUE_NUMBER}"
 ```
 
-### 6.2 Add @remote-agent Comment
+### 6.2 Add @scar Comment
 ```bash
 gh issue comment ${ISSUE_NUMBER} \
-  --body "@remote-agent Please address this issue by adding a \"Validation\" section to the README.md file. Create a new branch for this change and open a pull request when done. Include details about our testing approach in the validation section."
+  --body "@scar Please address this issue by adding a \"Validation\" section to the README.md file. Create a new branch for this change and open a pull request when done. Include details about our testing approach in the validation section."
 ```
 
 ### 6.3 Monitor Webhook Processing
@@ -622,7 +622,7 @@ gh issue view ${ISSUE_NUMBER} --comments
 
 ## Phase 7: GitHub Pull Request Integration
 
-Test @remote-agent mention in pull request comments.
+Test @scar mention in pull request comments.
 
 **Note:** We'll use the PR created by the test adapter in Phase 4 (should be PR #1).
 
@@ -647,12 +647,12 @@ fi
 cd "${PROJECT_ROOT}"
 ```
 
-### 7.2 Request PR Review via @remote-agent
+### 7.2 Request PR Review via @scar
 ```bash
 cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 gh pr comment ${PR_NUMBER} \
-  --body "@remote-agent Please review this pull request. Check for code quality, completeness, and adherence to best practices."
+  --body "@scar Please review this pull request. Check for code quality, completeness, and adherence to best practices."
 
 echo "Review request posted to PR #${PR_NUMBER}"
 cd "${PROJECT_ROOT}"
@@ -734,7 +734,7 @@ Test the complete remote agentic workflow using slash commands: Prime → Plan �
 
 ### 9.0 Copy Commands to Test Repository
 
-The test repository needs the command files to invoke them via @remote-agent.
+The test repository needs the command files to invoke them via @scar.
 
 ```bash
 cd "${WORK_DIR}/${TEST_REPO_NAME}"
@@ -792,7 +792,7 @@ Comment on the issue to load commands and prime the agent:
 cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 gh issue comment ${COMMAND_ISSUE_NUMBER} \
-  --body "@remote-agent /load-commands .agents/commands
+  --body "@scar /load-commands .agents/commands
 
 Once commands are loaded, run: /command-invoke prime"
 
@@ -866,7 +866,7 @@ Request feature planning:
 cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 gh issue comment ${COMMAND_ISSUE_NUMBER} \
-  --body "@remote-agent /command-invoke plan-feature Add Contributing section to README with guidelines for cloning, installation, testing, and PR submission"
+  --body "@scar /command-invoke plan-feature Add Contributing section to README with guidelines for cloning, installation, testing, and PR submission"
 
 echo "✅ Sent plan-feature command request"
 cd "${PROJECT_ROOT}"
@@ -958,7 +958,7 @@ cd "${WORK_DIR}/${TEST_REPO_NAME}"
 
 # Execute command now takes TWO arguments: branch name and plan file path
 gh issue comment ${COMMAND_ISSUE_NUMBER} \
-  --body "@remote-agent /command-invoke execute ${FEATURE_BRANCH} ${PLAN_FILE_PATH}"
+  --body "@scar /command-invoke execute ${FEATURE_BRANCH} ${PLAN_FILE_PATH}"
 
 echo "✅ Sent execute command: /command-invoke execute ${FEATURE_BRANCH} ${PLAN_FILE_PATH}"
 cd "${PROJECT_ROOT}"
@@ -1286,7 +1286,7 @@ Generate comprehensive validation report.
 
 **GitHub Integration:**
 - ✅/❌ Issue webhook processed
-- ✅/❌ @remote-agent comment responded (batch mode)
+- ✅/❌ @scar comment responded (batch mode)
 - ✅/❌ Pull request created by bot
 - ✅/❌ PR review comment processed
 

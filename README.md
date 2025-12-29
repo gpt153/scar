@@ -56,7 +56,7 @@ cp .env.example .env
 | `GH_TOKEN` | Repository cloning | [Generate token](https://github.com/settings/tokens) with `repo` scope |
 | `GITHUB_TOKEN` | Same as `GH_TOKEN` | Use same token value |
 | `PORT` | HTTP server port | Default: `3000` (optional) |
-| `WORKSPACE_PATH` | Clone destination | **Recommended**: `/tmp/remote-agent-workspace` or `~/remote-agent-workspace` (see note below) |
+| `WORKSPACE_PATH` | Clone destination | **Recommended**: `/tmp/scar-workspace` or `~/scar-workspace` (see note below) |
 
 **GitHub Personal Access Token Setup:**
 
@@ -76,9 +76,9 @@ The `WORKSPACE_PATH` determines where cloned repositories are stored. **Use a pa
 
 ```env
 # Recommended options
-WORKSPACE_PATH=~/remote-agent-workspace (persistent in home directory - Linux/Mac)
+WORKSPACE_PATH=~/scar-workspace (persistent in home directory - Linux/Mac)
 # or
-WORKSPACE_PATH=C:Users\[your-user-ID]\remote-agent-workspace (Windows)
+WORKSPACE_PATH=C:Users\[your-user-ID]\scar-workspace (Windows)
 ```
 
 **Docker note**: Inside containers, the path is always `/workspace` (mapped from your host `WORKSPACE_PATH` in docker-compose.yml).
@@ -420,12 +420,12 @@ GITHUB_STREAMING_MODE=batch  # batch (default) | stream
 
 **Usage:**
 
-Interact by @mentioning `@remote-agent` in issues or PRs:
+Interact by @mentioning `@scar` in issues or PRs:
 
 ```
-@remote-agent can you analyze this bug?
-@remote-agent /command-invoke prime
-@remote-agent review this implementation
+@scar can you analyze this bug?
+@scar /command-invoke prime
+@scar review this implementation
 ```
 
 **First mention behavior:**

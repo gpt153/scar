@@ -64,7 +64,7 @@ export class GitHubAdapter implements IPlatformAdapter {
   constructor(token: string, webhookSecret: string, botMention?: string) {
     this.octokit = new Octokit({ auth: token });
     this.webhookSecret = webhookSecret;
-    this.botMention = botMention ?? 'remote-agent';
+    this.botMention = botMention ?? 'scar';
 
     // Parse GitHub user whitelist (optional - empty = open access)
     this.allowedUsers = parseAllowedUsers(process.env.GITHUB_ALLOWED_USERS);

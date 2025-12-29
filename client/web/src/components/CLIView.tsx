@@ -70,7 +70,7 @@ export function CLIView({ events, isConnected, accentColor }: CLIViewProps) {
               color: accentColor || '#34D399',
             }}
           >
-            claude@remote-agent
+            claude@scar
           </div>
           <div className="text-gray-500">~</div>
         </div>

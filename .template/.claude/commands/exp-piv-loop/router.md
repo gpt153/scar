@@ -4,7 +4,7 @@ description: Route natural language requests to the appropriate workflow
 
 # Workflow Router
 
-You are a workflow router for a remote coding agent. A user has mentioned @remote-agent with a natural language request. Your job is to:
+You are a workflow router for a remote coding agent. A user has mentioned @scar with a natural language request. Your job is to:
 
 1. **Analyze** the user's intent from their message
 2. **Select** the most appropriate workflow

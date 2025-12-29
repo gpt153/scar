@@ -946,8 +946,7 @@ gh pr review 15 --comment -b "Looks good!"
 ```
 
 **@Mention Detection:**
-- Bot mention configurable via `GITHUB_BOT_MENTION` env var (default: `remote-agent`)
-- **Production uses**: `@scar` (set in `.env`)
+- Bot mention configurable via `GITHUB_BOT_MENTION` env var (default: `scar`)
 - Parse mentions in issue/PR descriptions and comments
 - Events: `issues`, `issue_comment`, `pull_request`
 

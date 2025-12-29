@@ -11,7 +11,7 @@ Deploy the Remote Coding Agent to a cloud VPS for 24/7 operation with automatic 
 **Required:**
 
 - Cloud VPS account (DigitalOcean, Linode, AWS EC2, Vultr, etc.)
-- Domain name or subdomain (e.g., `remote-agent.yourdomain.com`)
+- Domain name or subdomain (e.g., `scar.yourdomain.com`)
 - SSH client installed on your local machine
 - Basic command-line familiarity
 
@@ -202,7 +202,7 @@ Point your domain to your server's IP address.
 
 1. Go to your domain registrar or DNS provider (Cloudflare, Namecheap, etc.)
 2. Create an **A Record**:
-   - **Name:** `remote-agent` (for `remote-agent.yourdomain.com`) or `@` (for `yourdomain.com`)
+   - **Name:** `scar` (for `scar.yourdomain.com`) or `@` (for `yourdomain.com`)
    - **Value:** Your server's public IP address
    - **TTL:** 300 (5 minutes) or default
 
@@ -210,7 +210,7 @@ Point your domain to your server's IP address.
 
 ```
 Type: A
-Name: remote-agent
+Name: scar
 Content: 123.45.67.89
 Proxy: Off (DNS Only)
 TTL: Auto
@@ -260,7 +260,7 @@ GITHUB_TOKEN=ghp_your_token_here
 
 # Server settings
 PORT=3000
-WORKSPACE_PATH=/tmp/remote-agent-workspace  # Use external path to avoid nested repos
+WORKSPACE_PATH=/tmp/scar-workspace  # Use external path to avoid nested repos
 ```
 
 **GitHub Token Setup:**
@@ -502,12 +502,12 @@ nano Caddyfile
 **Update with your domain:**
 
 ```
-remote-agent.yourdomain.com {
+scar.yourdomain.com {
     reverse_proxy app:3000
 }
 ```
 
-Replace `remote-agent.yourdomain.com` with your actual domain.
+Replace `scar.yourdomain.com` with your actual domain.
 
 **Save and exit:** `Ctrl+X`, then `Y`, then `Enter`
 
@@ -579,21 +579,21 @@ docker compose -f docker-compose.yml -f docker-compose.cloud.yml logs -f app
 
 ```bash
 # Basic health check
-curl https://remote-agent.yourdomain.com/health
+curl https://scar.yourdomain.com/health
 # Expected: {"status":"ok"}
 
 # Database connectivity
-curl https://remote-agent.yourdomain.com/health/db
+curl https://scar.yourdomain.com/health/db
 # Expected: {"status":"ok","database":"connected"}
 
 # Concurrency status
-curl https://remote-agent.yourdomain.com/health/concurrency
+curl https://scar.yourdomain.com/health/concurrency
 # Expected: {"status":"ok","active":0,"queued":0,"maxConcurrent":10}
 ```
 
 ### Check SSL Certificate
 
-Visit `https://remote-agent.yourdomain.com/health` in your browser:
+Visit `https://scar.yourdomain.com/health` in your browser:
 
 - Should show green padlock
 - Certificate issued by "Let's Encrypt"
@@ -633,7 +633,7 @@ openssl rand -hex 32
 
 | Field                | Value                                                                        |
 | -------------------- | ---------------------------------------------------------------------------- |
-| **Payload URL**      | `https://remote-agent.yourdomain.com/webhooks/github`                        |
+| **Payload URL**      | `https://scar.yourdomain.com/webhooks/github`                        |
 | **Content type**     | `application/json`                                                           |
 | **Secret**           | Your `WEBHOOK_SECRET` from `.env`                                            |
 | **SSL verification** | Enable SSL verification                                                      |
@@ -716,7 +716,7 @@ docker compose -f docker-compose.yml -f docker-compose.cloud.yml down -v
 **Check DNS:**
 
 ```bash
-dig remote-agent.yourdomain.com
+dig scar.yourdomain.com
 # Should return your server IP
 ```
 
@@ -803,7 +803,7 @@ cat .env | grep WEBHOOK_SECRET
 **Test webhook endpoint:**
 
 ```bash
-curl https://remote-agent.yourdomain.com/webhooks/github
+curl https://scar.yourdomain.com/webhooks/github
 # Should return 400 (missing signature) - means endpoint is reachable
 ```
 

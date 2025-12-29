@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     console.warn('⚠️  WARNING: WORKSPACE_PATH is inside project directory');
     console.warn('   This can cause nested repository issues when working on this repo.');
     console.warn(`   Current: ${workspacePath}`);
-    console.warn('   Recommended: /tmp/remote-agent-workspace or ~/remote-agent-workspace');
+    console.warn('   Recommended: /tmp/scar-workspace or ~/scar-workspace');
     console.warn('');
   }
 

@@ -5,7 +5,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including Playwright browser dependencies
+# Playwright requires these system libraries for Chromium
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -15,6 +16,25 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     python3 \
     python3-pip \
+    # Playwright/Chromium dependencies
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libatspi2.0-0 \
+    libxshmfence1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (for managing other containers)
@@ -55,10 +75,6 @@ COPY package*.json ./
 # Install ALL dependencies (including devDependencies for build)
 RUN npm ci
 
-# Install Playwright browsers (required for UI/UX testing in workspaces)
-# This allows SCAR to run E2E tests in cloned projects
-RUN npx -y playwright install --with-deps chromium
-
 # Copy application code
 COPY . .
 
@@ -68,11 +84,17 @@ RUN npm run build
 # Remove devDependencies to reduce image size
 RUN npm prune --production
 
-# Fix permissions for appuser
+# Fix permissions for appuser before switching to non-root
 RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
+
+# Install Playwright browsers as appuser (required for UI/UX testing)
+# This allows SCAR to use Playwright MCP for browser automation when testing websites
+# Browsers are installed in appuser's cache directory (~/.cache/ms-playwright/)
+# The --with-deps flag is not needed here since system deps are already installed above
+RUN npx -y playwright install chromium
 
 # Create .codex directory for Codex authentication
 RUN mkdir -p /home/appuser/.codex

@@ -538,7 +538,7 @@ Provide a final summary that will be automatically posted as a GitHub comment (y
 ### Next Steps
 To implement this plan, use:
 ```bash
-@remote-agent /command-invoke execute-github .agents/plans/<plan-name>.md feature-<branch-name>
+@scar /command-invoke execute-github .agents/plans/<plan-name>.md feature-<branch-name>
 ```
 
 **Branch Status**: Plan committed and pushed to `feature-<branch-name>`

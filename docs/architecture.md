@@ -896,7 +896,7 @@ Save session ID for next message
 ### GitHub Webhook Flow
 
 ```
-User comments: @remote-agent /command-invoke prime
+User comments: @scar /command-invoke prime
          ↓
 GitHub sends webhook to POST /webhooks/github
          ↓
@@ -904,13 +904,13 @@ GitHubAdapter.handleWebhook(payload, signature)
   - Verify HMAC signature
   - Parse event: issue_comment.created
   - Extract: owner/repo#42, comment text
-  - Check for @remote-agent mention
+  - Check for @scar mention
          ↓
 First mention on this issue?
   - Yes → Clone repo, create codebase, load commands
   - No → Use existing codebase
          ↓
-Strip @remote-agent from comment
+Strip @scar from comment
          ↓
 Orchestrator.handleMessage(adapter, "user/repo#42", "/command-invoke prime")
          ↓

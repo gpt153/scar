@@ -142,14 +142,14 @@ describe('GitHubAdapter', () => {
     });
 
     test('should detect mention when it is the entire message', () => {
-      const adapterWithMention = new GitHubAdapter('token', 'secret', 'remote-agent');
+      const adapterWithMention = new GitHubAdapter('token', 'secret', 'scar');
       const hasMention = (
         adapterWithMention as unknown as { hasMention: (text: string) => boolean }
       ).hasMention;
 
-      expect(hasMention.call(adapterWithMention, '@remote-agent')).toBe(true);
-      expect(hasMention.call(adapterWithMention, '@REMOTE-AGENT')).toBe(true);
-      expect(hasMention.call(adapterWithMention, '@Remote-Agent')).toBe(true);
+      expect(hasMention.call(adapterWithMention, '@scar')).toBe(true);
+      expect(hasMention.call(adapterWithMention, '@SCAR')).toBe(true);
+      expect(hasMention.call(adapterWithMention, '@Scar')).toBe(true);
     });
 
     test('should strip mention case-insensitively', () => {
@@ -839,7 +839,7 @@ describe('GitHubAdapter', () => {
       handleMessageMock.mockResolvedValue(undefined);
     });
 
-    describe('issue opened with @remote-agent mention', () => {
+    describe('issue opened with @scar mention', () => {
       test('should create worktree and update conversation', async () => {
         // Setup: new conversation (no codebase_id)
         getOrCreateConversationMock.mockResolvedValue({
@@ -862,7 +862,7 @@ describe('GitHubAdapter', () => {
           issue: {
             number: 42,
             title: 'Test Issue',
-            body: '@remote-agent please help with this',
+            body: '@scar please help with this',
             user: { login: 'testuser' },
             labels: [],
             state: 'open',
@@ -925,7 +925,7 @@ describe('GitHubAdapter', () => {
           issue: {
             number: 42,
             title: 'Test Issue',
-            body: '@remote-agent help',
+            body: '@scar help',
             user: { login: 'testuser' },
             labels: [],
             state: 'open',
@@ -961,7 +961,7 @@ describe('GitHubAdapter', () => {
       });
     });
 
-    describe('pull request opened with @remote-agent mention', () => {
+    describe('pull request opened with @scar mention', () => {
       test('should create pr-XX worktree for pull requests', async () => {
         getOrCreateConversationMock.mockResolvedValue({
           id: 'conv-1',
@@ -984,7 +984,7 @@ describe('GitHubAdapter', () => {
           pull_request: {
             number: 42,
             title: 'Test PR',
-            body: '@remote-agent review this',
+            body: '@scar review this',
             user: { login: 'testuser' },
             state: 'open',
           },
@@ -1161,7 +1161,7 @@ describe('GitHubAdapter', () => {
         const payload = JSON.stringify({
           action: 'created',
           comment: {
-            body: '@remote-agent can you also help with X?',
+            body: '@scar can you also help with X?',
             user: { login: 'testuser' },
           },
           issue: {
@@ -1196,7 +1196,7 @@ describe('GitHubAdapter', () => {
       });
     });
 
-    describe('webhook without @remote-agent mention', () => {
+    describe('webhook without @scar mention', () => {
       test('should not process webhooks without mention', async () => {
         const payload = JSON.stringify({
           action: 'opened',
