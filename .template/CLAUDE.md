@@ -51,6 +51,26 @@ manage_task("update", task_id="...", status="doing")
 list_projects(project_id="...")
 ```
 
+### Using Playwright for E2E Testing
+
+If this project has Playwright configured, validate UI/UX functionality:
+
+```bash
+# Run all E2E tests
+npx playwright test
+
+# Run in UI mode (interactive)
+npx playwright test --ui
+
+# Run specific test file
+npx playwright test e2e/feature.spec.ts
+
+# Debug mode (step through tests)
+npx playwright test --debug
+```
+
+E2E tests validate actual user experience, not just code compilation.
+
 ## Project-Specific Notes
 
 {{CUSTOM_NOTES}}
