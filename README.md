@@ -13,6 +13,7 @@ Control AI coding assistants (Claude Code, Codex) remotely from Telegram, GitHub
 - **Flexible Streaming**: Real-time or batch message delivery per platform
 - **Generic Command System**: User-defined commands versioned with Git
 - **Archon Auto-Research**: Automatically detects dependencies and indexes documentation for knowledge-first AI workflows (optional)
+- **UI/UX Testing**: SCAR can run Playwright E2E tests to validate actual functionality from user perspective
 - **Docker Ready**: Simple deployment with Docker Compose
 
 ## Prerequisites
