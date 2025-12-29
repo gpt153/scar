@@ -126,6 +126,24 @@ npm run format
 npm run format:check
 ```
 
+### Playwright E2E Tests (When Available)
+
+If the project has Playwright tests (`npx playwright test`):
+
+```bash
+cd <project-directory>
+npx playwright test
+# All tests must pass
+```
+
+**Why This Is Critical:**
+- Validates actual UI/UX functionality, not just code compilation
+- Catches issues like:
+  - Buttons that don't appear on the page
+  - Click handlers that don't work
+  - Features that compile but don't function from user perspective
+- SCAR must verify features actually work before creating PR
+
 **Code Quality Setup:**
 - **ESLint**: Flat config with TypeScript-ESLint (strict rules, 0 errors enforced)
 - **Prettier**: Opinionated formatter (single quotes, semicolons, 2-space indent)
