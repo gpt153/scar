@@ -51,11 +51,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure git to use gh CLI for authentication
-RUN git config --global credential.https://github.com.helper "" && \
-    git config --global credential.https://github.com.helper "!/usr/bin/gh auth git-credential" && \
-    git config --global credential.https://gist.github.com.helper "" && \
-    git config --global credential.https://gist.github.com.helper "!/usr/bin/gh auth git-credential"
+# Configure git to use gh CLI for authentication (will be set for appuser after user creation)
 
 # Install Google Cloud SDK (requires Python)
 # Create python symlink for gcloud SDK installer
@@ -104,6 +100,12 @@ RUN npx -y playwright install chromium
 
 # Create .codex directory for Codex authentication
 RUN mkdir -p /home/appuser/.codex
+
+# Configure git to use gh CLI for authentication (as appuser)
+RUN git config --global credential.https://github.com.helper "" && \
+    git config --global credential.https://github.com.helper "!/usr/bin/gh auth git-credential" && \
+    git config --global credential.https://gist.github.com.helper "" && \
+    git config --global credential.https://gist.github.com.helper "!/usr/bin/gh auth git-credential"
 
 # Configure git to trust /workspace directory
 # This prevents "fatal: detected dubious ownership" errors when git operations
