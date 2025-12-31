@@ -145,6 +145,8 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
     // 3. Clone repository to workspace
     console.log(`[NewTopic] Cloning to workspace: ${workspacePath}`);
     const repoPath = join(workspacePath, repoName);
+    // Clone repository (authentication via gh CLI credential helper)
+    console.log('[NewTopic] Cloning repository (auth via gh CLI credential helper)');
     await execFileAsync('git', ['clone', repo.cloneUrl, repoPath]);
 
     // 4. Create Archon project
