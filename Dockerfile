@@ -101,8 +101,10 @@ RUN npx -y playwright install chromium
 # Create .codex directory for Codex authentication
 RUN mkdir -p /home/appuser/.codex
 
-# Configure git to use gh CLI for authentication (as appuser)
-RUN git config --global credential.https://github.com.helper "" && \
+# Configure git for appuser
+RUN git config --global user.name "SCAR Bot" && \
+    git config --global user.email "scar-bot@remote-coding-agent.local" && \
+    git config --global credential.https://github.com.helper "" && \
     git config --global credential.https://github.com.helper "!/usr/bin/gh auth git-credential" && \
     git config --global credential.https://gist.github.com.helper "" && \
     git config --global credential.https://gist.github.com.helper "!/usr/bin/gh auth git-credential"
