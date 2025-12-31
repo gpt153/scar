@@ -396,25 +396,10 @@ Knowledge Base (Archon):
 
         console.log(`[Clone] Cloning ${workingUrl} to ${targetPath}`);
 
-        // Build clone command with authentication if GitHub token is available
-        let cloneUrl = workingUrl;
-        const ghToken = process.env.GH_TOKEN;
-
-        if (ghToken && workingUrl.includes('github.com')) {
-          // Inject token into GitHub URL for private repo access
-          // Convert: https://github.com/user/repo.git -> https://token@github.com/user/repo.git
-          if (workingUrl.startsWith('https://github.com')) {
-            cloneUrl = workingUrl.replace('https://github.com', `https://${ghToken}@github.com`);
-          } else if (workingUrl.startsWith('http://github.com')) {
-            cloneUrl = workingUrl.replace('http://github.com', `https://${ghToken}@github.com`);
-          } else if (!workingUrl.startsWith('http')) {
-            // Handle github.com/user/repo format (bare domain)
-            cloneUrl = `https://${ghToken}@${workingUrl}`;
-          }
-          console.log('[Clone] Using authenticated GitHub clone');
-        }
-
-        await execFileAsync('git', ['clone', cloneUrl, targetPath]);
+        // Clone repository (authentication via gh CLI credential helper)
+        // The credential helper automatically retrieves tokens from gh auth context
+        console.log('[Clone] Cloning repository (auth via gh CLI credential helper)');
+        await execFileAsync('git', ['clone', workingUrl, targetPath]);
 
         // Add the cloned repository to git safe.directory to prevent ownership errors
         // This is needed because we run as non-root user but git might see different ownership

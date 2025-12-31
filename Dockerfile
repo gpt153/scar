@@ -51,6 +51,12 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Configure git to use gh CLI for authentication
+RUN git config --global credential.https://github.com.helper "" && \
+    git config --global credential.https://github.com.helper "!/usr/bin/gh auth git-credential" && \
+    git config --global credential.https://gist.github.com.helper "" && \
+    git config --global credential.https://gist.github.com.helper "!/usr/bin/gh auth git-credential"
+
 # Install Google Cloud SDK (requires Python)
 # Create python symlink for gcloud SDK installer
 RUN ln -s /usr/bin/python3 /usr/bin/python \
