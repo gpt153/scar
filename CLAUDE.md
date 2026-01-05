@@ -584,6 +584,40 @@ done
 - [ ] No console errors in browser
 - [ ] Feature works end-to-end (not just "compiles")
 
+#### Verification Tools
+
+**Feature Completion Checklist**:
+```bash
+# Comprehensive checklist for marking features complete
+cat .github/FEATURE_CHECKLIST.md
+```
+
+**Automated Mock Detection**:
+```bash
+# Run verification script to detect mocks
+./scripts/verify-no-mocks.sh
+
+# What it checks:
+# - Mock data arrays (mockData, MOCK_DATA)
+# - Placeholder URLs (example.com, placeholder)
+# - TODO/FIXME comments
+# - Fake/dummy patterns
+# - Hardcoded test credentials
+```
+
+**Pre-commit Hook**:
+The repository includes a pre-commit hook that automatically blocks commits with mock data:
+```bash
+# Hook installed at: .git/hooks/pre-commit
+# Runs automatically on every commit
+# Checks staged files for mock patterns
+
+# To bypass (NOT RECOMMENDED):
+git commit --no-verify
+```
+
+**Note**: The pre-commit hook is already installed and will run automatically. If you clone the repo fresh, the hook is already in `.git/hooks/` and executable.
+
 ### Type Checking
 
 **Critical Rules:**
