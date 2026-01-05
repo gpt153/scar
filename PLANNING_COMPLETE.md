@@ -91,10 +91,10 @@ Comprehensive implementation planning for **Issue #9: SCAR Control of Live Proje
 ### Example Workflow
 
 ```
-User: "Fix the timeout bug in project-orchestrator"
+User: "Fix the timeout bug in project-manager"
 
 SCAR:
-1. [Analyzes code in /workspace/project-orchestrator]
+1. [Analyzes code in /workspace/project-manager]
 2. [Makes fix]
 3. "Bug fixed in workspace"
 

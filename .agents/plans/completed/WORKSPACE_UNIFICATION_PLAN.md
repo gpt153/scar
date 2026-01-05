@@ -23,7 +23,7 @@ ls -la /home/samuel/.archon/workspaces/
 
 # Expected:
 # - scar
-# - project-orchestrator
+# - project-manager
 # - health-agent
 # - openhorizon.cc
 # + other active projects
@@ -32,7 +32,7 @@ ls -la /home/samuel/.archon/workspaces/
 docker ps -a | grep -E "po-|odin-health"
 
 # 3. Verify workspace git status (nothing uncommitted we care about)
-cd /home/samuel/.archon/workspaces/project-orchestrator
+cd /home/samuel/.archon/workspaces/project-manager
 git status
 git log -1
 
@@ -47,7 +47,7 @@ git log -1
 # 4. Check what's in production that might not be in workspace
 cd /home/samuel/po
 git log -1
-git diff /home/samuel/.archon/workspaces/project-orchestrator
+git diff /home/samuel/.archon/workspaces/project-manager
 
 # If production has commits not in workspace, push them first!
 
@@ -93,7 +93,7 @@ ls -laR /home/samuel/po > /home/samuel/cleanup-backup/po-inventory.txt
 ## Phase 3: Stop Production Services 🛑
 
 ```bash
-# 1. Stop project-orchestrator containers
+# 1. Stop project-manager containers
 cd /home/samuel/po
 docker compose down
 
@@ -137,23 +137,23 @@ df -h /home/samuel
 
 ## Phase 5: Migrate Production to Workspace Structure 🔄
 
-### 5.1 Project-Orchestrator (PO)
+### 5.1 Project-Manager (PO)
 
 **Pattern**: No production subfolder - all state in Docker volumes
 
 ```bash
 # 1. Ensure workspace is up to date
-cd /home/samuel/.archon/workspaces/project-orchestrator
+cd /home/samuel/.archon/workspaces/project-manager
 git fetch origin
 git status
 
 # 2. Copy production .env if different from workspace
-diff /home/samuel/po/.env /home/samuel/.archon/workspaces/project-orchestrator/.env
+diff /home/samuel/po/.env /home/samuel/.archon/workspaces/project-manager/.env
 # If different, decide which to keep or merge them
-cp /home/samuel/po/.env /home/samuel/.archon/workspaces/project-orchestrator/.env.production
+cp /home/samuel/po/.env /home/samuel/.archon/workspaces/project-manager/.env.production
 
 # 3. Copy production docker-compose.yml if customized
-diff /home/samuel/po/docker-compose.yml /home/samuel/.archon/workspaces/project-orchestrator/docker-compose.yml
+diff /home/samuel/po/docker-compose.yml /home/samuel/.archon/workspaces/project-manager/docker-compose.yml
 # If production version has important changes, merge them
 
 # 4. Update PO's CI/CD workflow to deploy from workspace
@@ -162,7 +162,7 @@ nano .github/workflows/cd.yml
 # Change DEPLOY_DIR from:
 #   DEPLOY_DIR: /home/samuel/po
 # To:
-#   DEPLOY_DIR: /home/samuel/.archon/workspaces/project-orchestrator
+#   DEPLOY_DIR: /home/samuel/.archon/workspaces/project-manager
 
 # 5. Commit the workflow change
 git add .github/workflows/cd.yml .env.production
@@ -173,7 +173,7 @@ git push
 rm -rf /home/samuel/po
 
 # 7. Test deployment from workspace
-cd /home/samuel/.archon/workspaces/project-orchestrator
+cd /home/samuel/.archon/workspaces/project-manager
 docker compose down
 docker compose up -d --build
 
@@ -424,11 +424,11 @@ nano CLAUDE.md
 
 Different projects use different workspace patterns based on their state management needs:
 
-### Pattern 1: Docker Volume State (Project-Orchestrator)
+### Pattern 1: Docker Volume State (Project-Manager)
 
 **Structure:**
 ```
-/home/samuel/.archon/workspaces/project-orchestrator/
+/home/samuel/.archon/workspaces/project-manager/
 ├── src/                    # Application code
 ├── docker-compose.yml      # Container orchestration
 ├── .env                    # Configuration
@@ -481,7 +481,7 @@ Different projects use different workspace patterns based on their state managem
 - ❌ `/home/samuel/odin-health/` - REMOVED (now in workspace)
 
 **When working on projects:**
-- **PO**: `/workspace/project-orchestrator/`
+- **PO**: `/workspace/project-manager/`
 - **Health-Agent**: `/workspace/health-agent/` (code) and `/workspace/health-agent/production/` (data)
 - **OpenHorizon**: `/workspace/openhorizon.cc/`
 ```
@@ -516,8 +516,8 @@ docker exec scar-postgres-1 psql -U postgres -d remote_coding_agent -c \
 # 2. Update any hardcoded paths (if needed)
 docker exec -it scar-postgres-1 psql -U postgres -d remote_coding_agent <<EOF
 UPDATE remote_agent_codebases
-SET repo_path = '/workspace/project-orchestrator'
-WHERE name = 'project-orchestrator';
+SET repo_path = '/workspace/project-manager'
+WHERE name = 'project-manager';
 
 UPDATE remote_agent_codebases
 SET repo_path = '/workspace/health-agent'
@@ -552,16 +552,16 @@ docker exec scar-app-with-db-1 ls /home/samuel/odin-health 2>&1
 # Should fail with "No such file or directory"
 
 # 4. Verify workspace access for all projects
-docker exec scar-app-with-db-1 ls -la /workspace/project-orchestrator/
+docker exec scar-app-with-db-1 ls -la /workspace/project-manager/
 docker exec scar-app-with-db-1 ls -la /workspace/health-agent/
 docker exec scar-app-with-db-1 ls -la /workspace/openhorizon.cc/
 ```
 
-### 8.2 Test Project-Orchestrator
+### 8.2 Test Project-Manager
 
 ```bash
 # 1. Check PO containers are running
-cd /home/samuel/.archon/workspaces/project-orchestrator
+cd /home/samuel/.archon/workspaces/project-manager
 docker compose ps
 
 # 2. Test health endpoint
@@ -670,7 +670,7 @@ We use different patterns based on how each project manages state:
 
 ### Pattern 1: Docker Volume State (Stateless Applications)
 
-**Projects**: project-orchestrator, scar
+**Projects**: project-manager, scar
 
 **Structure:**
 ```
@@ -689,7 +689,7 @@ We use different patterns based on how each project manages state:
 
 **Deployment:**
 ```bash
-cd /home/samuel/.archon/workspaces/project-orchestrator
+cd /home/samuel/.archon/workspaces/project-manager
 docker compose up -d
 ```
 
@@ -773,7 +773,7 @@ gcloud builds submit --config cloudbuild-app.yaml
 ```
 /workspace/                         # All development workspaces
   ├── scar/                        # SCAR source
-  ├── project-orchestrator/        # PO (Pattern 1)
+  ├── project-manager/        # PO (Pattern 1)
   ├── health-agent/                # Health-Agent (Pattern 2)
   │   └── production/              # Runtime data
   ├── openhorizon.cc/              # OpenHorizon (Pattern 3)
@@ -781,7 +781,7 @@ gcloud builds submit --config cloudbuild-app.yaml
 
 /worktrees/                         # Git worktrees for parallel work
   ├── scar/
-  ├── project-orchestrator/
+  ├── project-manager/
   └── health-agent/
 ```
 
@@ -826,9 +826,9 @@ Does your project store persistent data as files?
 All CI/CD workflows deploy FROM workspace:
 
 ```yaml
-# Example: Project-Orchestrator CI/CD
+# Example: Project-Manager CI/CD
 env:
-  DEPLOY_DIR: /home/samuel/.archon/workspaces/project-orchestrator
+  DEPLOY_DIR: /home/samuel/.archon/workspaces/project-manager
 
 # Example: Health-Agent CI/CD
 env:

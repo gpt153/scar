@@ -10,7 +10,7 @@ We use different patterns based on how each project manages state:
 
 ### Pattern 1: Docker Volume State (Stateless Applications)
 
-**Projects**: project-orchestrator, scar
+**Projects**: project-manager, scar
 
 **Structure:**
 ```
@@ -29,7 +29,7 @@ We use different patterns based on how each project manages state:
 
 **Deployment:**
 ```bash
-cd /home/samuel/.archon/workspaces/project-orchestrator
+cd /home/samuel/.archon/workspaces/project-manager
 docker compose up -d
 ```
 
@@ -113,7 +113,7 @@ gcloud builds submit --config cloudbuild-app.yaml
 ```
 /workspace/                         # All development workspaces
   ├── scar/                        # SCAR source
-  ├── project-orchestrator/        # PO (Pattern 1)
+  ├── project-manager/             # PM (Pattern 1)
   ├── health-agent/                # Health-Agent (Pattern 2)
   │   └── production/              # Runtime data
   ├── openhorizon.cc/              # OpenHorizon (Pattern 3)
@@ -121,7 +121,7 @@ gcloud builds submit --config cloudbuild-app.yaml
 
 /worktrees/                         # Git worktrees for parallel work
   ├── scar/
-  ├── project-orchestrator/
+  ├── project-manager/
   └── health-agent/
 ```
 
@@ -166,9 +166,9 @@ Does your project store persistent data as files?
 All CI/CD workflows deploy FROM workspace:
 
 ```yaml
-# Example: Project-Orchestrator CI/CD
+# Example: Project-Manager CI/CD
 env:
-  DEPLOY_DIR: /home/samuel/.archon/workspaces/project-orchestrator
+  DEPLOY_DIR: /home/samuel/.archon/workspaces/project-manager
 
 # Example: Health-Agent CI/CD
 env:

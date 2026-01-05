@@ -59,7 +59,7 @@ interface Codebase {
   id: string
   name: string
   repository_url: string | null
-  default_cwd: string              // e.g., /workspace/project-orchestrator
+  default_cwd: string              // e.g., /workspace/project-manager
   ai_assistant_type: string
   commands: Record<string, { path: string; description: string }>
   port_config?: {                  // NEW: For Docker integration
@@ -83,7 +83,7 @@ interface Conversation {
 
 **Current Production Containers**:
 ```
-project-orchestrator (po):
+project-manager (po):
   Location: /home/samuel/po/
   Containers:
     - backend (port 8001 → 8000)
@@ -102,7 +102,7 @@ health-agent (odin-health):
 **Workspace Locations**:
 ```
 Development (SCAR workspace):
-  - /workspace/project-orchestrator/
+  - /workspace/project-manager/
   - /workspace/health-agent/
 
 Production (separate):
@@ -1463,8 +1463,8 @@ describe('Docker Commands', () => {
 
 1. **Setup Test Project**
    ```bash
-   # In SCAR workspace, clone project-orchestrator
-   /clone https://github.com/user/project-orchestrator
+   # In SCAR workspace, clone project-manager
+   /clone https://github.com/user/project-manager
    ```
 
 2. **Configure Docker**
@@ -1487,9 +1487,9 @@ describe('Docker Commands', () => {
 
 5. **Make Code Change**
    ```
-   "Update the health check endpoint in project-orchestrator"
+   "Update the health check endpoint in project-manager"
    ```
-   SCAR edits code in `/workspace/project-orchestrator`
+   SCAR edits code in `/workspace/project-manager`
 
 6. **Deploy**
    ```bash
@@ -1542,13 +1542,13 @@ For each project, configure Docker settings:
 /docker-config set /path/to/production compose-project-name
 \`\`\`
 
-Example for project-orchestrator:
+Example for project-manager:
 \`\`\`
 /docker-config set /home/samuel/po po
 \`\`\`
 
 This maps:
-- Workspace: `/workspace/project-orchestrator`
+- Workspace: `/workspace/project-manager`
 - Production: `/home/samuel/po`
 - Compose Project: `po`
 
@@ -1607,12 +1607,12 @@ Shows changes, prompts for confirmation, then:
 
 ## Workflow Example
 
-### Scenario: Fix a bug in project-orchestrator
+### Scenario: Fix a bug in project-manager
 
 1. **Work on code**
    ```
-   User: "Fix the task queue bug in project-orchestrator"
-   SCAR: [analyzes code, makes fix in /workspace/project-orchestrator]
+   User: "Fix the task queue bug in project-manager"
+   SCAR: [analyzes code, makes fix in /workspace/project-manager]
    ```
 
 2. **Check production status**

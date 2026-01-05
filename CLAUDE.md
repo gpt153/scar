@@ -4,6 +4,13 @@
 
 ## Important Terminology
 
+**Project Manager (PM):**
+- A separate workspace/project for building a conversational AI agent
+- Helps non-technical users build software projects through natural language
+- Workspace: `/home/samuel/.archon/workspaces/project-manager`
+- Vision document: `.agents/visions/project-manager.md`
+- NOT to be confused with SCAR's orchestrator component (src/orchestrator/)
+
 **Health-Agent-Builder (HAB):**
 - Telegram topic 10 ("health-agent-builder")
 - Used for BUILDING/DEVELOPING the health-agent codebase

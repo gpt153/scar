@@ -26,8 +26,8 @@ Bridge the gap between workspace development and production deployment by giving
 
 ```
 1. Work on code in SCAR
-   User: "Fix the task queue bug in project-orchestrator"
-   SCAR: [analyzes /workspace/project-orchestrator, makes fix]
+   User: "Fix the task queue bug in project-manager"
+   SCAR: [analyzes /workspace/project-manager, makes fix]
 
 2. Check production status
    /docker-status

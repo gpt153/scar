@@ -263,7 +263,7 @@ docs/docker-management.md (enhance)
 ```bash
 # End-to-end deployment test
 # 1. Make code change in workspace
-echo "console.log('test')" >> /workspace/project-orchestrator/src/test.js
+echo "console.log('test')" >> /workspace/project-manager/src/test.js
 
 # 2. Deploy
 /docker-deploy

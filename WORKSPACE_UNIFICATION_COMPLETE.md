@@ -66,7 +66,7 @@
 - ✅ Workspace: Accessible at `/workspace/`
 - ✅ Old paths: Not mounted (correct)
 
-### Project-Orchestrator
+### Project-Manager
 - ✅ Health: "healthy"
 - ✅ Backend: Running from workspace
 - ✅ Frontend: Running from workspace
@@ -144,7 +144,7 @@ docker compose up -d
 ## Workspace Patterns Reference
 
 ### Pattern 1: Docker Volume State
-- **Projects**: project-orchestrator, scar
+- **Projects**: project-manager, scar
 - **Location**: `/home/samuel/.archon/workspaces/<project>/`
 - **State**: Docker volumes (postgres_data, redis_data)
 - **Production Subfolder**: No

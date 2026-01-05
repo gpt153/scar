@@ -55,7 +55,7 @@ Quick overview covering:
 
 ```
 1. Fix bug in workspace
-   SCAR: [edits /workspace/project-orchestrator]
+   SCAR: [edits /workspace/project-manager]
 
 2. Check production
    /docker-status

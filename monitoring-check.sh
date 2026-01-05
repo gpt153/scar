@@ -19,10 +19,10 @@ docker exec scar-app-with-db-1 ls /home/samuel/odin-health > /dev/null 2>&1 && e
 echo ""
 
 # Check Project Orchestrator
-echo "3. Project-Orchestrator Health:"
+echo "3. Project-Manager Health:"
 curl -s http://localhost:8001/health | jq '.status' 2>/dev/null || echo "  ❌ PO health check failed"
-cd /home/samuel/.archon/workspaces/project-orchestrator && docker compose ps --filter status=running | grep -q backend && echo "  ✅ Backend running" || echo "  ❌ Backend not running"
-cd /home/samuel/.archon/workspaces/project-orchestrator && docker compose ps --filter status=running | grep -q frontend && echo "  ✅ Frontend running" || echo "  ❌ Frontend not running"
+cd /home/samuel/.archon/workspaces/project-manager && docker compose ps --filter status=running | grep -q backend && echo "  ✅ Backend running" || echo "  ❌ Backend not running"
+cd /home/samuel/.archon/workspaces/project-manager && docker compose ps --filter status=running | grep -q frontend && echo "  ✅ Frontend running" || echo "  ❌ Frontend not running"
 echo ""
 
 # Check disk space
@@ -33,7 +33,7 @@ echo ""
 # Check for errors in logs (last 5 minutes)
 echo "5. Recent Errors in Logs:"
 docker logs --since=5m scar-app-with-db-1 2>&1 | grep -i error | tail -3 || echo "  ✅ No errors in SCAR logs"
-cd /home/samuel/.archon/workspaces/project-orchestrator && docker compose logs --since=5m 2>&1 | grep -i error | tail -3 || echo "  ✅ No errors in PO logs"
+cd /home/samuel/.archon/workspaces/project-manager && docker compose logs --since=5m 2>&1 | grep -i error | tail -3 || echo "  ✅ No errors in PO logs"
 echo ""
 
 echo "=== End of Health Check ==="

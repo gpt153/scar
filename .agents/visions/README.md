@@ -50,4 +50,4 @@ Vision docs should include:
 
 ## Examples
 
-See `project-orchestrator.md` for a complete example.
+See `project-manager.md` for a complete example.
