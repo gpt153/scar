@@ -12,6 +12,7 @@ import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
 import * as sessionDb from '../db/sessions';
 import * as templateDb from '../db/command-templates';
+import * as messagesDb from '../db/messages';
 import * as portDb from '../db/port-allocations';
 import { isPathWithinWorkspace } from '../utils/path-validation';
 import { listWorktrees } from '../utils/git';
@@ -824,6 +825,82 @@ Knowledge Base (Archon):
         success: true,
         message: 'No active session to reset.',
       };
+    }
+
+    case 'resume': {
+      // Load conversation history and prepare context for next message
+      const limit = parseInt(process.env.MESSAGE_HISTORY_LIMIT || '50');
+
+      try {
+        const history = await messagesDb.getMessageHistory(conversation.id, limit);
+
+        if (history.length === 0) {
+          return {
+            success: true,
+            message: '📜 No previous messages found. Starting fresh!',
+          };
+        }
+
+        // Get statistics about loaded messages
+        const projects = Array.from(new Set(history.map(m => m.codebase_name).filter(Boolean)));
+        const platforms = Array.from(new Set(history.map(m => m.platform_type)));
+        const bySender = history.reduce((acc, msg) => {
+          acc[msg.sender] = (acc[msg.sender] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        // Format history as context string
+        const contextPrompt = messagesDb.formatMessagesAsContext(history);
+
+        // Deactivate current session if exists
+        const session = await sessionDb.getActiveSession(conversation.id);
+        if (session) {
+          await sessionDb.deactivateSession(session.id);
+        }
+
+        // Create new session with history context in metadata
+        const newSession = await sessionDb.createSession({
+          conversation_id: conversation.id,
+          codebase_id: conversation.codebase_id ?? undefined,
+          ai_assistant_type: conversation.ai_assistant_type,
+        });
+
+        await sessionDb.updateSessionMetadata(newSession.id, {
+          resumedWithHistory: true,
+          historyMessageCount: history.length,
+          historyContext: contextPrompt,
+        });
+
+        // Build response message
+        let msg = `📜 Loaded last ${history.length} messages from conversation history.\n\n`;
+
+        if (projects.length > 0) {
+          msg += `🔍 Projects: ${projects.join(', ')}\n`;
+        }
+
+        msg += `📱 Platforms: ${platforms.join(', ')}\n`;
+        msg += `\n📊 Breakdown:\n`;
+        msg += `  - ${bySender.user || 0} user messages\n`;
+        msg += `  - ${bySender.assistant || 0} assistant responses\n`;
+        if (bySender.system) {
+          msg += `  - ${bySender.system} system messages\n`;
+        }
+
+        msg += `\nContext is now active. Your next message will include this history!`;
+
+        return {
+          success: true,
+          message: msg,
+          modified: true, // Reload conversation state
+        };
+      } catch (error) {
+        const err = error as Error;
+        console.error('[Command] resume failed:', err);
+        return {
+          success: false,
+          message: `Failed to load message history: ${err.message}`,
+        };
+      }
     }
 
     case 'repo': {

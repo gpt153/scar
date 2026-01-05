@@ -9,6 +9,7 @@ import * as db from '../db/conversations';
 import * as codebaseDb from '../db/codebases';
 import * as sessionDb from '../db/sessions';
 import * as templateDb from '../db/command-templates';
+import * as messagesDb from '../db/messages';
 import * as commandHandler from '../handlers/command-handler';
 import { formatToolCall } from '../utils/tool-formatter';
 import { substituteVariables } from '../utils/variable-substitution';
@@ -80,6 +81,34 @@ export async function handleMessage(
     const isGeneralChat =
       platform.getPlatformType() === 'telegram' && !conversationId.includes(':');
 
+    // Load codebase info for message tagging
+    const codebaseForMessages = conversation.codebase_id
+      ? await codebaseDb.getCodebase(conversation.codebase_id)
+      : null;
+
+    // Save user message to history (with platform and project tagging)
+    try {
+      // Convert ImageAttachment[] to match DB schema (filename may be optional)
+      const imageMetadata = images?.map(img => ({
+        filename: img.filename || 'image',
+        mimeType: img.mimeType
+      }));
+
+      await messagesDb.createMessage(
+        conversation.id,
+        platform.getPlatformType() as 'github' | 'telegram' | 'cli' | 'slack' | 'discord' | 'web',
+        codebaseForMessages?.id || null,
+        codebaseForMessages?.name || null,
+        'user',
+        message,
+        imageMetadata
+      );
+      console.log('[Orchestrator] Saved user message to history');
+    } catch (error) {
+      console.error('[Orchestrator] Failed to save user message:', error);
+      // Don't fail the request if message saving fails
+    }
+
     // Parse command upfront if it's a slash command
     let promptToSend = message;
     let commandName: string | null = null;
@@ -112,6 +141,7 @@ export async function handleMessage(
         'repo-remove',
         'reset',
         'reset-context',
+        'resume',
         'command-set',
         'load-commands',
         'commands',
@@ -376,6 +406,21 @@ export async function handleMessage(
       }
     }
 
+    // Check if session has resumed history context (from /resume command)
+    if (session?.metadata?.resumedWithHistory && session.metadata.historyContext) {
+      // Prepend history context to prompt
+      const contextPrompt = session.metadata.historyContext as string;
+      promptToSend = `${contextPrompt}\n\nCurrent message: ${promptToSend}`;
+      console.log('[Orchestrator] Prepended conversation history context');
+
+      // Clear the flag so we don't send it again on next message
+      await sessionDb.updateSessionMetadata(session.id, {
+        ...session.metadata,
+        resumedWithHistory: false,
+        historyContext: undefined,
+      });
+    }
+
     // Send to AI and stream responses
     const mode = platform.getStreamingMode();
     console.log(`[Orchestrator] Streaming mode: ${mode}`);
@@ -387,7 +432,8 @@ export async function handleMessage(
     }
 
     if (mode === 'stream') {
-      // Stream mode: Send each chunk immediately
+      // Stream mode: Send each chunk immediately, accumulate for history
+      let fullResponse = '';
       for await (const msg of aiClient.sendQuery(
         promptToSend,
         cwd,
@@ -395,6 +441,7 @@ export async function handleMessage(
         images
       )) {
         if (msg.type === 'assistant' && msg.content) {
+          fullResponse += msg.content;
           await platform.sendMessage(conversationId, msg.content);
         } else if (msg.type === 'tool' && msg.toolName) {
           // Format and send tool call notification
@@ -403,6 +450,23 @@ export async function handleMessage(
         } else if (msg.type === 'result' && msg.sessionId) {
           // Save session ID for resume
           await sessionDb.updateSession(session.id, msg.sessionId);
+        }
+      }
+
+      // Save complete AI response to history
+      if (fullResponse) {
+        try {
+          await messagesDb.createMessage(
+            conversation.id,
+            platform.getPlatformType() as 'github' | 'telegram' | 'cli' | 'slack' | 'discord' | 'web',
+            codebaseForMessages?.id || null,
+            codebaseForMessages?.name || null,
+            'assistant',
+            fullResponse
+          );
+          console.log('[Orchestrator] Saved assistant response to history');
+        } catch (error) {
+          console.error('[Orchestrator] Failed to save assistant response:', error);
         }
       }
     } else {
@@ -466,6 +530,21 @@ export async function handleMessage(
       if (finalMessage) {
         console.log(`[Orchestrator] Sending final message (${String(finalMessage.length)} chars)`);
         await platform.sendMessage(conversationId, finalMessage);
+
+        // Save AI response to history (batch mode)
+        try {
+          await messagesDb.createMessage(
+            conversation.id,
+            platform.getPlatformType() as 'github' | 'telegram' | 'cli' | 'slack' | 'discord' | 'web',
+            codebaseForMessages?.id || null,
+            codebaseForMessages?.name || null,
+            'assistant',
+            finalMessage
+          );
+          console.log('[Orchestrator] Saved assistant response to history (batch mode)');
+        } catch (error) {
+          console.error('[Orchestrator] Failed to save assistant response:', error);
+        }
       }
     }
 
