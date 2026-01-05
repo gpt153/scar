@@ -494,6 +494,70 @@ Git (`git worktree list`) is the source of truth for what actually exists on dis
 - **Slash Commands**: Add to command-handler.ts, update database, no AI
 - **Database Operations**: Use `pg` with parameterized queries, connection pooling
 
+### Implementation Verification Protocol
+
+**CRITICAL**: Before claiming any feature is "complete", you MUST verify:
+
+#### 1. **File Existence** - Don't claim files exist without creating them
+```bash
+# If you claim Login.tsx exists, verify:
+ls -la src/pages/Login.tsx  # Must show actual file, not "No such file"
+wc -l src/pages/Login.tsx    # Must show actual code lines, not 0
+```
+
+#### 2. **No Mocks Policy** - Use real APIs, real databases, real data
+```javascript
+// ❌ FORBIDDEN in production code:
+const mockData = [...]
+const PLACEHOLDER_API = 'http://example.com'
+fetch('http://mock-server.com/api')
+
+// ✅ REQUIRED in production code:
+fetch(`${process.env.API_URL}/api`)  // Real backend
+const data = await db.query(...)     // Real database
+```
+
+**Exception**: Mocks allowed ONLY in test files (`*.test.ts`, `*.spec.ts`)
+
+#### 3. **Actual Testing** - Run the app and test it yourself
+```bash
+# BEFORE claiming "done", you MUST:
+npm install && npm run dev           # Must start without errors
+curl http://localhost:PORT           # Must respond (not 404, not error)
+# Open browser, login with test credentials, verify feature works
+```
+
+#### 4. **Evidence Requirements** - Provide proof the feature works
+For every completed feature, provide:
+- **Code Location**: `src/pages/Login.tsx` (lines 45-67)
+- **API Test**: `curl -X POST http://localhost:4000/auth/login -d '...'`
+- **Response**: `{"token":"eyJ...","user":{...}}` (real JWT, not mock)
+- **Verification**: Open Network tab, verify POST to real backend URL
+
+#### 5. **Truth in Documentation** - Status docs must match reality
+```bash
+# If PROJECT-STATUS.md claims files exist, verify:
+grep "src/" PROJECT-STATUS.md | while read file; do
+  [ -f "$file" ] && echo "✅ $file" || echo "❌ MISSING: $file"
+done
+```
+
+#### Red Flags to Avoid
+🚩 Writing comprehensive docs without implementing code
+🚩 Using mock data "temporarily" (it becomes permanent)
+🚩 Claiming "100% complete" without running the application
+🚩 Marking task done when only scaffolding exists
+🚩 Documentation lines >> actual code lines (e.g., 1000 line doc, 50 line code)
+
+#### Definition of Done Checklist
+- [ ] All claimed files actually exist (use `ls` to verify)
+- [ ] No mock/placeholder data in production code (search for "mock", "placeholder", "TODO")
+- [ ] Application runs locally (`npm run dev` succeeds)
+- [ ] Tested with real credentials (login works, data loads from database)
+- [ ] All API calls hit real backend (check browser Network tab)
+- [ ] No console errors in browser
+- [ ] Feature works end-to-end (not just "compiles")
+
 ### Type Checking
 
 **Critical Rules:**
