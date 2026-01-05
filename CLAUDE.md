@@ -2,6 +2,32 @@
 
 **Remote Agentic Coding Platform**: Control AI coding assistants (Claude Code SDK, Codex SDK) remotely from Slack, Telegram, and GitHub. Built with **Node.js + TypeScript + PostgreSQL**, single-developer tool for practitioners of the Dynamous Agentic Coding Course. Architecture prioritizes simplicity, flexibility, and user control.
 
+## ⛔ CRITICAL REPOSITORY RULES
+
+### GitHub Issue Creation Policy
+
+**ABSOLUTE RULE: ONLY create GitHub issues in gpt153's repositories**
+
+```bash
+# ✅ ALLOWED repositories (gpt153 owner):
+gh issue create  # When in gpt153/scar repo
+gh issue create  # When in gpt153/openhorizon.cc repo
+gh issue create  # When in gpt153/<any-repo>
+
+# ❌ FORBIDDEN - NEVER create issues in:
+dynamous-community/*  # Community repos
+anthropics/*          # Upstream repos
+ANY repo not owned by gpt153
+```
+
+**Before creating ANY GitHub issue:**
+1. Check current repo: `gh repo view --json owner -q .owner.login`
+2. Verify owner is "gpt153"
+3. If owner is NOT "gpt153" → DO NOT create issue
+4. If unsure → ASK USER first
+
+**This is non-negotiable. Violation of this rule is a critical error.**
+
 ## Important Terminology
 
 **Project Manager (PM):**
