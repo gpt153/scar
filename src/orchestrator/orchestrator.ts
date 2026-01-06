@@ -474,23 +474,70 @@ export async function handleMessage(
       const allChunks: { type: string; content: string }[] = [];
       const assistantMessages: string[] = [];
 
-      for await (const msg of aiClient.sendQuery(
-        promptToSend,
-        cwd,
-        session.assistant_session_id ?? undefined,
-        images
-      )) {
-        if (msg.type === 'assistant' && msg.content) {
-          assistantMessages.push(msg.content);
-          allChunks.push({ type: 'assistant', content: msg.content });
-        } else if (msg.type === 'tool' && msg.toolName) {
-          // Format and log tool call for observability
-          const toolMessage = formatToolCall(msg.toolName, msg.toolInput);
-          allChunks.push({ type: 'tool', content: toolMessage });
-          console.log(`[Orchestrator] Tool call: ${msg.toolName}`);
-        } else if (msg.type === 'result' && msg.sessionId) {
-          await sessionDb.updateSession(session.id, msg.sessionId);
+      // Safety limits and heartbeat tracking
+      const MAX_TOOL_CALLS = 200;
+      const MAX_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+      const HEARTBEAT_INTERVAL_MS = 60 * 1000; // 60 seconds
+
+      let toolCallCount = 0;
+      const startTime = Date.now();
+
+      // Heartbeat interval to send progress updates
+      const heartbeatTimer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        platform.sendMessage(
+          conversationId,
+          `⏱️ Still working... (${minutes}m ${seconds}s, ${toolCallCount} tool calls)`
+        ).catch(err => console.error('[Orchestrator] Heartbeat failed:', err));
+      }, HEARTBEAT_INTERVAL_MS);
+
+      try {
+        for await (const msg of aiClient.sendQuery(
+          promptToSend,
+          cwd,
+          session.assistant_session_id ?? undefined,
+          images
+        )) {
+          // Check maximum duration timeout
+          if (Date.now() - startTime > MAX_DURATION_MS) {
+            console.error('[Orchestrator] Task exceeded maximum duration (10 minutes)');
+            clearInterval(heartbeatTimer);
+            await platform.sendMessage(
+              conversationId,
+              '❌ Task timed out after 10 minutes. The session has been terminated to prevent hanging.'
+            );
+            throw new Error('Maximum task duration exceeded');
+          }
+
+          if (msg.type === 'assistant' && msg.content) {
+            assistantMessages.push(msg.content);
+            allChunks.push({ type: 'assistant', content: msg.content });
+          } else if (msg.type === 'tool' && msg.toolName) {
+            // Format and log tool call for observability
+            const toolMessage = formatToolCall(msg.toolName, msg.toolInput);
+            allChunks.push({ type: 'tool', content: toolMessage });
+            console.log(`[Orchestrator] Tool call: ${msg.toolName}`);
+
+            // Increment and check tool call limit
+            toolCallCount++;
+            if (toolCallCount > MAX_TOOL_CALLS) {
+              console.error(`[Orchestrator] Task exceeded maximum tool calls (${MAX_TOOL_CALLS})`);
+              clearInterval(heartbeatTimer);
+              await platform.sendMessage(
+                conversationId,
+                `❌ Task exceeded maximum tool call limit (${MAX_TOOL_CALLS}). The session has been terminated to prevent infinite loops.`
+              );
+              throw new Error('Maximum tool call limit exceeded');
+            }
+          } else if (msg.type === 'result' && msg.sessionId) {
+            await sessionDb.updateSession(session.id, msg.sessionId);
+          }
         }
+      } finally {
+        // Always clear heartbeat timer
+        clearInterval(heartbeatTimer);
       }
 
       // Log all chunks for observability
