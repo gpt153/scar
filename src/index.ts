@@ -8,18 +8,13 @@
 import 'dotenv/config';
 
 import express from 'express';
-import { createServer } from 'http';
-import { resolve } from 'path';
 import { TelegramAdapter } from './adapters/telegram';
 import { TestAdapter } from './adapters/test';
 import { GitHubAdapter } from './adapters/github';
 import { DiscordAdapter } from './adapters/discord';
 import { SlackAdapter } from './adapters/slack';
-import { WebAdapter } from './adapters/web';
 import { handleMessage } from './orchestrator/orchestrator';
 import { pool } from './db/connection';
-import * as messagesDb from './db/messages';
-import * as cliEventsDb from './db/cli-events';
 import { ConversationLockManager } from './utils/conversation-lock';
 import { classifyAndFormatError } from './utils/error-formatter';
 import { seedDefaultCommands } from './scripts/seed-commands';
@@ -65,8 +60,8 @@ async function main(): Promise<void> {
   }
 
   // Warn if WORKSPACE_PATH is inside project directory
-  const workspacePath = resolve(process.env.WORKSPACE_PATH ?? '/workspace');
-  const projectRoot = resolve(__dirname, '..');
+  const workspacePath = (process.env.WORKSPACE_PATH ?? '/workspace');
+  const projectRoot = __dirname.replace(/\/dist$/, '');
   if (workspacePath.startsWith(projectRoot + '/') || workspacePath === projectRoot) {
     console.warn('⚠️  WARNING: WORKSPACE_PATH is inside project directory');
     console.warn('   This can cause nested repository issues when working on this repo.');
@@ -287,16 +282,6 @@ async function main(): Promise<void> {
   // JSON parsing for all other endpoints
   app.use(express.json());
 
-  // Serve web UI
-  const webDist = resolve(__dirname, '../client/web/dist');
-  app.use('/web', express.static(webDist));
-  // Catch-all route for SPA (must be after static middleware)
-  app.get(/^\/web\/.*/, (_req, res) => {
-    res.sendFile(resolve(webDist, 'index.html'));
-  });
-
-  console.log('[Express] Web UI served at /web');
-
   // Health check endpoints
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
@@ -382,80 +367,8 @@ async function main(): Promise<void> {
     return res.json({ success: true, mode });
   });
 
-  // API endpoints for Web UI
-  app.get('/api/topics', async (_req, res) => {
-    try {
-      const result = await pool.query(
-        `SELECT c.*, cb.name as codebase_name
-         FROM remote_agent_conversations c
-         LEFT JOIN remote_agent_codebases cb ON c.codebase_id = cb.id
-         WHERE c.platform_type = 'telegram'
-         AND c.platform_conversation_id LIKE '%:%'
-         ORDER BY c.updated_at DESC`
-      );
-      res.json(result.rows);
-    } catch (error) {
-      console.error('[API] Failed to fetch topics:', error);
-      res.status(500).json({ error: 'Failed to fetch topics' });
-    }
-  });
-
-  app.get('/api/messages/:conversationId', async (req, res) => {
-    try {
-      const messages = await messagesDb.getMessageHistory(req.params.conversationId, 100);
-      res.json(messages);
-    } catch (error) {
-      console.error('[API] Failed to fetch messages:', error);
-      res.status(500).json({ error: 'Failed to fetch messages' });
-    }
-  });
-
-  app.get('/api/cli-events/:conversationId', async (req, res) => {
-    try {
-      const events = await cliEventsDb.getCLIEventHistory(req.params.conversationId, 100);
-      // Map database fields to frontend format (created_at -> timestamp)
-      const formattedEvents = events.map((event) => ({
-        id: event.id,
-        timestamp: event.created_at.toISOString(),
-        type: event.type,
-        content: event.content,
-        metadata: event.metadata,
-      }));
-      res.json(formattedEvents);
-    } catch (error) {
-      console.error('[API] Failed to fetch CLI events:', error);
-      res.status(500).json({ error: 'Failed to fetch CLI events' });
-    }
-  });
-
-  // Create HTTP server and initialize Socket.io
-  const httpServer = createServer(app);
-  const webStreamingMode = (process.env.WEB_STREAMING_MODE ?? 'stream') as 'stream' | 'batch';
-  const web = new WebAdapter(httpServer, webStreamingMode);
-
-  // Register Web adapter message handler
-  web.onMessage(async ({ conversationId, content, images }) => {
-    // Fire-and-forget: handler returns immediately, processing happens async
-    lockManager
-      .acquireLock(conversationId, async () => {
-        await handleMessage(web, conversationId, content, undefined, undefined, undefined, images);
-      })
-      .catch(async (error) => {
-        console.error('[Web] Failed to process message:', error);
-        try {
-          const userMessage = classifyAndFormatError(error as Error);
-          await web.sendMessage(conversationId, userMessage);
-        } catch (sendError) {
-          console.error('[Web] Failed to send error message to user:', sendError);
-        }
-      });
-  });
-
-  // Start Socket.io
-  await web.start();
-
-  // Start HTTP server (NOT awaited - callback-based API)
-  httpServer.listen(port, () => {
+  // Start HTTP server
+  app.listen(port, () => {
     console.log(`[Express] Server listening on port ${String(port)}`);
   });
 
@@ -495,7 +408,6 @@ async function main(): Promise<void> {
     telegram?.stop();
     discord?.stop();
     slack?.stop();
-    web.stop();
     void pool.end().then(() => {
       console.log('[Database] Connection pool closed');
       process.exit(0);
