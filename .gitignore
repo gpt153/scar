@@ -66,3 +66,7 @@ worktrees
 .agents/context
 .agents/posts
 gcp/*.json
+
+# Playwright MCP screenshots (test artifacts)
+.playwright-mcp/
+**/*.png
