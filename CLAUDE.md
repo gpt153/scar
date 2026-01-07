@@ -32,6 +32,41 @@ ANY repo not owned by gpt153
 
 **WHEN TO ACTIVATE:** When user says "supervise issue #N" or "check progress on issue #N"
 
+### Verification Method: Use the Subagent
+
+**PRIMARY METHOD:** Use the `/verify-scar-phase` subagent command to keep context clean.
+
+**When user says:** "check progress on issue 43" or "verify phase 2"
+
+**You should run:**
+```bash
+/verify-scar-phase <project> <issue-number> <phase-number>
+```
+
+**Example:**
+```bash
+/verify-scar-phase openhorizon.cc 43 1  # Verify Phase 1 complete
+/verify-scar-phase openhorizon.cc 43 2  # Verify Phase 2 complete
+```
+
+**What the subagent does:**
+1. Reads SCAR's latest GitHub comment
+2. Verifies all claimed files exist in worktree
+3. Runs build and type checks
+4. Searches for mocks/placeholders
+5. Counts code lines
+6. Compares to implementation plan
+7. Returns concise verdict: APPROVED/REJECTED/NEEDS FIXES
+
+**After subagent completes:**
+- If APPROVED: Post approval comment on GitHub, direct SCAR to next phase
+- If REJECTED: Post issues to fix on GitHub
+- If NEEDS FIXES: Post specific fixes needed on GitHub
+
+**Manual verification (fallback):** Only use the detailed manual steps below if the subagent command fails or is unavailable.
+
+---
+
 ### Understanding Workspace vs Worktree Locations
 
 **Workspace (Main Branch):**
