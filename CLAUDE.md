@@ -28,326 +28,48 @@ ANY repo not owned by gpt153
 
 **This is non-negotiable. Violation of this rule is a critical error.**
 
+## 🤖 CRITICAL: SCAR Instruction Protocol
+
+**WHEN TO USE:** Every time you post instructions to SCAR via GitHub comments.
+
+**PROBLEM:** We've wasted hours waiting for SCAR to start work, only to discover SCAR never received the instruction.
+
+**SOLUTION:** Always verify SCAR acknowledges (within 20s) and starts working (files created within 60s).
+
+**Quick checklist:**
+1. Post instruction → Wait 20s → Check for "SCAR is on the case..." comment
+2. If no acknowledgment → Re-post with @scar mention
+3. Wait 30s → Verify files being created in worktree
+4. If no activity → Re-post with "Skip planning. Implement directly. Start NOW."
+
+**📖 See full protocol:** `docs/scar-instruction-protocol.md`
+
+---
+
 ## 🔍 CRITICAL: Issue Supervision Protocol
 
 **WHEN TO ACTIVATE:** When user says "supervise issue #N" or "check progress on issue #N"
 
-### Verification Method: Use the Subagent
-
-**PRIMARY METHOD:** Use the `/verify-scar-phase` subagent command to keep context clean.
-
-**When user says:** "check progress on issue 43" or "verify phase 2"
-
-**You should run:**
+**PRIMARY METHOD:** Use the `/verify-scar-phase` subagent command:
 ```bash
 /verify-scar-phase <project> <issue-number> <phase-number>
 ```
 
-**Example:**
-```bash
-/verify-scar-phase openhorizon.cc 43 1  # Verify Phase 1 complete
-/verify-scar-phase openhorizon.cc 43 2  # Verify Phase 2 complete
-```
+**What it does:** Reads SCAR's claims, verifies files exist, runs build/type checks, searches for mocks, returns APPROVED/REJECTED/NEEDS FIXES.
 
-**What the subagent does:**
-1. Reads SCAR's latest GitHub comment
-2. Verifies all claimed files exist in worktree
-3. Runs build and type checks
-4. Searches for mocks/placeholders
-5. Counts code lines
-6. Compares to implementation plan
-7. Returns concise verdict: APPROVED/REJECTED/NEEDS FIXES
+**Key verification points:**
+- ✅ All claimed files exist in **worktree** (not workspace!)
+- ✅ Build succeeds (`npm run build`)
+- ✅ No mocks/placeholders in production code
+- ✅ Actual code lines match expectations
 
-**After subagent completes:**
-- If APPROVED: Post approval comment on GitHub, direct SCAR to next phase
-- If REJECTED: Post issues to fix on GitHub
-- If NEEDS FIXES: Post specific fixes needed on GitHub
+**📖 See full protocol:** `docs/issue-supervision-protocol.md`
 
-**Manual verification (fallback):** Only use the detailed manual steps below if the subagent command fails or is unavailable.
+**Locations:**
+- Workspace: `/home/samuel/.archon/workspaces/<project>/` (main branch)
+- Worktree: `/home/samuel/.archon/worktrees/<project>/issue-<N>/` (issue branch)
 
 ---
-
-### Understanding Workspace vs Worktree Locations
-
-**Workspace (Main Branch):**
-- Location: `/home/samuel/.archon/workspaces/<project-name>/`
-- Branch: Usually `main`
-- Purpose: Stable codebase, merged work
-- Check with: `cd /home/samuel/.archon/workspaces/<project-name> && git status`
-
-**Worktree (Issue Branch):**
-- Location: `/home/samuel/.archon/worktrees/<project-name>/issue-<number>/`
-- Branch: `issue-<number>` (e.g., `issue-43`)
-- Purpose: Active development for specific issue
-- Check with: `cd /home/samuel/.archon/worktrees/<project-name>/issue-<number> && git status`
-
-**CRITICAL: Always check BOTH locations when supervising!**
-
-### Issue Supervision Checklist
-
-When user requests supervision of an issue, IMMEDIATELY do:
-
-#### 1. Identify Project and Issue
-```bash
-# User says: "supervise issue #43 in openhorizon.cc"
-PROJECT="openhorizon.cc"
-ISSUE="43"
-WORKSPACE="/home/samuel/.archon/workspaces/$PROJECT"
-WORKTREE="/home/samuel/.archon/worktrees/$PROJECT/issue-$ISSUE"
-```
-
-#### 2. Verify Locations Exist
-```bash
-# Check workspace exists
-ls -la "$WORKSPACE" 2>/dev/null || echo "Workspace not found"
-
-# Check worktree exists
-ls -la "$WORKTREE" 2>/dev/null || echo "Worktree not found"
-
-# List worktrees
-cd "$WORKSPACE" && git worktree list
-```
-
-#### 3. Read Issue from GitHub
-```bash
-# Get issue details
-gh issue view $ISSUE --repo gpt153/$PROJECT --json title,body,state,comments
-
-# Get latest SCAR comment
-gh issue view $ISSUE --repo gpt153/$PROJECT --comments --json comments \
-  --jq '.comments[-1].body' | head -100
-```
-
-#### 4. Verify SCAR's Claims Against Reality
-
-**For EACH claim SCAR makes, verify:**
-
-**Claim: "Created file X"**
-```bash
-# Verify file exists in worktree (NOT workspace!)
-ls -lh "$WORKTREE/path/to/file"
-
-# Count lines if it's code
-wc -l "$WORKTREE/path/to/file"
-
-# Read first 50 lines to verify content
-head -50 "$WORKTREE/path/to/file"
-```
-
-**Claim: "Build succeeds"**
-```bash
-cd "$WORKTREE"
-npm run build 2>&1 | tail -50
-# OR
-npm run type-check 2>&1 | tail -50
-```
-
-**Claim: "Tests pass"**
-```bash
-cd "$WORKTREE"
-npm test 2>&1 | tail -50
-```
-
-**Claim: "Phase N complete"**
-- Verify ALL files for that phase exist
-- Verify build succeeds
-- Verify no TypeScript errors
-- Check for mocks: `grep -r "mock\|placeholder\|TODO" "$WORKTREE/src"`
-
-#### 5. Compare Workspace vs Worktree
-```bash
-# See what changed in worktree
-cd "$WORKSPACE"
-git diff main issue-$ISSUE --stat
-
-# See commits in worktree not in main
-git log main..issue-$ISSUE --oneline
-```
-
-### Phase-by-Phase Supervision Protocol
-
-**For each phase:**
-
-#### Phase Start
-1. Read phase requirements from plan (usually in worktree root)
-2. Note expected files to be created
-3. Note verification criteria
-
-#### During Phase (When SCAR Posts Update)
-1. **Verify files exist:**
-   ```bash
-   cd "$WORKTREE"
-   for file in src/pages/Dashboard.tsx src/components/Header.tsx; do
-     [ -f "$file" ] && echo "✅ $file" || echo "❌ MISSING: $file"
-   done
-   ```
-
-2. **Verify build works:**
-   ```bash
-   cd "$WORKTREE"
-   npm run build && echo "✅ Build OK" || echo "❌ Build FAILED"
-   ```
-
-3. **Check for mocks/placeholders:**
-   ```bash
-   cd "$WORKTREE"
-   grep -r "mockData\|MOCK_\|placeholder\|TODO" src/ || echo "✅ No mocks found"
-   ```
-
-4. **Count real code lines:**
-   ```bash
-   cd "$WORKTREE"
-   find src -name "*.tsx" -o -name "*.ts" | xargs wc -l | tail -1
-   ```
-
-#### Phase Completion Verification
-
-**Before approving phase, verify ALL of:**
-- [ ] All claimed files exist in worktree
-- [ ] Build succeeds (`npm run build`)
-- [ ] TypeScript check passes (`npm run type-check`)
-- [ ] No mocks in production code (search for "mock", "placeholder")
-- [ ] Code line count matches expectations (not just empty files)
-- [ ] Git shows actual changes (`git status`, `git diff`)
-
-#### Auto-Prompt Next Phase
-
-**After verifying phase complete:**
-```bash
-# Post approval comment
-gh issue comment $ISSUE --repo gpt153/$PROJECT --body \
-"✅ Phase N Verified - @claude approval
-
-**Verified:**
-- Files created: X files (Y lines of code)
-- Build: ✅ Success
-- TypeScript: ✅ No errors
-- Mocks: ✅ None found
-
-**@scar - Proceed with Phase N+1**
-
-Begin implementing [next phase name] as outlined in the plan."
-```
-
-### Red Flags to Watch For
-
-**🚩 False Completion Claims:**
-- SCAR says "created file X" but `ls` shows it doesn't exist
-- SCAR says "build succeeds" but no build output shown
-- SCAR says "phase complete" but files are empty/missing
-
-**🚩 Mock Data:**
-- `const mockData = [...]`
-- `const PLACEHOLDER_URL = "http://example.com"`
-- `// TODO: Connect to real API`
-- `setTimeout(() => { /* fake async */ })`
-
-**🚩 Vague Claims:**
-- "Implementation complete" (complete what? proof?)
-- "All features working" (show evidence!)
-- "Ready for testing" (did YOU test it?)
-
-### Completion Verification (Final Phase)
-
-**Before marking issue complete, verify:**
-
-1. **All phases completed and verified** (check your previous approval comments)
-2. **Final build succeeds:**
-   ```bash
-   cd "$WORKTREE"
-   npm run build
-   npm run type-check
-   npm run lint
-   ```
-
-3. **Manual testing evidence required:**
-   - Request screenshots/video from SCAR
-   - OR test yourself if application can run locally
-   - Verify actual functionality (not just "compiles")
-
-4. **No mocks in production code:**
-   ```bash
-   cd "$WORKTREE"
-   grep -r "mock\|placeholder" src/ --include="*.ts" --include="*.tsx" \
-     | grep -v ".test.ts" | grep -v ".spec.ts"
-   ```
-
-5. **Acceptance criteria met:**
-   - Re-read issue requirements
-   - Verify each requirement has evidence
-   - Check "Definition of Done" checklist
-
-6. **Create completion report:**
-   ```bash
-   gh issue comment $ISSUE --repo gpt153/$PROJECT --body \
-   "## ✅ Issue #$ISSUE Complete - Final Verification
-
-   **Supervisor:** @claude
-   **Date:** $(date)
-
-   **Phases Completed:** [list phases]
-   **Files Created:** X files (Y total lines)
-   **Build Status:** ✅ Success
-   **Tests Status:** ✅ Pass
-   **Mocks Found:** ❌ None
-
-   **Evidence:**
-   [attach screenshots/links]
-
-   **Verified by:** @claude
-   **Ready to merge:** YES/NO"
-   ```
-
-### Example Supervision Session
-
-```bash
-# User: "supervise issue #43 in openhorizon.cc"
-
-# Step 1: Set up variables
-PROJECT="openhorizon.cc"
-ISSUE="43"
-WORKTREE="/home/samuel/.archon/worktrees/$PROJECT/issue-$ISSUE"
-
-# Step 2: Check what SCAR claims
-gh issue view 43 --repo gpt153/$PROJECT --comments --json comments \
-  --jq '.comments[-1].body'
-
-# SCAR claims: "Created src/pages/Dashboard.tsx with 200 lines"
-
-# Step 3: Verify the claim
-ls -lh "$WORKTREE/src/pages/Dashboard.tsx"
-# Output: -rw-r--r-- 1 samuel samuel 8.5K Jan 06 17:30 Dashboard.tsx ✅
-
-wc -l "$WORKTREE/src/pages/Dashboard.tsx"
-# Output: 203 Dashboard.tsx ✅
-
-# Step 4: Check build
-cd "$WORKTREE" && npm run build
-# Output: ✓ built in 2.5s ✅
-
-# Step 5: Approve and prompt next phase
-gh issue comment 43 --repo gpt153/$PROJECT --body \
-"✅ Dashboard verified - proceed with Phase 3"
-```
-
-### Summary: Your Supervision Role
-
-**When user says "supervise issue #N":**
-1. ✅ Check BOTH workspace AND worktree locations
-2. ✅ Verify EVERY claim SCAR makes
-3. ✅ Demand evidence (file listings, build output, line counts)
-4. ✅ Check for mocks/placeholders
-5. ✅ Approve phase ONLY after verification
-6. ✅ Auto-prompt SCAR for next phase
-7. ✅ Continue until ALL phases verified complete
-8. ✅ Final verification before marking done
-
-**NEVER:**
-- ❌ Trust SCAR's claims without verification
-- ❌ Check only workspace (must check worktree!)
-- ❌ Approve phase without seeing evidence
-- ❌ Skip verification steps
-- ❌ Mark complete without manual testing proof
 
 ## Important Terminology
 
@@ -426,113 +148,27 @@ npm run dev
 
 Requires `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/remote_coding_agent` in `.env`.
 
-Code changes auto-reload instantly. Telegram/Slack work from any device (polling-based, no port forwarding needed).
-
-### Build Commands
+### Core Commands
 
 ```bash
-# Install dependencies
-npm install
+# Build & Start
+npm install          # Install dependencies
+npm run build        # Build TypeScript
+npm start            # Production server
 
-# Build TypeScript
-npm run build
+# Development
+npm run dev          # Hot reload (recommended)
+npm run type-check   # TypeScript compiler check
+npm run lint         # Check linting
+npm run lint:fix     # Auto-fix linting
+npm run format       # Format code (Prettier)
 
-# Start production server (no hot reload)
-npm start
+# Testing
+npm test             # Run all tests
+npm run test:watch   # Watch mode
 ```
 
-### Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run specific test file
-npm test -- src/handlers/command-handler.test.ts
-```
-
-### Type Checking
-
-```bash
-# TypeScript compiler check
-npm run type-check
-
-# Or use tsc directly
-npx tsc --noEmit
-```
-
-### Linting & Formatting
-
-```bash
-# Check linting
-npm run lint
-
-# Auto-fix linting issues
-npm run lint:fix
-
-# Format code
-npm run format
-
-# Check formatting (CI-safe)
-npm run format:check
-```
-
-### Playwright E2E Tests (When Available)
-
-If the project has Playwright tests (`npx playwright test`):
-
-```bash
-cd <project-directory>
-npx playwright test
-# All tests must pass
-```
-
-**Why This Is Critical:**
-- Validates actual UI/UX functionality, not just code compilation
-- Catches issues like:
-  - Buttons that don't appear on the page
-  - Click handlers that don't work
-  - Features that compile but don't function from user perspective
-- SCAR must verify features actually work before creating PR
-
-**Code Quality Setup:**
-- **ESLint**: Flat config with TypeScript-ESLint (strict rules, 0 errors enforced)
-- **Prettier**: Opinionated formatter (single quotes, semicolons, 2-space indent)
-- **Integration**: ESLint + Prettier configured to work together (no conflicts)
-- **Validation**: All PRs must pass `lint` and `format:check` before merge
-
-### Database
-
-```bash
-# Run SQL migrations (manual)
-psql $DATABASE_URL < migrations/001_initial_schema.sql
-
-# Start PostgreSQL (Docker)
-docker-compose --profile with-db up -d postgres
-```
-
-### Docker (Production)
-
-For production deployment (no hot reload):
-
-```bash
-# Build and start all services (app + postgres)
-docker-compose --profile with-db up -d --build
-
-# Start app only (external database like Supabase/Neon)
-docker-compose --profile external-db up -d
-
-# View logs
-docker-compose logs -f app-with-db
-
-# Stop all services
-docker-compose --profile with-db down
-```
-
-**Note:** For development, use the hybrid approach above instead (postgres in Docker, app locally).
+**📖 See detailed setup:** `README.md` (installation, deployment, platform setup)
 
 ## Architecture
 
@@ -540,294 +176,116 @@ docker-compose --profile with-db down
 
 ```
 src/
-├── adapters/       # Platform adapters (Slack, Telegram, GitHub)
-│   ├── slack.ts
-│   ├── telegram.ts
-│   └── github.ts
-├── clients/        # AI assistant clients (Claude, Codex)
-│   ├── claude.ts
-│   └── codex.ts
-├── handlers/       # Command handler (slash commands)
-│   └── command-handler.ts
-├── orchestrator/   # AI conversation management
-│   └── orchestrator.ts
-├── db/             # Database connection, queries
-│   ├── connection.ts
-│   ├── conversations.ts
-│   ├── codebases.ts
-│   └── sessions.ts
-├── types/          # TypeScript types and interfaces
-│   └── index.ts
-├── utils/          # Shared utilities
-│   └── variable-substitution.ts
+├── adapters/       # Platform adapters (Slack, Telegram, GitHub, Discord)
+├── clients/        # AI assistants (Claude, Codex) + Docker + GCP + Archon
+├── handlers/       # Command handlers (slash commands, Docker, GCP, topics)
+├── orchestrator/   # AI conversation management + Archon auto-research
+├── db/             # Database operations (connection, queries, migrations)
+├── types/          # TypeScript interfaces
+├── utils/          # Shared utilities (auth, git, formatting, validation)
 └── index.ts        # Entry point (Express server)
 ```
 
-### Database Schema
+### Core Architecture Patterns
 
-**3 Tables:**
-1. **`conversations`** - Track platform conversations (Slack thread, Telegram chat, GitHub issue)
-2. **`codebases`** - Define codebases and their commands (JSONB)
-3. **`sessions`** - Track AI SDK sessions with resume capability
-
-**Key Patterns:**
-- Conversation ID format: Platform-specific (`thread_ts`, `chat_id`, `user/repo#123`)
-- One active session per conversation
-- Commands stored in codebase filesystem, paths in `codebases.commands` JSONB
-- Session persistence: Sessions survive restarts, loaded from database
-
-**Session Transitions:**
-- **NEW session needed:** Plan → Execute transition only
-- **Resume session:** All other transitions (prime→plan, execute→commit)
-
-### Architecture Layers
-
-**1. Platform Adapters** (`src/adapters/`)
+**Platform Adapters** (`src/adapters/`)
 - Implement `IPlatformAdapter` interface
-- Handle platform-specific message formats
-- **Slack**: SDK with polling (not webhooks), conversation ID = `thread_ts`
-- **Telegram**: Bot API with polling, conversation ID = `chat_id`
-- **GitHub**: Webhooks + GitHub CLI, conversation ID = `owner/repo#number`
-- **Discord**: discord.js WebSocket, conversation ID = channel ID
+- Handle platform-specific auth (inside adapter)
+- **Telegram**: Grammy (polling), conversation ID = `chat_id` or `chat_id:thread_id`
+- **Slack**: Bolt SDK (Socket Mode), conversation ID = `thread_ts`
+- **GitHub**: Webhooks + gh CLI, conversation ID = `owner/repo#number`
+- **Discord**: discord.js (WebSocket), conversation ID = channel ID
 
-**Adapter Authorization Pattern:**
-- Auth checks happen INSIDE adapters (encapsulation, consistency)
-- Auth utilities in `src/utils/{platform}-auth.ts`
-- Parse whitelist from env var in constructor (e.g., `TELEGRAM_ALLOWED_USER_IDS`)
-- Check authorization in message handler (before calling `onMessage` callback)
-- Silent rejection for unauthorized users (no error response)
-- Log unauthorized attempts with masked user IDs for privacy
+**AI Assistant Clients** (`src/clients/`)
+- Implement `IAssistantClient` interface
+- **ClaudeClient**: `@anthropic-ai/claude-agent-sdk` with MCP support
+- **CodexClient**: `@openai/codex-sdk`
+- Streaming: `for await (const event of events) { await platform.send(event) }`
 
-**Adapter Message Handler Pattern:**
-- Adapters expose `onMessage(handler)` callback registration
-- Auth check happens internally before invoking callback
-- `index.ts` only registers the callback and handles orchestrator routing
-- Errors handled by caller (callback returns Promise)
-
-**2. Command Handler** (`src/handlers/`)
+**Command Handler** (`src/handlers/`)
 - Process slash commands (deterministic, no AI)
-- Commands: `/command-set`, `/command-invoke`, `/load-commands`, `/clone`, `/getcwd`, `/setcwd`, `/codebase-switch`, `/status`, `/commands`, `/help`, `/reset`
+- Commands: `/clone`, `/getcwd`, `/setcwd`, `/status`, `/commands`, `/reset`, etc.
 - Update database, perform operations, return responses
 
-**3. Orchestrator** (`src/orchestrator/`)
-- Manage AI conversations
-- Load conversation + codebase context from database
+**Orchestrator** (`src/orchestrator/`)
+- Manage AI conversations, load context from database
 - Variable substitution: `$1`, `$2`, `$3`, `$ARGUMENTS`, `$PLAN`
 - Session management: Create new or resume existing
 - Stream AI responses to platform
 
-**4. AI Assistant Clients** (`src/clients/`)
-- Implement `IAssistantClient` interface
-- **ClaudeClient**: `@anthropic-ai/claude-agent-sdk`
-- **CodexClient**: `@openai/codex-sdk`
-- Streaming: `for await (const event of events) { await platform.send(event) }`
+**📖 Detailed patterns:**
+- Database schema: `.agents/reference/database-schema.md`
+- Platform adapters: `.agents/reference/adding-platform-adapters.md`
+- AI clients: `.agents/reference/adding-ai-assistant-clients.md`
+- Streaming modes: `.agents/reference/streaming-modes.md`
+- Command system: `.agents/reference/command-system.md`
 
 ### Configuration
 
 **Environment Variables:**
 
 ```env
-# Database
+# Database (required)
 DATABASE_URL=postgresql://user:pass@host:5432/dbname
 
-# AI Assistants
-CLAUDE_API_KEY=sk-ant-...
-# OR
-CLAUDE_OAUTH_TOKEN=sk-ant-oat01-...
+# AI Assistants (choose at least one)
+CLAUDE_API_KEY=sk-ant-...              # OR
+CLAUDE_OAUTH_TOKEN=sk-ant-oat01-...    # Recommended
 
 CODEX_ID_TOKEN=eyJ...
 CODEX_ACCESS_TOKEN=eyJ...
 CODEX_REFRESH_TOKEN=rt_...
 CODEX_ACCOUNT_ID=...
 
-# Platforms
+# Platforms (choose at least one)
 TELEGRAM_BOT_TOKEN=<from @BotFather>
-TELEGRAM_ALLOWED_USER_IDS=123456789,987654321  # Optional: Restrict bot to specific user IDs
-DISCORD_BOT_TOKEN=<from Discord Developer Portal>
-DISCORD_ALLOWED_USER_IDS=123456789012345678  # Optional: Restrict bot to specific user IDs
-SLACK_BOT_TOKEN=xoxb-...
-GITHUB_TOKEN=ghp_...
-GITHUB_APP_ID=12345
-GITHUB_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----...
-WEBHOOK_SECRET=<random string>
-GITHUB_ALLOWED_USERS=octocat,monalisa  # Optional: Restrict webhook processing to specific users
+TELEGRAM_ALLOWED_USER_IDS=123456789,987654321  # Optional
+TELEGRAM_STREAMING_MODE=stream                 # stream | batch
 
-# Platform Streaming Mode (stream | batch)
-TELEGRAM_STREAMING_MODE=stream  # Default: stream
-SLACK_STREAMING_MODE=stream     # Default: stream
-GITHUB_STREAMING_MODE=batch     # Default: batch
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_STREAMING_MODE=stream
+
+DISCORD_BOT_TOKEN=<from Discord Developer Portal>
+DISCORD_ALLOWED_USER_IDS=123456789012345678    # Optional
+DISCORD_STREAMING_MODE=batch
+
+GITHUB_TOKEN=ghp_...
+WEBHOOK_SECRET=<random string>
+GITHUB_ALLOWED_USERS=octocat,monalisa           # Optional
+GITHUB_STREAMING_MODE=batch
 
 # Optional
 WORKSPACE_PATH=/workspace
 PORT=3000
+LOAD_BUILTIN_COMMANDS=true
 
-# Builtin Commands (default: true)
-LOAD_BUILTIN_COMMANDS=true  # Load maintained workflow templates on startup
-
-# MCP Server Configuration (Model Context Protocol)
-# Provides additional capabilities to bot-spawned Claude Code instances
-ENABLE_ARCHON_MCP=false           # Task management (requires: Archon Docker)
-ENABLE_PLAYWRIGHT_MCP=false       # Browser automation
-ENABLE_GITHUB_MCP=false           # GitHub API integration
+# MCP Server Support
+ENABLE_ARCHON_MCP=false       # Task management
+ENABLE_PLAYWRIGHT_MCP=false   # Browser automation
+ENABLE_GITHUB_MCP=false       # GitHub API
 ```
 
-**Loading:** Use `dotenv` package, load in `src/index.ts`
+**📖 See detailed configuration:**
+- MCP servers: `docs/archon-integration.md`, `docs/playwright-integration.md`
+- Platform setup: `docs/slack-setup.md`, `README.md`
+- Deployment: `docs/cloud-deployment.md`
 
-### MCP Server Support (Model Context Protocol)
+### Special Features
 
-Bot-spawned Claude Code instances can access MCP servers for enhanced capabilities like task management (Archon), browser automation (Playwright), and GitHub API integration.
+**Telegram Topics** - Multi-project parallel development
+- Create isolated workspaces per topic: `/new-topic <name>`
+- Topic filtering: `TELEGRAM_TOPIC_FILTER` (all/none/whitelist/blacklist)
+- General chat restricted to `/new-topic`, `/help`, `/status`, `/commands`
 
-**How It Works:**
-- MCP servers are configured programmatically in `src/clients/claude.ts`
-- Passed to Claude Agent SDK via `mcpServers` option
-- Each bot-spawned instance gets access to configured servers
-- Different from terminal Claude Code (which uses global MCP config)
+**Worktree Symbiosis** - Share worktrees with Claude Code skill
+- Set `WORKTREE_BASE=~/tmp/worktrees` to match skill config
+- App adopts skill-created worktrees for PRs
+- Use `/worktree orphans` to see all worktrees
 
-**Available MCP Servers:**
-
-**1. Archon MCP** - Task Management
-```env
-ENABLE_ARCHON_MCP=true
-ARCHON_MCP_URL=http://localhost:8051/mcp  # MCP HTTP endpoint (default: http://localhost:8051/mcp)
-ARCHON_TOKEN=                             # Optional: Auth token
-```
-Requires: Archon running via Docker on port 8051
-Setup: `git clone https://github.com/coleam00/archon.git && cd archon && docker compose up -d`
-
-**2. Playwright MCP** - Browser Automation
-```env
-ENABLE_PLAYWRIGHT_MCP=true
-```
-Installed automatically via `npx -y @playwright/mcp` when enabled.
-
-**3. GitHub MCP** - GitHub API
-```env
-ENABLE_GITHUB_MCP=true
-# Uses GITHUB_TOKEN from main config
-```
-Installed automatically via `npx -y @modelcontextprotocol/server-github` when enabled.
-
-**4. Custom HTTP MCP Servers**
-```env
-MCP_HTTP_SERVERS=name1:url1:header1=value1,name2:url2
-```
-
-**Terminal vs Bot Instances:**
-- **Terminal Claude Code**: Uses global MCP config (`~/.claude/`, etc.)
-- **Bot Instances**: Use programmatic config (environment variables)
-- This is why bot instances don't automatically inherit your terminal's MCP servers
-
-**Testing MCP Access:**
-Send a message to the bot asking about available tools. With Playwright enabled:
-```
-You: What tools do you have access to?
-Bot: I have access to: Read, Write, Edit, Bash, Grep, Glob,
-     mcp__playwright__navigate, mcp__playwright__click, ...
-```
-
-### Telegram Topics (Multi-Project Development)
-
-Enable parallel work on multiple projects using Telegram supergroup topics. Each topic acts as an isolated workspace with its own codebase, AI session, and working directory.
-
-**Group Setup:**
-1. Create a Telegram supergroup
-2. Enable topics (Settings > Forum > Enable Topics)
-3. Add bot as administrator with permissions to manage topics
-4. Get group chat ID (negative number, e.g., -1003484800871):
-   - Forward a message from the group to @userinfobot
-   - The bot will reply with the chat ID
-5. Set `TELEGRAM_GROUP_CHAT_ID` in environment variables
-
-**Usage:**
-- **General chat**: Use `/new-topic <name>` to create projects
-- **Topics**: Each topic = isolated project workspace
-- Click between topics to switch projects instantly
-- All topics run in parallel (like separate terminal windows)
-- Commands in general chat are restricted (only `/new-topic`, `/help`, `/status`, `/commands`, `/templates`)
-
-**Response Format:**
-- Batch mode only (final summaries, no streaming)
-- No code blocks shown
-- Brief, non-technical language
-- "What and why" explanations included
-
-**Conversation ID Format:**
-- General chat: `chatId` (e.g., `-1003484800871`)
-- Topic: `chatId:threadId` (e.g., `-1003484800871:1234`)
-
-**Example Workflow:**
-```
-# In general chat
-You: /new-topic Github search agent
-Bot: ✅ Project "Github search agent" created...
-     📁 Codebase: github-search-agent
-     🔗 GitHub: https://github.com/you/github-search-agent
-     💬 Telegram Topic: Created (ID: 5678)
-
-# Switch to the new topic (click on it)
-You: /status
-Bot: Platform: telegram
-     Codebase: github-search-agent
-     Path: /workspace/github-search-agent
-
-You: Build a search interface...
-Bot: [Works on the project...]
-```
-
-**Topic Filtering (for shared groups with multiple bots):**
-
-When multiple bots operate in the same Telegram group, use `TELEGRAM_TOPIC_FILTER` to prevent conflicts:
-
-```env
-# Respond to all topics (default)
-TELEGRAM_TOPIC_FILTER=all
-
-# Only respond in general chat (ignore all topics)
-TELEGRAM_TOPIC_FILTER=none
-
-# Whitelist - only respond to specific topics
-TELEGRAM_TOPIC_FILTER=123,456,789
-
-# Blacklist - respond to all topics EXCEPT these
-TELEGRAM_TOPIC_FILTER=!123,456
-```
-
-**Use cases:**
-- **Development bot + Product bot**: Use blacklist so development bot ignores product topics
-- **Multiple projects**: Assign specific topics to different bot instances
-- **Testing**: Create test topics that production bots ignore
-
-**Example scenario (blacklist approach - easier to maintain):**
-- remote-coding-agent bot: `TELEGRAM_TOPIC_FILTER=!10` (all topics except health-agent)
-- health-agent bot: `TELEGRAM_TOPIC_FILTER=10` (only health-agent topic)
-- Both bots in same group, zero conflicts, no need to update when adding new dev topics
-
-### Worktree Symbiosis (Skill + App)
-
-The app can work alongside the worktree-manager Claude Code skill. Both use git worktrees for isolated development, and can share the same base directory.
-
-**To enable symbiosis:**
-
-1. Set `WORKTREE_BASE` to match the skill's `worktreeBase` config:
-   ```env
-   WORKTREE_BASE=~/tmp/worktrees
-   ```
-
-2. Both systems will use the same directory:
-   - Skill creates: `~/tmp/worktrees/<project>/<branch-slug>/`
-   - App creates: `~/tmp/worktrees/<project>/<issue|pr>-<number>/`
-
-3. The app will **adopt** skill-created worktrees when:
-   - A PR is opened for a branch that already has a worktree
-   - The worktree path matches what the app would create
-
-4. Use `/worktree orphans` to see all worktrees from git's perspective
-
-**Note**: Each system maintains its own metadata:
-- Skill: `~/.claude/worktree-registry.json`
-- App: Database (`conversations.worktree_path`)
-
-Git (`git worktree list`) is the source of truth for what actually exists on disk.
+**GCP Cloud Run Deployment** - Deploy apps from Telegram/GitHub
+- Commands: `/cloudrun-status`, `/cloudrun-deploy`, `/cloudrun-logs`
+- Service account keys in `/home/samuel/scar/gcp/`
+- **📖 Full setup:** `docs/gcp-cloud-run-setup.md`
 
 ## Development Guidelines
 
@@ -836,7 +294,7 @@ Git (`git worktree list`) is the source of truth for what actually exists on dis
 **See detailed implementation guide:** `.agents/reference/new-features.md`
 
 **Quick reference:**
-- **Platform Adapters**: Implement `IPlatformAdapter`, handle auth, polling/webhooks
+- **Platform Adapters**: Implement `IPlatformAdapter`, handle auth inside adapter
 - **AI Clients**: Implement `IAssistantClient`, session management, streaming
 - **Slash Commands**: Add to command-handler.ts, update database, no AI
 - **Database Operations**: Use `pg` with parameterized queries, connection pooling
@@ -845,99 +303,54 @@ Git (`git worktree list`) is the source of truth for what actually exists on dis
 
 **CRITICAL**: Before claiming any feature is "complete", you MUST verify:
 
-#### 1. **File Existence** - Don't claim files exist without creating them
+#### 1. File Existence
 ```bash
-# If you claim Login.tsx exists, verify:
-ls -la src/pages/Login.tsx  # Must show actual file, not "No such file"
-wc -l src/pages/Login.tsx    # Must show actual code lines, not 0
+ls -la src/pages/Login.tsx  # Must show actual file
+wc -l src/pages/Login.tsx   # Must show actual code lines, not 0
 ```
 
-#### 2. **No Mocks Policy** - Use real APIs, real databases, real data
+#### 2. No Mocks Policy
 ```javascript
 // ❌ FORBIDDEN in production code:
 const mockData = [...]
 const PLACEHOLDER_API = 'http://example.com'
-fetch('http://mock-server.com/api')
 
 // ✅ REQUIRED in production code:
 fetch(`${process.env.API_URL}/api`)  // Real backend
 const data = await db.query(...)     // Real database
 ```
-
 **Exception**: Mocks allowed ONLY in test files (`*.test.ts`, `*.spec.ts`)
 
-#### 3. **Actual Testing** - Run the app and test it yourself
+#### 3. Actual Testing
 ```bash
-# BEFORE claiming "done", you MUST:
 npm install && npm run dev           # Must start without errors
-curl http://localhost:PORT           # Must respond (not 404, not error)
-# Open browser, login with test credentials, verify feature works
+curl http://localhost:PORT           # Must respond (not 404)
+# Open browser, verify feature works end-to-end
 ```
 
-#### 4. **Evidence Requirements** - Provide proof the feature works
-For every completed feature, provide:
+#### 4. Evidence Requirements
+Provide for every completed feature:
 - **Code Location**: `src/pages/Login.tsx` (lines 45-67)
 - **API Test**: `curl -X POST http://localhost:4000/auth/login -d '...'`
-- **Response**: `{"token":"eyJ...","user":{...}}` (real JWT, not mock)
-- **Verification**: Open Network tab, verify POST to real backend URL
-
-#### 5. **Truth in Documentation** - Status docs must match reality
-```bash
-# If PROJECT-STATUS.md claims files exist, verify:
-grep "src/" PROJECT-STATUS.md | while read file; do
-  [ -f "$file" ] && echo "✅ $file" || echo "❌ MISSING: $file"
-done
-```
+- **Response**: Real JWT token, not mock data
+- **Verification**: Network tab shows POST to real backend
 
 #### Red Flags to Avoid
-🚩 Writing comprehensive docs without implementing code
-🚩 Using mock data "temporarily" (it becomes permanent)
-🚩 Claiming "100% complete" without running the application
-🚩 Marking task done when only scaffolding exists
-🚩 Documentation lines >> actual code lines (e.g., 1000 line doc, 50 line code)
-
-#### Definition of Done Checklist
-- [ ] All claimed files actually exist (use `ls` to verify)
-- [ ] No mock/placeholder data in production code (search for "mock", "placeholder", "TODO")
-- [ ] Application runs locally (`npm run dev` succeeds)
-- [ ] Tested with real credentials (login works, data loads from database)
-- [ ] All API calls hit real backend (check browser Network tab)
-- [ ] No console errors in browser
-- [ ] Feature works end-to-end (not just "compiles")
+- 🚩 Writing comprehensive docs without implementing code
+- 🚩 Using mock data "temporarily" (it becomes permanent)
+- 🚩 Claiming "100% complete" without running the application
+- 🚩 Documentation lines >> actual code lines
 
 #### Verification Tools
-
-**Feature Completion Checklist**:
 ```bash
-# Comprehensive checklist for marking features complete
-cat .github/FEATURE_CHECKLIST.md
-```
-
-**Automated Mock Detection**:
-```bash
-# Run verification script to detect mocks
+# Automated mock detection
 ./scripts/verify-no-mocks.sh
 
-# What it checks:
-# - Mock data arrays (mockData, MOCK_DATA)
-# - Placeholder URLs (example.com, placeholder)
-# - TODO/FIXME comments
-# - Fake/dummy patterns
-# - Hardcoded test credentials
+# Pre-commit hook (already installed)
+# Blocks commits with mock data automatically
 ```
 
-**Pre-commit Hook**:
-The repository includes a pre-commit hook that automatically blocks commits with mock data:
-```bash
-# Hook installed at: .git/hooks/pre-commit
-# Runs automatically on every commit
-# Checks staged files for mock patterns
-
-# To bypass (NOT RECOMMENDED):
-git commit --no-verify
-```
-
-**Note**: The pre-commit hook is already installed and will run automatically. If you clone the repo fresh, the hook is already in `.git/hooks/` and executable.
+**📖 Full checklist:** `.github/FEATURE_CHECKLIST.md`
 
 ### Type Checking
 
@@ -948,23 +361,7 @@ git commit --no-verify
 - Avoid `any` - use `unknown` and type guards instead
 - Enable `strict: true` in `tsconfig.json`
 
-**Example:**
-```typescript
-// ✅ CORRECT
-async function sendMessage(conversationId: string, message: string): Promise<void> {
-  await adapter.sendMessage(conversationId, message);
-}
-
-// ❌ WRONG - missing return type
-async function sendMessage(conversationId: string, message: string) {
-  await adapter.sendMessage(conversationId, message);
-}
-```
-
 **SDK Type Patterns:**
-
-When working with external SDKs (Claude Agent SDK, Codex SDK), prefer importing and using SDK types directly:
-
 ```typescript
 // ✅ CORRECT - Import SDK types directly
 import { query, type Options } from '@anthropic-ai/claude-agent-sdk';
@@ -975,21 +372,10 @@ const options: Options = {
   // ...
 };
 
-// Use type assertions for SDK response structures
-const message = msg as { message: { content: ContentBlock[] } };
-```
-
-```typescript
 // ❌ AVOID - Defining duplicate types
-interface MyQueryOptions {  // Don't duplicate SDK types
-  cwd: string;
-  // ...
-}
-const options: MyQueryOptions = { ... };
+interface MyQueryOptions { ... }  // Don't duplicate SDK types
 query({ prompt, options: options as any });  // Avoid 'as any'
 ```
-
-This ensures type compatibility with SDK updates and eliminates `as any` casts.
 
 ### Testing
 
@@ -997,79 +383,32 @@ This ensures type compatibility with SDK updates and eliminates `as any` casts.
 - Test pure functions (variable substitution, command parsing)
 - Mock external dependencies (database, AI SDKs, platform APIs)
 - Fast execution (<1s total)
-- Use Jest or similar framework
+- Use Jest
 
 **Integration Tests:**
 - Test database operations with test database
 - Test end-to-end flows (mock platforms/AI but use real orchestrator)
 - Clean up test data after each test
 
-**Pattern:**
-```typescript
-describe('CommandHandler', () => {
-  it('should parse /command-invoke with arguments', () => {
-    const result = parseCommand('/command-invoke plan "Add dark mode"');
-    expect(result.command).toBe('plan');
-    expect(result.args).toEqual(['Add dark mode']);
-  });
-});
-```
-
-**Manual Validation with Test Adapter:**
-
-The application includes a built-in test adapter (`src/adapters/test.ts`) with HTTP endpoints for programmatic testing without requiring Telegram/Slack setup.
-
-**Test Adapter Endpoints:**
+**Test Adapter:**
+Built-in HTTP endpoints for testing without Telegram/Slack:
 ```bash
-# Send message to bot (triggers full orchestrator flow)
+# Send message
 POST http://localhost:3000/test/message
 Body: {"conversationId": "test-123", "message": "/help"}
 
-# Get bot responses (all messages sent by bot)
+# Get responses
 GET http://localhost:3000/test/messages/test-123
 
-# Clear conversation history
+# Clear history
 DELETE http://localhost:3000/test/messages/test-123
 ```
 
-**Complete Test Workflow:**
-```bash
-# 1. Start application (hybrid mode - recommended)
-docker-compose --profile with-db up -d postgres
-npm run dev
-
-# 2. Send test message (use your configured PORT, default 3000)
-curl -X POST http://localhost:3000/test/message \
-  -H "Content-Type: application/json" \
-  -d '{"conversationId":"test-123","message":"/status"}'
-
-# 3. Verify bot response
-curl http://localhost:3000/test/messages/test-123 | jq
-
-# 4. Clean up
-curl -X DELETE http://localhost:3000/test/messages/test-123
-```
-
-**Test Adapter Features:**
-- Implements `IPlatformAdapter` (same interface as Telegram/Slack)
-- In-memory message storage (no external dependencies)
-- Tracks message direction (sent by bot vs received from user)
-- Full orchestrator integration (real AI, real database)
-- Useful for feature validation, debugging, and CI/CD integration
-
-**When to Use Test Adapter:**
-- ✅ Manual validation after implementing new features
-- ✅ End-to-end testing of command flows
-- ✅ Debugging orchestrator logic without Telegram setup
-- ✅ Automated integration tests (future CI/CD)
-- ❌ NOT for unit tests (use Jest mocks instead)
-
 ### Logging
 
-**Use `console.log` with structured data for MVP:**
-
+**Use `console.log` with structured data:**
 ```typescript
-// Good: Structured logging
+// ✅ Good: Structured logging
 console.log('[Orchestrator] Starting session', {
   conversationId,
   codebaseId,
@@ -1077,61 +416,14 @@ console.log('[Orchestrator] Starting session', {
   timestamp: new Date().toISOString()
 });
 
-// Good: Error logging with context
-console.error('[GitHub] Webhook signature verification failed', {
-  error: err.message,
-  timestamp: new Date().toISOString()
-});
-
-// Bad: Generic logs
+// ❌ Bad: Generic logs
 console.log('Processing...');
 ```
-
-**What to Log:**
-- Session start/end with IDs
-- Command invocations with arguments
-- AI streaming events (start, chunks received, completion)
-- Database operations (queries, errors)
-- Platform adapter events (message received, sent)
-- Errors with full stack traces
 
 **What NOT to Log:**
 - API keys, tokens, secrets (mask: `token.slice(0, 8) + '...'`)
 - User message content in production (privacy)
 - Personal identifiable information
-
-### Streaming Patterns
-
-**AI Response Streaming:**
-Platform streaming mode configured per platform via environment variables (`{PLATFORM}_STREAMING_MODE`).
-
-```typescript
-// Stream mode: Send each chunk immediately (real-time)
-for await (const event of client.streamResponse()) {
-  if (streamingMode === 'stream') {
-    if (event.type === 'text') {
-      await platform.sendMessage(conversationId, event.content);
-    } else if (event.type === 'tool') {
-      await platform.sendMessage(conversationId, `🔧 ${event.toolName}`);
-    }
-  } else {
-    // Batch mode: Accumulate chunks
-    buffer.push(event);
-  }
-}
-
-// Batch mode: Send accumulated response
-if (streamingMode === 'batch') {
-  const fullResponse = buffer.map(e => e.content).join('');
-  await platform.sendMessage(conversationId, fullResponse);
-}
-```
-
-**Platform-Specific Defaults:**
-- **Telegram/Slack**: `stream` mode (real-time chat experience)
-- **GitHub**: `batch` mode (single comment, avoid spam)
-- **Future platforms** (Asana, Notion): `batch` mode (single update)
-- **Typing indicators**: Send periodically during long operations in `stream` mode
 
 ### Command System Patterns
 
@@ -1147,12 +439,7 @@ if (streamingMode === 'batch') {
 - Users edit with Git version control
 - Paths stored in `codebases.commands` JSONB
 
-**Auto-detection:**
-- On `/clone`, detect `.claude/commands/` or `.agents/commands/`
-- Offer to bulk load with `/load-commands`
-
-### Builtin Command Templates
-
+**Builtin Command Templates:**
 The repo ships with maintained workflow commands in `.claude/commands/exp-piv-loop/`:
 - `/plan` - Deep implementation planning
 - `/implement` - Execute implementation plans
@@ -1163,8 +450,9 @@ The repo ships with maintained workflow commands in `.claude/commands/exp-piv-lo
 - `/prd` - Product requirements documents
 - `/worktree` - Parallel branch development
 
-These are loaded as global templates on startup (controlled by `LOAD_BUILTIN_COMMANDS`).
 To disable: `LOAD_BUILTIN_COMMANDS=false`
+
+**📖 See full details:** `.agents/reference/command-system.md`
 
 ### Error Handling
 
@@ -1208,10 +496,11 @@ try {
 **Health Checks:**
 - `GET /health` - Basic health check
 - `GET /health/db` - Database connectivity check
+- `GET /health/concurrency` - Active conversations status
 
 **Security:**
 - Verify webhook signatures (GitHub: `X-Hub-Signature-256`)
-- Use `express.raw()` middleware for webhook body (signature verification)
+- Use `express.raw()` middleware for webhook body
 - Never log or expose tokens in responses
 
 ### Docker Patterns
@@ -1233,148 +522,11 @@ try {
 - App: Port 3000 (configurable via `PORT` env var)
 - PostgreSQL: Port 5432 (exposed on localhost for local development)
 
-### GCP Cloud Run Deployment
-
-**Overview:**
-SCAR can deploy applications to Google Cloud Platform Cloud Run directly from Telegram or GitHub. Service account keys are stored in `/home/samuel/scar/gcp/` and mounted into the container.
-
-**Available Commands:**
-- `/cloudrun-status` - Check Cloud Run service status
-- `/cloudrun-logs [lines]` - View service logs (default: 50 lines)
-- `/cloudrun-deploy [yes]` - Deploy workspace to Cloud Run (requires confirmation)
-- `/cloudrun-rollback [revision]` - Rollback to previous revision
-- `/cloudrun-config` - Configure GCP settings per codebase
-- `/cloudrun-list` - List all Cloud Run services in project
-
-**Configuration:**
-```env
-# Enable GCP integration
-GCP_ENABLED=true
-GCP_PROJECT_ID=your-project-id
-GCP_REGION=europe-west1
-GCP_SERVICE_ACCOUNT_KEY_PATH=/app/credentials/gcp-key.json
-
-# Cloud Run defaults
-CLOUDRUN_MEMORY=1Gi
-CLOUDRUN_CPU=1
-CLOUDRUN_TIMEOUT=300
-CLOUDRUN_MAX_INSTANCES=10
-CLOUDRUN_MIN_INSTANCES=0
-```
-
-**Service Account Setup:**
-Each GCP project requires a service account with these IAM roles:
-- `roles/run.admin` - Cloud Run management
-- `roles/iam.serviceAccountUser` - Service account usage
-- `roles/storage.admin` - Container Registry access
-- `roles/cloudbuild.builds.editor` - Image building
-
-**Key Storage:**
-- Keys stored in: `/home/samuel/scar/gcp/`
-- Mounted in container as: `/app/credentials/gcp-key.json` (read-only)
-- docker-compose.yml mount: `~/scar-gcp-key.json:/app/credentials/gcp-key.json:ro`
-- Multiple projects supported by creating separate service accounts per project
-
-**Creating Service Account:**
-```bash
-export PROJECT_ID="your-project-id"
-export SERVICE_ACCOUNT="scar-deployer"
-
-# Create service account
-gcloud iam service-accounts create $SERVICE_ACCOUNT \
-  --display-name="SCAR Bot Deployer" \
-  --project=$PROJECT_ID
-
-# Grant required roles
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/run.admin"
-
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/iam.serviceAccountUser"
-
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/storage.admin"
-
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/cloudbuild.builds.editor"
-
-# Download key to host
-gcloud iam service-accounts keys create ~/scar-gcp-key.json \
-  --iam-account=$SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com
-
-# Move to keys directory
-mv ~/scar-gcp-key.json /home/samuel/scar/gcp/${PROJECT_ID}-key.json
-chmod 600 /home/samuel/scar/gcp/${PROJECT_ID}-key.json
-```
-
-**Per-Codebase Configuration:**
-Each codebase can have its own GCP configuration stored in database:
-```sql
-UPDATE remote_agent_codebases
-SET gcp_config = '{
-  "enabled": true,
-  "project_id": "your-project-id",
-  "region": "europe-west1",
-  "service_name": "your-service",
-  "env_vars_file": ".env.production",
-  "service_config": {
-    "memory": "1Gi",
-    "cpu": "1",
-    "max_instances": 10,
-    "min_instances": 0
-  }
-}'::jsonb
-WHERE name = 'your-codebase';
-```
-
-Or via commands:
-```
-/cloudrun-config set your-service europe-west1
-/cloudrun-config set-memory 2Gi
-/cloudrun-config set-cpu 2
-```
-
-**Deployment Workflow:**
-1. User makes changes to workspace
-2. `/cloudrun-deploy` - Shows preview of what will be deployed
-3. `/cloudrun-deploy yes` - Confirms and executes:
-   - Builds Docker image from workspace
-   - Pushes to Google Container Registry (GCR) or Artifact Registry
-   - Deploys to Cloud Run with configured settings
-   - Returns service URL and revision
-
-**Example Usage:**
-```
-/setcwd /workspace/my-app
-/cloudrun-config set my-service europe-west1
-/cloudrun-deploy
-/cloudrun-deploy yes
-/cloudrun-status
-/cloudrun-logs 100
-```
-
-**Security Best Practices:**
-- ✅ Use service account (not user credentials)
-- ✅ Minimal IAM permissions (only what's needed)
-- ✅ Read-only key mounting in Docker
-- ✅ Never commit keys to git
-- ✅ Rotate keys every 90 days
-- ✅ One service account per GCP project
-
-**Documentation:**
-- Full setup guide: `docs/gcp-cloud-run-setup.md`
-- Implementation details: `.agents/plans/gcp-cloudrun-integration.md`
-- Troubleshooting section included in setup guide
-
 ### GitHub-Specific Patterns
 
 **Production Setup (gpt153/scar):**
 - **Webhook URL**: `https://code.153.se/webhooks/github`
-- **Bot Mention**: `@scar` (configured via `GITHUB_BOT_MENTION=scar` in `.env`)
+- **Bot Mention**: `@scar` (configured via `GITHUB_BOT_MENTION=scar`)
 - **Port**: 3001 (not 3000 - conflict with Next.js dev server)
 - **Cloudflare Tunnel**: `code.153.se` → `localhost:3001`
 
@@ -1402,12 +554,7 @@ gh pr review 15 --comment -b "Looks good!"
 - Parse mentions in issue/PR descriptions and comments
 - Events: `issues`, `issue_comment`, `pull_request`
 
-**Webhook Setup:**
-1. GitHub repo settings → Webhooks → Add webhook
-2. Payload URL: `https://code.153.se/webhooks/github`
-3. Content type: `application/json`
-4. Secret: Value from `WEBHOOK_SECRET` env var
-5. Events: Issues, Issue comments, Pull requests
+**📖 See full details:** `.agents/reference/github-webhooks.md`
 
 ## Common Workflows
 
