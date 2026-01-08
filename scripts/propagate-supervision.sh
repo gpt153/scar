@@ -63,9 +63,17 @@ for workspace in "$WORKSPACES_DIR"/*; do
         continue
     fi
 
-    # Create .claude/commands/supervision directory (supervision commands are loaded via builtins)
-    # Note: We don't actually need to copy commands to each workspace since they're loaded globally
-    # via LOAD_BUILTIN_COMMANDS=true, but we'll create the directory structure anyway
+    # Create .claude/commands/supervision directory and copy commands
+    mkdir -p "$workspace/.claude/commands/supervision"
+
+    # Copy supervision command files
+    cp -r "$SCAR_DIR/.claude/commands/supervision/"* "$workspace/.claude/commands/supervision/" 2>/dev/null || {
+        echo -e "  ${RED}✗ Failed to copy supervision commands${NC}"
+        FAILED=$((FAILED + 1))
+        echo ""
+        continue
+    }
+    echo "  ✓ Copied supervision commands"
 
     # Create .agents directories
     mkdir -p "$workspace/.agents/supervision"
@@ -166,12 +174,13 @@ if [ $FAILED -gt 0 ]; then
 fi
 echo ""
 echo "What was added to each workspace:"
+echo "  • .claude/commands/supervision/* (5 command files)"
 echo "  • .agents/supervision/README.md"
 echo "  • .agents/discussions/README.md"
 echo "  • docs/autonomous-supervision.md"
 echo "  • CLAUDE.md supervision reference (if CLAUDE.md existed)"
 echo ""
-echo "Note: Supervision commands are loaded globally via"
-echo "LOAD_BUILTIN_COMMANDS=true, so no per-workspace copies needed."
+echo "Commands available in each workspace:"
+echo "  /prime-supervisor, /supervise, /supervise-issue"
 echo ""
 echo "Done! 🎉"
