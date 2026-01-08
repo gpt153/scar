@@ -7,7 +7,7 @@ import { promisify } from 'util';
 import { writeFile, cp } from 'fs/promises';
 import { join, resolve } from 'path';
 import { Bot } from 'grammy';
-import { createRepository } from '../utils/github-repo';
+import { createRepository, configureWebhook } from '../utils/github-repo';
 import * as codebaseDb from '../db/codebases';
 import * as conversationDb from '../db/conversations';
 
@@ -184,7 +184,23 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
     ]);
     await execFileAsync('git', ['-C', repoPath, 'push']);
 
-    // 8. Create codebase record in database
+    // 8. Configure GitHub webhook for SCAR bot
+    console.log('[NewTopic] Configuring GitHub webhook...');
+    const webhookUrl = process.env.GITHUB_WEBHOOK_URL || 'https://code.153.se/webhooks/github';
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+
+    if (webhookSecret) {
+      await configureWebhook(githubToken, repo.fullName, {
+        url: webhookUrl,
+        secret: webhookSecret,
+      });
+      console.log('[NewTopic] Webhook configured successfully');
+    } else {
+      console.warn('[NewTopic] WEBHOOK_SECRET not set - skipping webhook configuration');
+      console.warn('[NewTopic] Configure webhook manually: Repo Settings → Webhooks');
+    }
+
+    // 9. Create codebase record in database
     console.log('[NewTopic] Creating codebase record');
     const codebase = await codebaseDb.createCodebase({
       name: projectName,
@@ -193,11 +209,11 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
       ai_assistant_type: process.env.DEFAULT_AI_ASSISTANT ?? 'claude',
     });
 
-    // 9. Create Telegram topic
+    // 10. Create Telegram topic
     console.log('[NewTopic] Creating Telegram topic');
     const topic = await bot.api.createForumTopic(parseInt(groupChatId), projectName);
 
-    // 10. Create conversation record linking topic to codebase
+    // 11. Create conversation record linking topic to codebase
     console.log('[NewTopic] Creating conversation record');
     const conversationId = `${groupChatId}:${String(topic.message_thread_id)}`;
     await conversationDb.getOrCreateConversation('telegram', conversationId, codebase.id);
@@ -210,13 +226,15 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
 📂 **Path**: ${repoPath}
 🔗 **GitHub**: ${repo.htmlUrl}
 💬 **Telegram Topic**: Created (ID: ${String(topic.message_thread_id)})
+${webhookSecret ? '🔗 **Webhook**: Configured automatically ✅' : '⚠️ **Webhook**: Not configured (WEBHOOK_SECRET missing)'}
 
 ✨ **Next Steps:**
 1. Switch to the new topic above
 2. Ask the AI to create an Archon project (if needed)
 3. Start working on your project!
 
-All slash commands and templates are ready to use.`,
+All slash commands and templates are ready to use.
+${webhookSecret ? '\n@scar mentions in GitHub issues will work immediately!' : '\nNote: Configure webhook manually for @scar mentions to work'}`,
       topicId: topic.message_thread_id,
       codebaseId: codebase.id,
     };
