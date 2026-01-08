@@ -205,4 +205,12 @@ Provide strategic overview (NO CODE):
 - Brutal honesty over comfort
 - Strategic overview, not implementation details
 
+**Time Estimates - Use SCAR-Specific Times:**
+- Small feature: 30-60 min (NOT "2-3 days")
+- Medium feature: 1-3 hours (NOT "1-2 weeks")
+- Large feature: 3-6 hours (NOT "2-4 weeks")
+- Very large feature: 1-2 days (NOT "1-3 months")
+- Parallel execution (5 concurrent): 3-4x faster
+
 See `docs/autonomous-supervision.md` for full protocols.
+See `docs/realistic-time-estimates.md` for detailed estimation guide.

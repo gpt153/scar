@@ -415,13 +415,16 @@ Result: Zero downtime, continuous supervision
 - Database schema changes
 - Error handling for edge cases
 
-**Simpler alternative**: Gravatar integration (1 hour)
+**Realistic effort**: 3-4 hours with SCAR (not 2-3 days)
+**Simpler alternative**: Gravatar integration (30 minutes)
 
 **Question**: Is custom upload critical to core value,
 or is this nice-to-have polish that can wait?
 
 **Recommendation**: Defer until core features proven,
 use Gravatar as interim solution.
+
+**📖 See realistic time estimates:** `docs/realistic-time-estimates.md`
 ```
 
 **❌ BAD Communication:**
