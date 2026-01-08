@@ -71,6 +71,35 @@ ANY repo not owned by gpt153
 
 ---
 
+## 🎯 Autonomous Supervision System
+
+**WHEN TO USE:** Managing entire projects or complex multi-issue features autonomously.
+
+**Commands:**
+- `/prime-supervisor` - Load project context and initialize supervisor role
+- `/supervise` - Supervise entire project (all issues, dependencies, parallel work)
+- `/supervise-issue N` - Supervise single GitHub issue to completion
+
+**What it does:**
+- Decomposes complex features into manageable issues
+- Spawns monitoring subagents (max 5 concurrent) to track SCAR progress
+- Manages dependencies automatically (sequential vs parallel execution)
+- Verifies implementations via `/verify-scar-phase`
+- Provides strategic updates (NO CODE - user cannot code)
+- Handles context handoff seamlessly when limits approach
+
+**Working directory:** Run from **project workspace** (e.g., `/home/samuel/.archon/workspaces/consilio`), NOT from `/home/samuel/scar`.
+
+**Key principles:**
+- Use subagents extensively to minimize supervisor context usage
+- First principles thinking - challenge assumptions, provide cost-benefit analysis
+- Strategic communication only - links, lists, comparisons (NO code examples to user)
+- Brutal honesty about effort vs value
+
+**📖 Complete guide:** `docs/autonomous-supervision.md`
+
+---
+
 ## Important Terminology
 
 **Project Manager (PM):**

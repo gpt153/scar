@@ -30,6 +30,13 @@ This project is configured with the Remote Coding Agent and includes:
 - `/changelog-release [version]` - Promote changelog to release
 - `/release <version>` - Create GitHub release with tag
 
+**Autonomous Supervision Commands:**
+- `/prime-supervisor` - Load project context and initialize supervisor role
+- `/supervise` - Supervise entire project (all issues, dependencies, parallel work)
+- `/supervise-issue N` - Supervise single GitHub issue to completion
+
+See `docs/autonomous-supervision.md` for complete guide.
+
 ### Using Archon
 
 Task management is handled by Archon MCP. Common operations:
