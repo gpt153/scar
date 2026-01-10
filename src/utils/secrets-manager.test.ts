@@ -14,31 +14,33 @@ import {
 } from './secrets-manager';
 import { mkdir, rm, readFile, access, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { tmpdir, homedir } from 'os';
+import { tmpdir } from 'os';
 
 describe('secrets-manager', () => {
   const originalHome = process.env.HOME;
-  const testHome = join(tmpdir(), 'secrets-test-' + Date.now());
-  const secretsDir = join(testHome, '.archon', '.secrets');
-  const projectsDir = join(secretsDir, 'projects');
-  const globalFile = join(secretsDir, 'global.env');
+  let testHome: string;
+  let secretsDir: string;
+  let projectsDir: string;
 
-  beforeAll(async () => {
-    // Override HOME for tests
+  beforeEach(async () => {
+    // Create unique test home for each test to ensure isolation
+    testHome = join(tmpdir(), 'secrets-test-' + Date.now() + '-' + Math.random().toString(36).substring(7));
+    secretsDir = join(testHome, '.archon', '.secrets');
+    projectsDir = join(secretsDir, 'projects');
+
+    // Override HOME for this test
     process.env.HOME = testHome;
     await mkdir(testHome, { recursive: true });
+  });
+
+  afterEach(async () => {
+    // Clean up test directory after each test
+    await rm(testHome, { recursive: true, force: true }).catch(() => {});
   });
 
   afterAll(async () => {
     // Restore original HOME
     process.env.HOME = originalHome;
-    // Clean up test directory
-    await rm(testHome, { recursive: true, force: true });
-  });
-
-  beforeEach(async () => {
-    // Clean secrets dir before each test
-    await rm(secretsDir, { recursive: true, force: true }).catch(() => {});
   });
 
   describe('getProjectName', () => {
