@@ -80,6 +80,52 @@ CRITICAL: Before starting the service:
 
 **Do NOT debug port conflicts after the fact - prevent them upfront.**
 
+### Secrets Management
+
+**PROBLEM**: API keys provided early in sessions are forgotten after many tokens. Secrets not preserved across supervisor/SCAR context switches. Hours wasted debugging only to discover missing API key.
+
+**SOLUTION**: Centralized secrets storage in `~/.archon/.secrets/`
+
+**⚠️ CRITICAL: ALWAYS Check Secrets Before Implementation**
+
+Before implementing ANY feature that requires external services:
+
+```bash
+# 1. Check if required secrets exist
+cat ~/.archon/.secrets/projects/$(basename $PWD).env 2>/dev/null
+cat ~/.archon/.secrets/global.env 2>/dev/null
+
+# 2. If secret is missing, ASK USER IMMEDIATELY
+/secret-set OPENAI_API_KEY sk-...
+```
+
+**Common secrets by service:**
+- **OpenAI**: `OPENAI_API_KEY`
+- **Anthropic**: `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`
+- **Stripe**: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`
+- **Supabase**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`
+- **GitHub**: `GITHUB_TOKEN`, `GH_TOKEN`
+- **PostgreSQL**: `DATABASE_URL`
+- **Telegram**: `TELEGRAM_BOT_TOKEN`
+- **Google Cloud**: `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT_KEY`
+
+**Available Commands:**
+```bash
+/secret-set OPENAI_API_KEY sk-proj-...        # Set project secret
+/secret-set --global GITHUB_TOKEN ghp_...     # Set global secret
+/secret-get OPENAI_API_KEY                    # View secret (masked)
+/secret-list                                  # List all secret keys
+/secret-sync                                  # Sync to .env.local
+/secret-check OPENAI_API_KEY STRIPE_KEY       # Verify secrets exist
+```
+
+**Secret Resolution Order:**
+1. Project-specific (`~/.archon/.secrets/projects/[project].env`)
+2. Global (`~/.archon/.secrets/global.env`)
+3. Workspace `.env.local` (synced from above)
+
+**Full documentation:** `~/.archon/.secrets/README.md`
+
 ## 🤖 CRITICAL: SCAR Instruction Protocol
 
 **WHEN TO USE:** Every time you post instructions to SCAR via GitHub comments.
