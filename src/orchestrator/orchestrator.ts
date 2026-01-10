@@ -587,7 +587,7 @@ Execute NOW. No planning, no asking - just do it.`;
 
       // Safety limits and heartbeat tracking
       const MAX_TOOL_CALLS = 200;
-      const MAX_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+      const MAX_DURATION_MS = 20 * 60 * 1000; // 20 minutes
       const HEARTBEAT_INTERVAL_MS = 60 * 1000; // 60 seconds
 
       let toolCallCount = 0;
@@ -613,11 +613,11 @@ Execute NOW. No planning, no asking - just do it.`;
         )) {
           // Check maximum duration timeout
           if (Date.now() - startTime > MAX_DURATION_MS) {
-            console.error('[Orchestrator] Task exceeded maximum duration (10 minutes)');
+            console.error('[Orchestrator] Task exceeded maximum duration (20 minutes)');
             clearInterval(heartbeatTimer);
             await platform.sendMessage(
               conversationId,
-              '❌ Task timed out after 10 minutes. The session has been terminated to prevent hanging.'
+              '❌ Task timed out after 20 minutes. The session has been terminated to prevent hanging.'
             );
             throw new Error('Maximum task duration exceeded');
           }
