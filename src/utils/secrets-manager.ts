@@ -12,9 +12,18 @@ import * as path from 'path';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
 
-const SECRETS_BASE_DIR = path.join(homedir(), '.archon', '.secrets');
-const GLOBAL_SECRETS_FILE = path.join(SECRETS_BASE_DIR, 'global.env');
-const PROJECTS_DIR = path.join(SECRETS_BASE_DIR, 'projects');
+// Use functions to get paths so they work with mocked homedir in tests
+function getSecretsBaseDir(): string {
+  return path.join(homedir(), '.archon', '.secrets');
+}
+
+function getGlobalSecretsFile(): string {
+  return path.join(getSecretsBaseDir(), 'global.env');
+}
+
+function getProjectsDir(): string {
+  return path.join(getSecretsBaseDir(), 'projects');
+}
 
 export type SecretScope = 'global' | 'project';
 
@@ -33,12 +42,16 @@ export interface SecretCheckResult {
  * Ensure secrets directory structure exists
  */
 async function ensureSecretsDir(): Promise<void> {
-  await fs.mkdir(SECRETS_BASE_DIR, { recursive: true, mode: 0o700 });
-  await fs.mkdir(PROJECTS_DIR, { recursive: true, mode: 0o700 });
+  const secretsBaseDir = getSecretsBaseDir();
+  const projectsDir = getProjectsDir();
+  const globalSecretsFile = getGlobalSecretsFile();
+
+  await fs.mkdir(secretsBaseDir, { recursive: true, mode: 0o700 });
+  await fs.mkdir(projectsDir, { recursive: true, mode: 0o700 });
 
   // Ensure global.env exists
-  if (!existsSync(GLOBAL_SECRETS_FILE)) {
-    await fs.writeFile(GLOBAL_SECRETS_FILE, '', { mode: 0o600 });
+  if (!existsSync(globalSecretsFile)) {
+    await fs.writeFile(globalSecretsFile, '', { mode: 0o600 });
   }
 }
 
@@ -46,7 +59,7 @@ async function ensureSecretsDir(): Promise<void> {
  * Get the path to a project's secrets file
  */
 function getProjectSecretsPath(projectName: string): string {
-  return path.join(PROJECTS_DIR, `${projectName}.env`);
+  return path.join(getProjectsDir(), `${projectName}.env`);
 }
 
 /**
@@ -165,7 +178,7 @@ export async function setSecret(
   await ensureSecretsDir();
 
   const filePath = scope === 'global'
-    ? GLOBAL_SECRETS_FILE
+    ? getGlobalSecretsFile()
     : getProjectSecretsPath(projectName);
 
   const secrets = await readSecretsFile(filePath);
@@ -194,7 +207,7 @@ export async function getSecret(
   }
 
   // Fall back to global secrets
-  const globalSecrets = await readSecretsFile(GLOBAL_SECRETS_FILE);
+  const globalSecrets = await readSecretsFile(getGlobalSecretsFile());
   if (key in globalSecrets) {
     return globalSecrets[key];
   }
@@ -214,7 +227,7 @@ export async function listSecrets(
 ): Promise<{ global: string[]; project: string[] }> {
   await ensureSecretsDir();
 
-  const globalSecrets = await readSecretsFile(GLOBAL_SECRETS_FILE);
+  const globalSecrets = await readSecretsFile(getGlobalSecretsFile());
   const projectSecrets = await readSecretsFile(getProjectSecretsPath(projectName));
 
   return {
@@ -234,7 +247,7 @@ export async function getAllSecrets(
 ): Promise<Record<string, string>> {
   await ensureSecretsDir();
 
-  const globalSecrets = await readSecretsFile(GLOBAL_SECRETS_FILE);
+  const globalSecrets = await readSecretsFile(getGlobalSecretsFile());
   const projectSecrets = await readSecretsFile(getProjectSecretsPath(projectName));
 
   // Project secrets override global
@@ -329,7 +342,7 @@ export async function deleteSecret(
   await ensureSecretsDir();
 
   const filePath = scope === 'global'
-    ? GLOBAL_SECRETS_FILE
+    ? getGlobalSecretsFile()
     : getProjectSecretsPath(projectName);
 
   const secrets = await readSecretsFile(filePath);

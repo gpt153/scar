@@ -2,6 +2,13 @@
  * Unit tests for secrets-manager
  */
 
+// Mock os.homedir before importing secrets-manager
+let mockHomeDir = '';
+jest.mock('os', () => ({
+  ...jest.requireActual('os'),
+  homedir: () => mockHomeDir,
+}));
+
 import {
   setSecret,
   getSecret,
@@ -24,11 +31,14 @@ describe('secrets-manager', () => {
 
   beforeEach(async () => {
     // Create unique test home for each test to ensure isolation
-    testHome = join(tmpdir(), 'secrets-test-' + Date.now() + '-' + Math.random().toString(36).substring(7));
+    // Use a longer random string to avoid collisions in parallel test execution
+    const uniqueId = Date.now() + '-' + Math.random().toString(36).substring(2, 15);
+    testHome = join(tmpdir(), 'secrets-test-' + uniqueId);
     secretsDir = join(testHome, '.archon', '.secrets');
     projectsDir = join(secretsDir, 'projects');
 
     // Override HOME for this test
+    mockHomeDir = testHome;
     process.env.HOME = testHome;
     await mkdir(testHome, { recursive: true });
   });
@@ -40,6 +50,7 @@ describe('secrets-manager', () => {
 
   afterAll(async () => {
     // Restore original HOME
+    mockHomeDir = originalHome || '';
     process.env.HOME = originalHome;
   });
 
