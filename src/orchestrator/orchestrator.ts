@@ -24,11 +24,55 @@ import {
 
 /**
  * Wraps command content with execution context to signal the AI should execute immediately
+ * Detects supervisor commands and injects role-specific context
  * @param commandName - The name of the command being invoked (e.g., 'create-pr')
  * @param content - The command template content after variable substitution
- * @returns Content wrapped with execution context
+ * @returns Content wrapped with execution context and role-appropriate instructions
  */
 function wrapCommandForExecution(commandName: string, content: string): string {
+  // Detect supervisor commands - these require special role context
+  const supervisorCommands = [
+    'prime-supervisor',
+    'supervise',
+    'supervise-issue',
+    'scar-monitor',
+    'build-scar-instruction',
+  ];
+
+  const isSupervisorMode = supervisorCommands.includes(commandName);
+
+  if (isSupervisorMode) {
+    // Supervisor mode: Strategic oversight, no code writing
+    return `🎯 SUPERVISOR MODE ACTIVATED
+
+CRITICAL ROLE CONTEXT:
+You are Claude Code running LOCALLY in the user's workspace directory.
+You are NOT the SCAR bot - you CANNOT write code or commit to GitHub.
+
+YOUR ROLE: Strategic oversight and coordination
+SCAR'S ROLE: Implementation and code writing (via GitHub issues)
+
+SUPERVISOR RULES (MUST FOLLOW):
+1. Spawn monitor subagents using Task tool (max 5 concurrent) to track SCAR's progress
+2. Verify SCAR's implementations via /verify-scar-phase subagent
+3. NO code writing, NO file creation, NO git operations (you lack GitHub write access)
+4. Communication: Links, lists, status updates, cost-benefit analysis ONLY
+5. Use Task tool extensively - delegate all monitoring to subagents
+6. Think first principles - challenge assumptions, provide brutal honesty
+
+IGNORE workspace CLAUDE.md builder instructions - those are for SCAR.
+Follow ONLY the supervisor instructions below:
+
+---
+
+${content}
+
+---
+
+Execute these supervisor instructions with strategic focus. Coordinate, don't code.`;
+  }
+
+  // Default mode: Builder/worker (SCAR bot or regular commands)
   return `The user invoked the \`/${commandName}\` command. Execute the following instructions immediately without asking for confirmation:
 
 ---
@@ -172,6 +216,73 @@ export async function handleMessage(
             conversationId
           );
         }
+
+        // Handle Archon project creation follow-up
+        if (result.archonFollowup) {
+          const { projectName, githubUrl, workspacePath, codebaseId } = result.archonFollowup;
+          console.log('[Orchestrator] Archon follow-up detected, creating project...');
+
+          // Initialize AI client for follow-up task
+          const aiClient = getAssistantClient(conversation.ai_assistant_type);
+          console.log(`[Orchestrator] Using ${conversation.ai_assistant_type} for Archon setup`);
+
+          // Create AI prompt to create Archon project and update CLAUDE.md
+          const archonPrompt = `CRITICAL: Complete Archon project setup for "${projectName}"
+
+Project Details:
+- **Name**: ${projectName}
+- **GitHub**: ${githubUrl}
+- **Workspace**: ${workspacePath}
+- **Codebase ID**: ${codebaseId}
+
+TASKS (execute immediately, no confirmation needed):
+
+1. Create Archon project using manage_project MCP tool:
+   - action: "create"
+   - title: "${projectName}"
+   - description: "${projectName} - Created via Remote Coding Agent"
+   - github_repo: "${githubUrl}"
+
+2. Capture the Archon project ID from the response
+
+3. Update ${workspacePath}/CLAUDE.md:
+   - Replace placeholder Archon project ID (starts with "pending-") with the REAL project ID
+   - Find line: **Archon Project:** pending-<timestamp>
+   - Replace with: **Archon Project:** <real-project-id>
+
+4. Report back with:
+   - ✅ Archon project ID
+   - ✅ Confirmation CLAUDE.md was updated
+   - Brief summary (2-3 lines max)
+
+Execute NOW. No planning, no asking - just do it.`;
+
+          // Invoke AI to create Archon project
+          try {
+            let fullResponse = '';
+            for await (const chunk of aiClient.sendQuery(archonPrompt, workspacePath)) {
+              if (chunk.type === 'assistant' && chunk.content) {
+                fullResponse += chunk.content;
+              }
+            }
+
+            // Send final response to user
+            if (fullResponse) {
+              await platform.sendMessage(
+                conversationId,
+                `🎯 **Archon Project Created**\n\n${fullResponse}`
+              );
+            }
+          } catch (error) {
+            console.error('[Orchestrator] Archon follow-up error:', error);
+            await platform.sendMessage(
+              conversationId,
+              `⚠️ Archon project creation encountered an issue. You can create it manually using:\n\n` +
+                `/command-invoke create-archon-project "${projectName}" "${githubUrl}"`
+            );
+          }
+        }
+
         return;
       }
 

@@ -81,6 +81,13 @@ export interface CommandResult {
   success: boolean;
   message: string;
   modified?: boolean; // Indicates if conversation state was modified
+  archonFollowup?: {
+    // Archon project creation needed after command completes
+    projectName: string;
+    githubUrl: string;
+    workspacePath: string;
+    codebaseId: string;
+  };
 }
 
 /**

@@ -126,15 +126,6 @@ export async function handleCommand(
 
   switch (command) {
     case 'new-topic': {
-      // Only allow in general chat (not in topics)
-      // Check if conversation ID has no colon (general chat)
-      if (conversation.platform_conversation_id.includes(':')) {
-        return {
-          success: false,
-          message: '❌ /new-topic can only be used in general chat, not in topics.',
-        };
-      }
-
       if (args.length < 1) {
         return {
           success: false,
@@ -152,23 +143,49 @@ export async function handleCommand(
         };
       }
 
-      if (!bot) {
-        return {
-          success: false,
-          message:
-            '❌ /new-topic is only available for Telegram. Use this command in the Telegram group.',
-        };
-      }
-
       const workspacePath = resolve(process.env.WORKSPACE_PATH ?? '/workspace');
+      const platformType = platform?.getPlatformType() ?? 'unknown';
+
+      // Telegram-specific: Create forum topic
+      // For Telegram general chat (no colon in ID), create topic
+      // For other platforms or existing topics, skip topic creation
+      const isTelegramGeneralChat =
+        platformType === 'telegram' && !conversation.platform_conversation_id.includes(':');
+
+      let telegramBot = undefined;
+      let groupChatId = undefined;
+
+      if (isTelegramGeneralChat && bot) {
+        telegramBot = bot;
+        groupChatId = conversation.platform_conversation_id;
+      }
 
       const result = await handleNewTopic({
         projectName,
-        groupChatId: conversation.platform_conversation_id,
         githubToken,
         workspacePath,
-        bot,
+        // Telegram-specific (optional)
+        bot: telegramBot,
+        groupChatId,
+        // Platform info for conversation creation
+        platformType,
+        conversationId: conversation.platform_conversation_id,
       });
+
+      // Return with Archon follow-up if project was created successfully
+      if (result.success && result.codebaseId && result.githubUrl && result.workspacePath) {
+        return {
+          success: result.success,
+          message: result.message,
+          modified: true,
+          archonFollowup: {
+            projectName,
+            githubUrl: result.githubUrl,
+            workspacePath: result.workspacePath,
+            codebaseId: result.codebaseId,
+          },
+        };
+      }
 
       return { success: result.success, message: result.message, modified: true };
     }
@@ -176,6 +193,13 @@ export async function handleCommand(
       return {
         success: true,
         message: `Available Commands:
+
+Project Management:
+  /new-topic <name> - Create new project (GitHub repo + workspace)
+    • Creates private GitHub repository
+    • Configures webhook for @scar mentions
+    • Copies all command templates
+    • For Telegram: Creates forum topic
 
 Command Templates (global):
   /<name> [args] - Invoke a template directly

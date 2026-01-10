@@ -85,6 +85,60 @@ Analyze all issues and create high-level roadmap:
 
 Save to: `.agents/supervision/session-$SESSION_TIME/meta-plan.md`
 
+### 1.4 Port Conflict Prevention Protocol
+
+**CRITICAL**: Before instructing SCAR to start ANY service (native or Docker), prevent port conflicts:
+
+**Check Ports First:**
+```bash
+# Always check which ports are in use before starting services
+netstat -tlnp | grep LISTEN 2>/dev/null || ss -tlnp | grep LISTEN
+# or
+lsof -i -P -n | grep LISTEN
+```
+
+**Common Default Ports to Check:**
+- 3000 (React, Next.js, Express)
+- 3001 (Alt web server)
+- 4000 (GraphQL, Alt API)
+- 5000 (Flask, Alt server)
+- 5432 (PostgreSQL)
+- 6379 (Redis)
+- 8000 (Django, FastAPI)
+- 8080 (Alt HTTP)
+- 9000 (Alt service)
+
+**Instruction Pattern for SCAR:**
+```markdown
+Before implementing, check for port conflicts:
+
+1. Run: `netstat -tlnp | grep LISTEN` or `lsof -i -P -n | grep LISTEN`
+2. Document which ports are in use
+3. If service defaults to port 3000 and it's taken → choose 3002, 3003, etc.
+4. Update configuration files (package.json, docker-compose.yml, .env) with chosen port
+5. Document the chosen port in implementation summary
+
+**Do NOT waste time debugging port conflicts after starting services.**
+```
+
+**Why This Matters:**
+- Port 3000 conflicts waste 5-15 minutes of debugging time
+- SCAR often discovers conflict AFTER implementation
+- Proactive checking takes 30 seconds, saves significant time
+
+**Track Port Allocations:**
+Maintain `.agents/supervision/port-allocations.json`:
+```json
+{
+  "allocations": {
+    "3000": "main-app",
+    "3001": "scar-remote-agent",
+    "3002": "health-agent-web"
+  },
+  "last_updated": "2026-01-09T08:30:00Z"
+}
+```
+
 ## Phase 2: Spawn Issue Monitors
 
 ### 2.1 Determine Which Issues to Start

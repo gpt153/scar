@@ -15,10 +15,14 @@ const execFileAsync = promisify(execFile);
 
 export interface NewTopicOptions {
   projectName: string;
-  groupChatId: string;
   githubToken: string;
   workspacePath: string;
-  bot: Bot;
+  // Telegram-specific (optional)
+  groupChatId?: string;
+  bot?: Bot;
+  // Platform info (for conversation creation)
+  platformType?: string;
+  conversationId?: string;
 }
 
 export interface NewTopicResult {
@@ -26,6 +30,8 @@ export interface NewTopicResult {
   message: string;
   topicId?: number;
   codebaseId?: string;
+  githubUrl?: string;
+  workspacePath?: string;
 }
 
 /**
@@ -42,7 +48,7 @@ function sanitizeProjectName(name: string): string {
 
 /**
  * Copy template structure to new project
- * Includes .claude/, .agents/, and CLAUDE.md
+ * Includes .claude/, .agents/, docs/, and CLAUDE.md
  */
 async function copyTemplateStructure(
   repoPath: string,
@@ -63,6 +69,12 @@ async function copyTemplateStructure(
   // Copy .agents/ directory
   console.log('[NewTopic] Copying .agents/ directory...');
   await cp(join(templateDir, '.agents'), join(repoPath, '.agents'), {
+    recursive: true,
+  });
+
+  // Copy docs/ directory
+  console.log('[NewTopic] Copying docs/ directory...');
+  await cp(join(templateDir, 'docs'), join(repoPath, 'docs'), {
     recursive: true,
   });
 
@@ -121,7 +133,7 @@ Use the dedicated Telegram topic to interact with the AI assistant for this proj
  * Execute /new-topic command workflow
  */
 export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopicResult> {
-  const { projectName, groupChatId, githubToken, workspacePath, bot } = options;
+  const { projectName, githubToken, workspacePath } = options;
 
   try {
     // 1. Sanitize project name
@@ -209,14 +221,46 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
       ai_assistant_type: process.env.DEFAULT_AI_ASSISTANT ?? 'claude',
     });
 
-    // 10. Create Telegram topic
-    console.log('[NewTopic] Creating Telegram topic');
-    const topic = await bot.api.createForumTopic(parseInt(groupChatId), projectName);
+    // 10. Create Telegram topic (if Telegram platform)
+    let topicId: number | undefined;
+    let finalConversationId = options.conversationId;
 
-    // 11. Create conversation record linking topic to codebase
-    console.log('[NewTopic] Creating conversation record');
-    const conversationId = `${groupChatId}:${String(topic.message_thread_id)}`;
-    await conversationDb.getOrCreateConversation('telegram', conversationId, codebase.id);
+    if (options.bot && options.groupChatId) {
+      console.log('[NewTopic] Creating Telegram topic');
+      const topic = await options.bot.api.createForumTopic(
+        parseInt(options.groupChatId),
+        projectName
+      );
+      topicId = topic.message_thread_id;
+
+      // 11. Create conversation record linking topic to codebase
+      console.log('[NewTopic] Creating conversation record (Telegram)');
+      finalConversationId = `${options.groupChatId}:${String(topic.message_thread_id)}`;
+      await conversationDb.getOrCreateConversation('telegram', finalConversationId, codebase.id);
+    } else if (options.platformType && finalConversationId) {
+      // Non-Telegram platform: just create conversation record
+      console.log(`[NewTopic] Creating conversation record (${options.platformType})`);
+      await conversationDb.getOrCreateConversation(
+        options.platformType,
+        finalConversationId,
+        codebase.id
+      );
+    }
+
+    // Build success message
+    const telegramMessage = topicId
+      ? `💬 **Telegram Topic**: Created (ID: ${String(topicId)})\n`
+      : '';
+
+    const nextSteps = topicId
+      ? `✨ **Next Steps:**
+1. Switch to the new topic above
+2. Wait for Archon project creation (automatic)
+3. Start working on your project!`
+      : `✨ **Next Steps:**
+1. Clone the repo locally or use /clone command
+2. Archon project will be created automatically
+3. Start working on your project!`;
 
     return {
       success: true,
@@ -225,18 +269,17 @@ export async function handleNewTopic(options: NewTopicOptions): Promise<NewTopic
 📁 **Codebase**: ${projectName}
 📂 **Path**: ${repoPath}
 🔗 **GitHub**: ${repo.htmlUrl}
-💬 **Telegram Topic**: Created (ID: ${String(topic.message_thread_id)})
-${webhookSecret ? '🔗 **Webhook**: Configured automatically ✅' : '⚠️ **Webhook**: Not configured (WEBHOOK_SECRET missing)'}
+${telegramMessage}${webhookSecret ? '🔗 **Webhook**: Configured automatically ✅' : '⚠️ **Webhook**: Not configured (WEBHOOK_SECRET missing)'}
+⏳ **Archon Project**: Creating automatically...
 
-✨ **Next Steps:**
-1. Switch to the new topic above
-2. Ask the AI to create an Archon project (if needed)
-3. Start working on your project!
+${nextSteps}
 
 All slash commands and templates are ready to use.
 ${webhookSecret ? '\n@scar mentions in GitHub issues will work immediately!' : '\nNote: Configure webhook manually for @scar mentions to work'}`,
-      topicId: topic.message_thread_id,
+      topicId,
       codebaseId: codebase.id,
+      githubUrl: repo.htmlUrl,
+      workspacePath: repoPath,
     };
   } catch (error) {
     const err = error as Error;
