@@ -126,6 +126,49 @@ cat ~/.archon/.secrets/global.env 2>/dev/null
 
 **Full documentation:** `~/.archon/.secrets/README.md`
 
+### SCAR Container Restart/Rebuild Policy
+
+**ABSOLUTE RULE: ALWAYS get user approval before restarting or rebuilding the SCAR container**
+
+**REASON**: Multiple GitHub issues may be active with SCAR working on them concurrently. Restarting the container interrupts all ongoing work.
+
+**FORBIDDEN actions without approval:**
+```bash
+# ❌ NEVER run these without approval:
+docker-compose restart
+docker-compose down
+docker-compose up --build
+docker-compose stop
+docker-compose kill
+docker restart <container-id>
+docker stop <container-id>
+
+# ❌ NEVER rebuild without approval:
+npm run build  # In SCAR repo (restarts required)
+docker build .
+```
+
+**When restart/rebuild seems needed:**
+1. **STOP** - Do not execute the command
+2. **ASK USER**: "Need to restart SCAR container for [reason]. Currently [N] issues may be active. OK to proceed?"
+3. **WAIT** for explicit approval
+4. Only after "yes" → Execute restart/rebuild
+
+**Exceptions (no approval needed):**
+- ✅ Reading logs: `docker-compose logs`
+- ✅ Checking status: `docker-compose ps`
+- ✅ Entering container: `docker-compose exec app bash`
+- ✅ Running tests: `npm test` (doesn't require restart)
+
+**This rule prevents:**
+- Interrupting SCAR's work on multiple issues
+- Losing context from active sessions
+- Breaking parallel development workflows
+
+**When in doubt, ASK before any Docker operation.**
+
+---
+
 ## 🤖 CRITICAL: SCAR Instruction Protocol
 
 **WHEN TO USE:** Every time you post instructions to SCAR via GitHub comments.
