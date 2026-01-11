@@ -422,6 +422,169 @@ Track port allocations in `.agents/supervision/port-allocations.json`:
 
 ---
 
+## Secrets Management
+
+### Problem
+API keys and secrets provided early in sessions are forgotten after many tokens, especially during context switches between supervisor and SCAR. We've wasted hours debugging implementations, only to discover the root cause was a missing API key that was provided at the start of the session.
+
+### Solution
+**Centralized secrets storage in `~/.archon/.secrets/`** - persistent across all sessions, accessible to both supervisor and SCAR.
+
+### Implementation
+
+**Directory Structure:**
+```
+~/.archon/.secrets/
+├── README.md              # Instructions for AI agents
+├── global.env             # Shared across all projects
+└── projects/              # Per-project secrets
+    ├── scar.env
+    ├── consilio.env
+    └── [project-name].env
+```
+
+**Secret Resolution Order:**
+1. Project-specific (`~/.archon/.secrets/projects/[project-name].env`)
+2. Global (`~/.archon/.secrets/global.env`)
+3. Workspace `.env.local` (auto-synced)
+
+### When Supervising: Secret Checks
+
+**CRITICAL: Before delegating ANY implementation that requires external services, verify secrets exist.**
+
+**1. Before Instructing SCAR**
+```bash
+# Check if required secrets exist
+cat ~/.archon/.secrets/projects/scar.env | grep OPENAI_API_KEY
+cat ~/.archon/.secrets/global.env | grep GITHUB_TOKEN
+
+# Or use SCAR commands
+/secret-check OPENAI_API_KEY STRIPE_SECRET_KEY
+```
+
+**2. If Secrets Missing**
+Do NOT proceed with implementation. First:
+```
+⚠️ REQUIRED SECRETS MISSING
+
+This implementation requires:
+- OPENAI_API_KEY (for AI features)
+- STRIPE_SECRET_KEY (for payments)
+
+Please provide these secrets:
+/secret-set OPENAI_API_KEY sk-proj-...
+/secret-set STRIPE_SECRET_KEY sk_live_...
+
+After secrets are set, I'll sync them to the workspace and begin implementation.
+```
+
+**3. Include in SCAR Instructions**
+When instructing SCAR to implement, include:
+```
+CRITICAL: Secrets Verification
+
+Before implementing, verify these secrets exist:
+- OPENAI_API_KEY
+- DATABASE_URL
+- [other required secrets]
+
+Check: cat ~/.archon/.secrets/projects/$(basename $PWD).env
+
+If missing, ASK USER IMMEDIATELY. Do not proceed with implementation.
+After confirmation, sync secrets: /secret-sync
+```
+
+### Common Secrets by Service
+
+Include this checklist when supervising implementations:
+
+**OpenAI Integration:**
+- `OPENAI_API_KEY` - API access
+- `OPENAI_ORG_ID` - Organization ID (optional)
+
+**Anthropic/Claude:**
+- `ANTHROPIC_API_KEY` - API access
+- `CLAUDE_CODE_OAUTH_TOKEN` - OAuth token for Claude Code
+
+**Stripe:**
+- `STRIPE_SECRET_KEY` - Live/test secret key
+- `STRIPE_PUBLISHABLE_KEY` - Client-side key
+- `STRIPE_WEBHOOK_SECRET` - Webhook signature verification
+
+**Supabase:**
+- `SUPABASE_URL` - Project URL
+- `SUPABASE_ANON_KEY` - Client-side key
+- `SUPABASE_SERVICE_KEY` - Server-side key (full access)
+
+**GitHub:**
+- `GITHUB_TOKEN` or `GH_TOKEN` - API access
+- `GITHUB_WEBHOOK_SECRET` - Webhook verification
+
+**Database:**
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection (if using)
+
+**Messaging:**
+- `TELEGRAM_BOT_TOKEN` - Telegram bot
+- `SLACK_BOT_TOKEN` - Slack bot
+- `DISCORD_BOT_TOKEN` - Discord bot
+
+**Google Cloud:**
+- `GCP_PROJECT_ID` - Project identifier
+- `GCP_SERVICE_ACCOUNT_KEY` - JSON key file path
+
+### Available Commands
+
+Both supervisor and SCAR can use these commands:
+
+```bash
+# Set secrets
+/secret-set OPENAI_API_KEY sk-proj-...        # Project scope
+/secret-set --global GITHUB_TOKEN ghp_...     # Global scope
+
+# Retrieve secrets
+/secret-get OPENAI_API_KEY                    # View (masked)
+/secret-list                                  # List all keys
+
+# Verify secrets
+/secret-check OPENAI_API_KEY DATABASE_URL     # Check existence
+
+# Sync to workspace
+/secret-sync                                  # Create/update .env.local
+
+# Delete secrets
+/secret-delete OLD_KEY                        # Remove project secret
+/secret-delete --global DEPRECATED_TOKEN      # Remove global secret
+```
+
+### Integration with Worktrees
+
+When creating worktrees for isolated development:
+
+**After creating worktree:**
+```bash
+cd ~/.archon/worktrees/scar-issue-42
+/secret-sync  # Syncs project + global secrets to .env.local
+```
+
+**Auto-sync (future enhancement):** Worktree creation will automatically sync secrets.
+
+### Time Savings
+- **Without this**: 30-120 minutes debugging missing secrets per incident
+- **With this**: 30 seconds verifying upfront
+- **ROI**: Saves 60-240x time
+- **Impact**: Eliminates most frustrating debugging sessions
+
+### Security Notes
+- All files are `chmod 600` (owner read/write only)
+- Outside git repositories (git-safe)
+- `.env.local` auto-added to `.gitignore`
+- Secret values masked in `/secret-get` output
+
+**Full documentation:** `~/.archon/.secrets/README.md`
+
+---
+
 ## Communication Principles
 
 ### CRITICAL: No Code to User

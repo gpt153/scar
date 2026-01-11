@@ -70,3 +70,6 @@ gcp/*.json
 # Playwright MCP screenshots (test artifacts)
 .playwright-mcp/
 **/*.png
+
+# Local secrets directory (managed separately)
+.archon/

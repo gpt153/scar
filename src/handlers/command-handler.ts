@@ -34,6 +34,15 @@ import {
   handleCloudRunConfigCommand,
   handleCloudRunListCommand,
 } from './gcp-commands';
+import {
+  setSecret,
+  getSecret,
+  listSecrets,
+  syncSecrets,
+  checkRequiredSecrets,
+  deleteSecret,
+  getProjectName,
+} from '../utils/secrets-manager';
 
 const execFileAsync = promisify(execFile);
 
@@ -235,6 +244,14 @@ Port Management:
   /port-check <port> - Check port status
   /port-stats [env] - Show port utilization
   /port-cleanup [--dry-run] - Clean stale allocations
+
+Secrets Management:
+  /secret-set [--global] <key> <value> - Set a secret
+  /secret-get <key> - Get secret value
+  /secret-list - List all secret keys
+  /secret-sync - Sync secrets to .env.local
+  /secret-check <key...> - Check if secrets exist
+  /secret-delete [--global] <key> - Delete a secret
 
 Session:
   /status - Show state
@@ -1799,6 +1816,252 @@ Knowledge Base (Archon):
     case 'cloudrun-list': {
       // Usage: /cloudrun-list
       return await handleCloudRunListCommand(conversation.codebase_id);
+    }
+
+    case 'secret-set': {
+      // Usage: /secret-set [--global] <key> <value>
+      if (args.length < 2) {
+        return {
+          success: false,
+          message:
+            'Usage: /secret-set [--global] <key> <value>\n\n' +
+            'Examples:\n' +
+            '  /secret-set OPENAI_API_KEY sk-proj-...\n' +
+            '  /secret-set --global GITHUB_TOKEN ghp_...',
+        };
+      }
+
+      const isGlobal = args[0] === '--global';
+      const keyIndex = isGlobal ? 1 : 0;
+      const valueIndex = isGlobal ? 2 : 1;
+
+      if (args.length < valueIndex + 1) {
+        return {
+          success: false,
+          message: 'Error: Missing value. Usage: /secret-set [--global] <key> <value>',
+        };
+      }
+
+      const key = args[keyIndex];
+      const value = args.slice(valueIndex).join(' '); // Allow spaces in value
+      const scope = isGlobal ? 'global' : 'project';
+
+      const workspacePath = resolve(conversation.cwd ?? process.env.WORKSPACE_PATH ?? '/workspace');
+      const projectName = getProjectName(workspacePath);
+
+      try {
+        await setSecret(projectName, key, value, scope);
+        return {
+          success: true,
+          message: `✅ Secret ${key} saved to ${scope} scope\n\nPath: ~/.archon/.secrets/${scope === 'global' ? 'global.env' : `projects/${projectName}.env`}`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `❌ Failed to set secret: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+    }
+
+    case 'secret-get': {
+      // Usage: /secret-get <key>
+      if (args.length < 1) {
+        return {
+          success: false,
+          message: 'Usage: /secret-get <key>\n\nExample: /secret-get OPENAI_API_KEY',
+        };
+      }
+
+      const key = args[0];
+      const workspacePath = resolve(conversation.cwd ?? process.env.WORKSPACE_PATH ?? '/workspace');
+      const projectName = getProjectName(workspacePath);
+
+      try {
+        const value = await getSecret(projectName, key);
+        if (value === null) {
+          return {
+            success: false,
+            message: `❌ Secret ${key} not found\n\nSet it with: /secret-set ${key} <value>`,
+          };
+        }
+
+        // Mask sensitive values in display (show first 8 chars)
+        const displayValue = value.length > 12 ? `${value.substring(0, 8)}...` : '***';
+
+        return {
+          success: true,
+          message: `🔑 ${key}=${displayValue}\n\nFull value available in code via getSecret()`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `❌ Failed to get secret: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+    }
+
+    case 'secret-list': {
+      // Usage: /secret-list
+      const workspacePath = resolve(conversation.cwd ?? process.env.WORKSPACE_PATH ?? '/workspace');
+      const projectName = getProjectName(workspacePath);
+
+      try {
+        const secrets = await listSecrets(projectName);
+
+        let message = '📋 Secrets List:\n\n';
+
+        if (secrets.global.length > 0) {
+          message += `**Global secrets** (${secrets.global.length}):\n`;
+          secrets.global.forEach(key => {
+            message += `  • ${key}\n`;
+          });
+          message += '\n';
+        } else {
+          message += '**Global secrets:** None\n\n';
+        }
+
+        if (secrets.project.length > 0) {
+          message += `**Project secrets** (${secrets.project.length}) [${projectName}]:\n`;
+          secrets.project.forEach(key => {
+            message += `  • ${key}\n`;
+          });
+        } else {
+          message += `**Project secrets:** None\n`;
+        }
+
+        message += '\n💡 Use /secret-get <key> to view values';
+
+        return {
+          success: true,
+          message,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `❌ Failed to list secrets: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+    }
+
+    case 'secret-sync': {
+      // Usage: /secret-sync
+      const workspacePath = resolve(conversation.cwd ?? process.env.WORKSPACE_PATH ?? '/workspace');
+      const projectName = getProjectName(workspacePath);
+
+      try {
+        await syncSecrets(projectName, workspacePath);
+        return {
+          success: true,
+          message:
+            `✅ Secrets synced to .env.local\n\n` +
+            `Path: ${workspacePath}/.env.local\n` +
+            `Project secrets override global secrets.\n\n` +
+            `💡 .env.local is automatically added to .gitignore`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `❌ Failed to sync secrets: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+    }
+
+    case 'secret-check': {
+      // Usage: /secret-check <key1> <key2> ...
+      if (args.length < 1) {
+        return {
+          success: false,
+          message:
+            'Usage: /secret-check <key1> [key2] ...\n\n' +
+            'Example: /secret-check OPENAI_API_KEY ANTHROPIC_API_KEY',
+        };
+      }
+
+      const workspacePath = resolve(conversation.cwd ?? process.env.WORKSPACE_PATH ?? '/workspace');
+      const projectName = getProjectName(workspacePath);
+
+      try {
+        const result = await checkRequiredSecrets(projectName, args);
+
+        let message = '🔍 Secret Check Results:\n\n';
+
+        if (result.found.length > 0) {
+          message += `✅ **Found** (${result.found.length}):\n`;
+          result.found.forEach(key => {
+            message += `  • ${key}\n`;
+          });
+          message += '\n';
+        }
+
+        if (result.missing.length > 0) {
+          message += `❌ **Missing** (${result.missing.length}):\n`;
+          result.missing.forEach(key => {
+            message += `  • ${key}\n`;
+          });
+          message += '\n💡 Set missing secrets with: /secret-set <key> <value>';
+        }
+
+        return {
+          success: result.missing.length === 0,
+          message,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `❌ Failed to check secrets: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+    }
+
+    case 'secret-delete': {
+      // Usage: /secret-delete [--global] <key>
+      if (args.length < 1) {
+        return {
+          success: false,
+          message:
+            'Usage: /secret-delete [--global] <key>\n\n' +
+            'Examples:\n' +
+            '  /secret-delete OLD_API_KEY\n' +
+            '  /secret-delete --global DEPRECATED_TOKEN',
+        };
+      }
+
+      const isGlobal = args[0] === '--global';
+      const keyIndex = isGlobal ? 1 : 0;
+
+      if (args.length < keyIndex + 1) {
+        return {
+          success: false,
+          message: 'Error: Missing key. Usage: /secret-delete [--global] <key>',
+        };
+      }
+
+      const key = args[keyIndex];
+      const scope = isGlobal ? 'global' : 'project';
+
+      const workspacePath = resolve(conversation.cwd ?? process.env.WORKSPACE_PATH ?? '/workspace');
+      const projectName = getProjectName(workspacePath);
+
+      try {
+        const deleted = await deleteSecret(projectName, key, scope);
+
+        if (!deleted) {
+          return {
+            success: false,
+            message: `❌ Secret ${key} not found in ${scope} scope`,
+          };
+        }
+
+        return {
+          success: true,
+          message: `✅ Deleted secret ${key} from ${scope} scope`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: `❌ Failed to delete secret: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
     }
 
     default:
