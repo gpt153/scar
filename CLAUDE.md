@@ -130,35 +130,49 @@ cat ~/.archon/.secrets/global.env 2>/dev/null
 
 **ABSOLUTE RULE: ALWAYS get user approval before restarting or rebuilding the SCAR container**
 
-**REASON**: Multiple GitHub issues may be active with SCAR working on them concurrently. Restarting the container interrupts all ongoing work.
+**SCOPE**: This rule applies ONLY to the SCAR platform container (`/home/samuel/scar/`). Services in project workspaces (localrag, consilio, etc.) can be started/stopped freely as part of normal development.
 
-**FORBIDDEN actions without approval:**
+**REASON**: Multiple GitHub issues may be active with SCAR working on them concurrently. Restarting the SCAR container interrupts all ongoing work.
+
+**FORBIDDEN actions without approval (when in `/home/samuel/scar/`):**
 ```bash
-# ❌ NEVER run these without approval:
+# ❌ NEVER run these in SCAR repo without approval:
 docker-compose restart
 docker-compose down
 docker-compose up --build
 docker-compose stop
 docker-compose kill
-docker restart <container-id>
-docker stop <container-id>
+docker restart <scar-container-id>
+docker stop <scar-container-id>
 
-# ❌ NEVER rebuild without approval:
-npm run build  # In SCAR repo (restarts required)
-docker build .
+# ❌ NEVER rebuild SCAR without approval:
+npm run build  # In /home/samuel/scar/ (restarts required)
+docker build .  # In /home/samuel/scar/
 ```
 
-**When restart/rebuild seems needed:**
-1. **STOP** - Do not execute the command
-2. **ASK USER**: "Need to restart SCAR container for [reason]. Currently [N] issues may be active. OK to proceed?"
-3. **WAIT** for explicit approval
-4. Only after "yes" → Execute restart/rebuild
+**ALLOWED without approval (project workspaces):**
+```bash
+# ✅ FREE to run in project workspaces:
+cd ~/.archon/workspaces/localrag
+docker-compose up -d          # Start project services
+docker-compose down           # Stop project services
+docker-compose restart postgres  # Restart project database
+npm run dev                   # Start project dev server
+```
 
-**Exceptions (no approval needed):**
-- ✅ Reading logs: `docker-compose logs`
-- ✅ Checking status: `docker-compose ps`
-- ✅ Entering container: `docker-compose exec app bash`
-- ✅ Running tests: `npm test` (doesn't require restart)
+**When SCAR restart/rebuild seems needed:**
+1. **CHECK**: Are we in `/home/samuel/scar/`? If NO → proceed freely (it's a project workspace)
+2. **STOP** - Do not execute the command
+3. **ASK USER**: "Need to restart SCAR platform container for [reason]. Currently [N] issues may be active. OK to proceed?"
+4. **WAIT** for explicit approval
+5. Only after "yes" → Execute restart/rebuild
+
+**Always safe (no approval needed):**
+- ✅ Reading SCAR logs: `docker-compose logs`
+- ✅ Checking SCAR status: `docker-compose ps`
+- ✅ Entering SCAR container: `docker-compose exec app bash`
+- ✅ Running SCAR tests: `npm test` (doesn't require restart)
+- ✅ **ANY Docker operation in project workspaces** (`~/.archon/workspaces/*`)
 
 **This rule prevents:**
 - Interrupting SCAR's work on multiple issues
