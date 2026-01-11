@@ -130,13 +130,20 @@ cat ~/.archon/.secrets/global.env 2>/dev/null
 
 **ABSOLUTE RULE: ALWAYS get user approval before restarting or rebuilding the SCAR container**
 
-**SCOPE**: This rule applies ONLY to the SCAR platform container (`/home/samuel/scar/`). Services in project workspaces (localrag, consilio, etc.) can be started/stopped freely as part of normal development.
+**SCOPE**: This rule applies ONLY to the SCAR platform container in these locations:
+- `/home/samuel/scar/` (main SCAR repository)
+- `/home/samuel/.archon/workspaces/scar/` (SCAR workspace)
+
+Services in OTHER project workspaces (localrag, consilio, health-agent, etc.) can be started/stopped freely as part of normal development.
 
 **REASON**: Multiple GitHub issues may be active with SCAR working on them concurrently. Restarting the SCAR container interrupts all ongoing work.
 
-**FORBIDDEN actions without approval (when in `/home/samuel/scar/`):**
+**FORBIDDEN actions without approval (when in SCAR locations):**
 ```bash
-# ❌ NEVER run these in SCAR repo without approval:
+# ❌ NEVER run these in SCAR repos without approval:
+cd /home/samuel/scar  # OR
+cd ~/.archon/workspaces/scar
+
 docker-compose restart
 docker-compose down
 docker-compose up --build
@@ -146,8 +153,8 @@ docker restart <scar-container-id>
 docker stop <scar-container-id>
 
 # ❌ NEVER rebuild SCAR without approval:
-npm run build  # In /home/samuel/scar/ (restarts required)
-docker build .  # In /home/samuel/scar/
+npm run build  # Restarts required
+docker build .
 ```
 
 **ALLOWED without approval (project workspaces):**
@@ -161,7 +168,9 @@ npm run dev                   # Start project dev server
 ```
 
 **When SCAR restart/rebuild seems needed:**
-1. **CHECK**: Are we in `/home/samuel/scar/`? If NO → proceed freely (it's a project workspace)
+1. **CHECK**: Are we in `/home/samuel/scar/` OR `~/.archon/workspaces/scar/`?
+   - If NO → proceed freely (it's a different project workspace)
+   - If YES → continue to step 2
 2. **STOP** - Do not execute the command
 3. **ASK USER**: "Need to restart SCAR platform container for [reason]. Currently [N] issues may be active. OK to proceed?"
 4. **WAIT** for explicit approval
