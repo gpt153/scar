@@ -1,54 +1,55 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright Configuration for E2E Testing
+ * Playwright configuration for E2E tests
  *
- * This config enables browser-based testing to validate UI/UX functionality.
- *
- * Usage:
- *   npm run test:e2e              - Run all tests
- *   npm run test:e2e -- --ui      - Run with UI mode
- *   npm run test:e2e -- --debug   - Run in debug mode
+ * CUSTOMIZE THIS FILE:
+ * - Update baseURL to match your application URL
+ * - Add more browser projects if needed (Firefox, Safari, Mobile)
+ * - Adjust timeouts for your specific needs
  */
-export default defineConfig({
-  // Test directory
-  testDir: './e2e',
 
-  // Run tests in parallel
+export default defineConfig({
+  // Directory containing test files
+  testDir: './tests',
+
+  // Run tests in files in parallel
   fullyParallel: true,
 
-  // Fail build on CI if you accidentally left test.only
+  // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
 
-  // Retry failed tests on CI
+  // Retry on CI only
   retries: process.env.CI ? 2 : 0,
 
-  // Limit parallel workers on CI
+  // Limit workers on CI for stability
   workers: process.env.CI ? 1 : undefined,
 
-  // Reporter: HTML report for local, GitHub Actions reporter for CI
-  reporter: process.env.CI ? 'github' : 'html',
+  // Reporter to use
+  reporter: 'html',
 
-  // Shared settings for all tests
+  // Shared settings for all the projects below
   use: {
-    // Base URL for page.goto('/')
-    baseURL: 'http://localhost:3000',
+    // IMPORTANT: Update this to your application URL
+    // For local development: 'http://localhost:3000'
+    // For production testing: 'https://yourapp.com'
+    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
 
-    // Collect trace on first retry
+    // Collect trace when retrying the failed test
     trace: 'on-first-retry',
 
     // Screenshot on failure
     screenshot: 'only-on-failure',
   },
 
-  // Browser projects to test against
+  // Configure projects for major browsers
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
 
-    // Add more browsers as needed:
+    // Uncomment to test on more browsers
     // {
     //   name: 'firefox',
     //   use: { ...devices['Desktop Firefox'] },
@@ -57,14 +58,23 @@ export default defineConfig({
     //   name: 'webkit',
     //   use: { ...devices['Desktop Safari'] },
     // },
+
+    // Test against mobile viewports
+    // {
+    //   name: 'Mobile Chrome',
+    //   use: { ...devices['Pixel 5'] },
+    // },
+    // {
+    //   name: 'Mobile Safari',
+    //   use: { ...devices['iPhone 12'] },
+    // },
   ],
 
-  // Development server configuration
-  // Playwright will automatically start this before running tests
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000, // 2 minutes
-  },
+  // Run your local dev server before starting the tests
+  // Uncomment if you want tests to automatically start the dev server
+  // webServer: {
+  //   command: 'npm run dev',
+  //   url: 'http://localhost:3000',
+  //   reuseExistingServer: !process.env.CI,
+  // },
 });

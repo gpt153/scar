@@ -531,6 +531,67 @@ GET http://localhost:3000/test/messages/test-123
 DELETE http://localhost:3000/test/messages/test-123
 ```
 
+### E2E Testing with Playwright
+
+**CRITICAL Pattern for All Projects**
+
+Playwright E2E tests systematically fail on Alpine Linux. We use a **dual Dockerfile** approach:
+
+**Problem:**
+- Production: `node:20-alpine` (~50MB, no glibc)
+- Playwright: Requires glibc + 20+ system libraries
+- Alpine uses musl libc → Chromium fails
+
+**Solution:**
+```
+Dockerfile         → Production (Alpine, ~50MB)
+Dockerfile.test    → Testing (Debian, ~200MB, Playwright deps)
+```
+
+**Setup (Automatic):**
+```bash
+# From SCAR repo
+./scripts/setup-playwright-testing.sh /path/to/project
+
+# Or from target project
+/home/samuel/scar/scripts/setup-playwright-testing.sh .
+```
+
+**What Gets Created:**
+- `Dockerfile.test` - Debian-based with all Playwright deps
+- `docker-compose.test.yml` - Test orchestration
+- `playwright.config.ts` - Configuration
+- `.github/workflows/playwright.yml` - CI/CD
+- `TESTING.md` - Documentation
+- `tests/` - Test directory
+
+**Running Tests:**
+```bash
+npm run test:e2e:docker  # Recommended (no local deps)
+npm run test:e2e         # Requires local Playwright
+npm run test:e2e:ui      # Interactive mode
+```
+
+**Key Rules:**
+- ✅ Use Docker for tests (test:e2e:docker)
+- ✅ Keep production Dockerfile Alpine
+- ✅ Never add Playwright deps to production
+- ✅ Customize baseURL in playwright.config.ts
+- ❌ Don't run tests without Docker on Alpine systems
+
+**For Monorepos:**
+Apply to frontend directory:
+```bash
+cd frontend && /home/samuel/scar/scripts/setup-playwright-testing.sh .
+```
+
+**Documentation:**
+- Template: `.template/playwright-setup/`
+- Full guide: `docs/playwright-integration.md`
+- Per-project: `TESTING.md`
+
+**This pattern is mandatory for all projects requiring E2E tests.**
+
 ### Logging
 
 **Use `console.log` with structured data:**
