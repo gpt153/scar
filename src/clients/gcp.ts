@@ -133,7 +133,7 @@ export async function buildAndPushImage(
     execSync(buildCommand, {
       cwd: workspacePath,
       stdio: 'pipe',
-      timeout: parseInt(process.env.CLOUDRUN_BUILD_TIMEOUT || '600000'), // 10 min default
+      timeout: parseInt(process.env.CLOUDRUN_BUILD_TIMEOUT || '1200000'), // 20 min default
     });
 
     console.log('[GCP Client] Image built successfully');
@@ -142,7 +142,7 @@ export async function buildAndPushImage(
     console.log('[GCP Client] Pushing image to registry...');
     execSync(`docker push ${imageUrl}`, {
       stdio: 'pipe',
-      timeout: 600000, // 10 minutes
+      timeout: 1200000, // 20 minutes
     });
 
     console.log('[GCP Client] Image pushed successfully');
@@ -206,7 +206,7 @@ export async function deployToCloudRun(
     const output = execSync(deployCommand, {
       encoding: 'utf-8',
       stdio: 'pipe',
-      timeout: 600000, // 10 minutes
+      timeout: 1200000, // 20 minutes
     });
 
     // Parse deployment result
