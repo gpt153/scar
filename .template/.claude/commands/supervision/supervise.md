@@ -201,12 +201,176 @@ Track in state:
 
 When issue completes:
 1. Verify with `/verify-scar-phase`
-2. Move to completed_issues
-3. Check if dependent issues can now start
-4. Spawn new monitors for unblocked issues
-5. Update meta-plan
+2. **Check for UI deployment** (see 3.3)
+3. Move to completed_issues
+4. Check if dependent issues can now start
+5. Spawn new monitors for unblocked issues
+6. Update meta-plan
 
-### 3.3 Handle Blockers
+### 3.3 Automatic UI Testing After Deployment
+
+**CRITICAL**: After deploying ANY UI (frontend, web app, dashboard), automatically trigger comprehensive testing.
+
+**Detection Triggers:**
+You deployed a UI if ANY of these apply:
+- Started/deployed a React, Next.js, Vue, Angular, or similar frontend app
+- Deployed a web interface to localhost, Docker, or production
+- Started a service on ports 3000-3999, 8000-8999 (common web ports)
+- SCAR completed a frontend implementation issue
+- Issue labels include: `frontend`, `ui`, `web`, `dashboard`
+- Issue mentions: "deploy", "start server", "npm run dev", "docker-compose up"
+
+**Automatic Testing Protocol:**
+
+When UI deployment detected:
+
+```bash
+# 1. Extract deployment details from your actions or SCAR's responses
+PROJECT_NAME=$(basename $PWD)  # e.g., "consilio"
+URL="<the URL you deployed to>"  # e.g., "http://localhost:3002"
+DEPLOY_TYPE="<docker|native|production>"  # How it was deployed
+
+# 2. Immediately spawn UI testing supervisor
+# DO NOT wait, DO NOT ask user - this is automatic
+```
+
+**Spawn UI Test Supervisor:**
+```markdown
+Spawning UI testing for deployed frontend:
+- Project: {project}
+- URL: {url}
+- Type: {deployment_type}
+
+Starting: /command-invoke ui-test-supervise {project} {url} {type}
+
+UI testing will run automatically. I'll report when complete.
+```
+
+**Wait for UI Testing Completion:**
+- UI Test Supervisor runs autonomously
+- Polls `.agents/ui-testing/test-state.json` for completion
+- Check every 5 minutes
+- Max wait: 3 hours (typical UI testing takes 2-3h)
+
+**Integration with Issue Tracking:**
+
+```json
+{
+  "monitors": {
+    "42": {
+      "status": "ui_testing",
+      "ui_testing": {
+        "started": "2026-01-11T18:00:00Z",
+        "url": "http://localhost:3002",
+        "type": "docker",
+        "session": "session-1736621400",
+        "status": "in_progress"
+      }
+    }
+  }
+}
+```
+
+**UI Testing Completion Handling:**
+
+```bash
+# Poll UI testing state
+UI_TEST_STATE=".agents/ui-testing/test-state.json"
+
+# When complete, read results
+if [ -f "$UI_TEST_STATE" ]; then
+  REGRESSION_STATUS=$(jq -r '.regression_test.status' $UI_TEST_STATE)
+
+  if [ "$REGRESSION_STATUS" = "passed" ]; then
+    echo "✅ UI Testing Complete - All tests passed"
+    # NOW mark issue as complete
+    # Move to completed_issues
+    # Continue supervision
+  else
+    echo "❌ UI Testing Found Bugs"
+    BUGS=$(jq -r '.regression_test.new_bugs[]' $UI_TEST_STATE)
+    echo "New issues created: $BUGS"
+    # Add bugs to supervision tracking
+    # Fix-Retest Monitors will handle them automatically
+    # Wait for all bugs to be fixed and retested
+    # Then mark original issue complete
+  fi
+fi
+```
+
+**Do NOT Mark UI Issues Complete Until:**
+- ✅ Implementation verified
+- ✅ UI deployed successfully
+- ✅ **UI testing complete with all tests passing**
+- ✅ No regressions detected
+
+**Common UI Deployment Scenarios:**
+
+1. **Docker Deployment:**
+   ```
+   URL: http://localhost:3002
+   Type: docker
+   Detection: docker-compose up, container started
+   ```
+
+2. **Native Deployment:**
+   ```
+   URL: http://localhost:3000
+   Type: native
+   Detection: npm run dev, npm start
+   ```
+
+3. **Production Deployment:**
+   ```
+   URL: https://app.example.com
+   Type: production
+   Detection: Cloud Run deploy, vercel deploy, netlify deploy
+   ```
+
+**State Updates:**
+
+Update project-state.json to track UI testing:
+```json
+{
+  "phase": "ui_testing",
+  "ui_deployments": {
+    "issue_42": {
+      "url": "http://localhost:3002",
+      "type": "docker",
+      "testing_session": "session-1736621400",
+      "status": "testing",
+      "started": "2026-01-11T18:00:00Z"
+    }
+  }
+}
+```
+
+**Progress Reporting:**
+
+Include UI testing in status updates:
+```markdown
+**Active Work**:
+- Issue #42: Frontend Implementation - ✅ Complete
+  - UI Testing: In Progress (15/20 features tested)
+  - Found 2 bugs (being fixed automatically)
+```
+
+**Why This Matters:**
+
+Without automatic UI testing:
+- ❌ Manual testing required (hours of user time)
+- ❌ Bugs discovered later in production
+- ❌ No systematic feature coverage
+- ❌ Regressions go undetected
+
+With automatic UI testing:
+- ✅ Every feature tested systematically
+- ✅ Bugs caught and fixed before completion
+- ✅ Regression detection automatic
+- ✅ Zero user intervention needed
+- ✅ Confidence in UI quality
+
+### 3.4 Handle Blockers
 
 When issue gets blocked:
 - Pause monitoring
@@ -216,7 +380,7 @@ When issue gets blocked:
   - SCAR error? → Retry with different approach
   - Unclear requirement? → Ask user for clarification
 
-### 3.4 Manage Dependencies
+### 3.5 Manage Dependencies
 
 **Dependency graph tracking**:
 ```markdown
