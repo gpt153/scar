@@ -18,5 +18,6 @@ module.exports = {
   transformIgnorePatterns: ['node_modules/(?!(@octokit|@anthropic-ai)/)'],
   moduleNameMapper: {
     '^@octokit/rest$': '<rootDir>/src/test/__mocks__/@octokit/rest.ts',
+    '^@anthropic-ai/claude-agent-sdk$': '<rootDir>/src/test/__mocks__/@anthropic-ai/claude-agent-sdk.ts',
   },
 };
