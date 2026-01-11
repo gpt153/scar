@@ -366,6 +366,78 @@ Result: Zero downtime, continuous supervision
 
 ---
 
+### Workflow 6: Autonomous UI Testing
+
+**Scenario:** Frontend implementation complete, needs comprehensive UI testing
+
+```
+You: /command-invoke ui-test-supervise consilio http://localhost:3002 docker
+
+UI Test Supervisor:
+1. Reads implementation plan (.agents/plans/*.md)
+2. Identifies all UI features to test (e.g., login, dashboard, chat, payments)
+3. Creates test session: .agents/ui-testing/session-{timestamp}/
+4. Initializes state tracking: test-state.json
+5. Spawns Test Suite Runners (max 3 concurrent):
+   - Runner 1: Tests "User Authentication" feature
+   - Runner 2: Tests "Coach Chat" feature
+   - Runner 3: Tests "Payment Processing" feature
+
+Test Suite Runners (parallel execution):
+6. Each runner:
+   - Reads feature requirements from plan
+   - Generates Playwright test code
+   - Runs tests: npm run test:e2e:docker
+   - Reports results to supervisor
+
+7. Runner 1: ✅ All tests pass
+8. Runner 2: ❌ 2 tests fail (chat message not displaying)
+9. Runner 3: ✅ All tests pass
+
+UI Test Supervisor:
+10. Receives results:
+    - 2 features passed
+    - 1 feature failed (coach-chat)
+11. Creates GitHub issue #156 for chat failure
+12. Spawns Fix-Retest Monitor for issue #156
+
+Fix-Retest Monitor:
+13. Posts: @scar /command-invoke rca 156
+14. Waits for SCAR to complete RCA (polls every 2min, max 60min)
+15. SCAR posts RCA document
+16. Posts: @scar /command-invoke fix-rca 156
+17. Monitors fix implementation (polls every 2min, max 2h)
+18. SCAR creates PR #157
+19. Runs: /verify-scar-phase consilio 156 1
+20. Result: APPROVED ✅
+21. Retests coach-chat feature in worktree
+22. Retest result: ✅ All tests now pass
+23. Unlocks coach-chat feature, reports success, exits
+
+UI Test Supervisor:
+24. All 3 features now passing
+25. Spawns Regression Test Runner
+26. Regression Runner:
+    - Runs complete test suite (all features)
+    - Verifies no regressions introduced by fixes
+    - All 35 tests pass ✅
+27. Creates final report:
+    - Total features tested: 3
+    - Bugs found and fixed: 1
+    - Final status: ALL TESTS PASSING ✅
+28. Updates you:
+    "✅ UI testing complete
+     3 features tested, 1 bug fixed, regression clean
+     See: .agents/ui-testing/session-{timestamp}/final-report.md"
+
+Total time: 2-3h (fully autonomous)
+Total context usage: ~60-80k tokens across all subagents (supervisor: ~10-15k)
+```
+
+**See full documentation:** `docs/ui-testing-system.md`
+
+---
+
 ## Port Conflict Prevention
 
 ### Problem
