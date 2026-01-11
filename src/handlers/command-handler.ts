@@ -885,10 +885,10 @@ Knowledge Base (Archon):
         // Get statistics about loaded messages
         const projects = Array.from(new Set(history.map(m => m.codebase_name).filter(Boolean)));
         const platforms = Array.from(new Set(history.map(m => m.platform_type)));
-        const bySender = history.reduce((acc, msg) => {
+        const bySender = history.reduce<Record<string, number>>((acc, msg) => {
           acc[msg.sender] = (acc[msg.sender] || 0) + 1;
           return acc;
-        }, {} as Record<string, number>);
+        }, {});
 
         // Format history as context string
         const contextPrompt = messagesDb.formatMessagesAsContext(history);
@@ -920,14 +920,14 @@ Knowledge Base (Archon):
         }
 
         msg += `📱 Platforms: ${platforms.join(', ')}\n`;
-        msg += `\n📊 Breakdown:\n`;
+        msg += '\n📊 Breakdown:\n';
         msg += `  - ${bySender.user || 0} user messages\n`;
         msg += `  - ${bySender.assistant || 0} assistant responses\n`;
         if (bySender.system) {
           msg += `  - ${bySender.system} system messages\n`;
         }
 
-        msg += `\nContext is now active. Your next message will include this history!`;
+        msg += '\nContext is now active. Your next message will include this history!';
 
         return {
           success: true,
@@ -1547,10 +1547,11 @@ Knowledge Base (Archon):
             `Environment: ${allocation.environment}\n\n` +
             `Use: PORT=${allocation.port} npm run dev`,
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          message: `❌ Failed to allocate port: ${err.message}`,
+          message: `❌ Failed to allocate port: ${message}`,
         };
       }
     }
@@ -1599,10 +1600,11 @@ Knowledge Base (Archon):
         }
 
         return { success: true, message: msg };
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          message: `❌ Failed to list ports: ${err.message}`,
+          message: `❌ Failed to list ports: ${message}`,
         };
       }
     }
@@ -1637,10 +1639,11 @@ Knowledge Base (Archon):
           success: true,
           message: `✅ Port ${port} released successfully`,
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          message: `❌ Failed to release port: ${err.message}`,
+          message: `❌ Failed to release port: ${message}`,
         };
       }
     }
@@ -1688,10 +1691,11 @@ Knowledge Base (Archon):
         }
 
         return { success: true, message: msg };
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          message: `❌ Failed to check port: ${err.message}`,
+          message: `❌ Failed to check port: ${message}`,
         };
       }
     }
@@ -1716,10 +1720,11 @@ Knowledge Base (Archon):
           success: true,
           message: `✅ Cleaned up ${cleaned} stale port allocation(s)`,
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          message: `❌ Failed to cleanup ports: ${err.message}`,
+          message: `❌ Failed to cleanup ports: ${message}`,
         };
       }
     }
@@ -1749,10 +1754,11 @@ Knowledge Base (Archon):
         }
 
         return { success: true, message: msg };
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         return {
           success: false,
-          message: `❌ Failed to get stats: ${err.message}`,
+          message: `❌ Failed to get stats: ${message}`,
         };
       }
     }
@@ -1926,7 +1932,7 @@ Knowledge Base (Archon):
             message += `  • ${key}\n`;
           });
         } else {
-          message += `**Project secrets:** None\n`;
+          message += '**Project secrets:** None\n';
         }
 
         message += '\n💡 Use /secret-get <key> to view values';
@@ -1953,10 +1959,10 @@ Knowledge Base (Archon):
         return {
           success: true,
           message:
-            `✅ Secrets synced to .env.local\n\n` +
+            '✅ Secrets synced to .env.local\n\n' +
             `Path: ${workspacePath}/.env.local\n` +
-            `Project secrets override global secrets.\n\n` +
-            `💡 .env.local is automatically added to .gitignore`,
+            'Project secrets override global secrets.\n\n' +
+            '💡 .env.local is automatically added to .gitignore',
         };
       } catch (error) {
         return {

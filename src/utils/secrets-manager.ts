@@ -88,7 +88,7 @@ function parseEnvFile(content: string): Record<string, string> {
 
       const equalIndex = line.indexOf('=');
       currentKey = line.substring(0, equalIndex).trim();
-      let value = line.substring(equalIndex + 1);
+      const value = line.substring(equalIndex + 1);
 
       // Check if value starts with quote (multiline)
       if (value.trim().startsWith('"') && !value.trim().endsWith('"')) {
@@ -351,8 +351,9 @@ export async function deleteSecret(
     return false; // Secret doesn't exist
   }
 
-  delete secrets[key];
-  await writeSecretsFile(filePath, secrets);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { [key]: removedSecret, ...remainingSecrets } = secrets;
+  await writeSecretsFile(filePath, remainingSecrets);
 
   return true;
 }

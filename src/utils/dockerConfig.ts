@@ -172,7 +172,8 @@ export function removeContainerFromConfig(
   config: DockerConfig,
   containerName: string
 ): DockerConfig {
-  const { [containerName]: removed, ...remainingContainers } = config.containers;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { [containerName]: removedContainer, ...remainingContainers } = config.containers;
   return {
     ...config,
     containers: remainingContainers,
@@ -230,7 +231,7 @@ export function isDeployOnMergeEnabled(config: DockerConfig | null | undefined):
  * Converts DockerConfig to JSONB-compatible object
  */
 export function serializeDockerConfig(config: DockerConfig): Record<string, unknown> {
-  return JSON.parse(JSON.stringify(config));
+  return JSON.parse(JSON.stringify(config)) as Record<string, unknown>;
 }
 
 /**

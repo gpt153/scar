@@ -277,7 +277,7 @@ Execute NOW. No planning, no asking - just do it.`;
             console.error('[Orchestrator] Archon follow-up error:', error);
             await platform.sendMessage(
               conversationId,
-              `⚠️ Archon project creation encountered an issue. You can create it manually using:\n\n` +
+              '⚠️ Archon project creation encountered an issue. You can create it manually using:\n\n' +
                 `/command-invoke create-archon-project "${projectName}" "${githubUrl}"`
             );
           }
@@ -499,7 +499,7 @@ Execute NOW. No planning, no asking - just do it.`;
 
       if (sessionMcpConfig && sessionMcpConfig !== currentMcpConfig) {
         console.warn('[Orchestrator] MCP config mismatch detected - creating new session');
-        console.log(`[Orchestrator] Old config: ${sessionMcpConfig}`);
+        console.log(`[Orchestrator] Old config: ${JSON.stringify(sessionMcpConfig)}`);
         console.log(`[Orchestrator] New config: ${currentMcpConfig}`);
 
         // Deactivate old session to prevent crashes
@@ -598,10 +598,12 @@ Execute NOW. No planning, no asking - just do it.`;
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         const minutes = Math.floor(elapsed / 60);
         const seconds = elapsed % 60;
-        platform.sendMessage(
+        void platform.sendMessage(
           conversationId,
           `⏱️ Still working... (${minutes}m ${seconds}s, ${toolCallCount} tool calls)`
-        ).catch(err => console.error('[Orchestrator] Heartbeat failed:', err));
+        ).catch(err => {
+          console.error('[Orchestrator] Heartbeat failed:', err);
+        });
       }, HEARTBEAT_INTERVAL_MS);
 
       try {
