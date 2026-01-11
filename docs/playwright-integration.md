@@ -1,264 +1,468 @@
-# Playwright Integration for UI/UX Testing
+# Playwright E2E Testing Integration Guide
 
-## Overview
+This document explains the systematic solution for Playwright E2E testing across all SCAR-managed projects.
 
-SCAR can use Playwright for browser automation to test website features and UI functionality when operating via GitHub webhooks. This is powered by the Playwright MCP (Model Context Protocol) server.
+## Table of Contents
+1. [Problem Statement](#problem-statement)
+2. [Root Cause](#root-cause)
+3. [Solution Architecture](#solution-architecture)
+4. [Using the Template](#using-the-template)
+5. [Customization Guide](#customization-guide)
+6. [Troubleshooting](#troubleshooting)
+7. [Projects Status](#projects-status)
 
-## How It Works
+## Problem Statement
 
-### Architecture
+### The Issue
+Playwright E2E tests systematically fail when supervisor creates them across multiple projects. The error pattern is consistent:
 
 ```
-GitHub Issue/PR Comment (@scar test the login page)
-         ↓
-GitHub Webhook → SCAR → Orchestrator
-         ↓
-Claude Agent SDK (with Playwright MCP enabled)
-         ↓
-Playwright MCP Server (npx @playwright/mcp)
-         ↓
-Chromium Browser (installed in Docker container)
-         ↓
-Test Results → Posted back to GitHub issue/PR
+Error: dlopen: cannot open shared object file: libnspr4.so: No such file or directory
 ```
 
-### Key Components
+### Why It Happens Everywhere
+1. Production Docker images use `node:20-alpine` (minimal, ~50MB)
+2. Alpine Linux uses `musl libc` instead of `glibc`
+3. Playwright's Chromium requires 10+ Debian/Ubuntu system libraries
+4. Tests fail with "cannot open shared object file" errors
+5. Each project hits this independently
 
-1. **System Dependencies** (Dockerfile lines 19-37)
-   - `libnspr4` - Core Netscape Portable Runtime library (fixes "libnspr4.so not found")
-   - `libnss3` - Network Security Services library
-   - Additional Chromium dependencies (libatk, libcups2, libgbm1, etc.)
+**Evidence:**
+- ✅ openhorizon.cc#13 - Fixed with Dockerfile.test approach
+- ❌ consilio#67 - E2E tests needed, would fail without fix
+- ❌ Any future project with Alpine + Playwright
 
-2. **Playwright Browsers** (Dockerfile line 97)
-   - Chromium installed in `/home/appuser/.cache/ms-playwright/`
-   - Installed as `appuser` (non-root) for security and proper permissions
-   - Headless browser automation ready for use
+## Root Cause
 
-3. **Playwright MCP Server** (src/clients/claude.ts:87-94)
-   - Automatically spawned when `ENABLE_PLAYWRIGHT_MCP=true`
-   - Uses `npx -y @playwright/mcp` (auto-installs on first use)
-   - Provides browser automation tools to Claude Code instances
+### Technical Details
 
-## Configuration
+**Production Environment (Alpine):**
+- Base image: `node:20-alpine`
+- Size: ~50MB
+- Libc: musl (not glibc)
+- Missing: libnspr4, libnss3, libatk-1.0, libatspi, libgbm1, etc.
 
-### Environment Variables
+**Playwright Requirements (Chromium):**
+- Requires: glibc (not musl)
+- Requires: 20+ system libraries
+- Requires: Full Debian/Ubuntu environment
+- Cannot run on Alpine without significant hacks
 
-```env
-# Enable Playwright MCP (default: true)
-ENABLE_PLAYWRIGHT_MCP=true
+**The Conflict:**
+```
+Production Dockerfile: node:20-alpine (no glibc)
+     ↓
+Playwright tests fail
+     ↓
+Cannot add deps to production (bloat)
+     ↓
+Need separate test environment
 ```
 
-**Note**: Playwright MCP is **enabled by default** in `.env.example`.
+## Solution Architecture
 
-### Capabilities Provided to Claude
+### Dual Docker Image Strategy
 
-When Playwright MCP is enabled, SCAR's Claude Code instances have access to:
+We maintain **two separate Docker images** per project:
 
-- `mcp__playwright__browser_navigate` - Navigate to URLs
-- `mcp__playwright__browser_click` - Click elements
-- `mcp__playwright__browser_type` - Type text into inputs
-- `mcp__playwright__browser_snapshot` - Capture accessibility snapshots
-- `mcp__playwright__browser_take_screenshot` - Take screenshots
-- `mcp__playwright__browser_evaluate` - Execute JavaScript
-- `mcp__playwright__browser_wait_for` - Wait for elements/events
-- And many more... (full list in MCP server documentation)
+1. **Production** (`Dockerfile`) - Alpine-based
+   - Base: `node:20-alpine`
+   - Size: ~50MB
+   - Purpose: Deployment
+   - Libraries: Minimal (no Playwright)
 
-## Usage Examples
+2. **Testing** (`Dockerfile.test`) - Debian-based
+   - Base: `node:20-slim`
+   - Size: ~200MB
+   - Purpose: E2E testing only
+   - Libraries: Full Playwright dependencies
 
-### Example 1: Test Login Flow (GitHub Issue)
+### Key Principle
+**Never mix production and testing concerns.**
+- Production stays lean (Alpine)
+- Testing gets what it needs (Debian)
+- Separation via different Dockerfiles
 
-**User comment on issue**:
-```
-@scar test the login flow on https://app.openhorizon.cc
+## Using the Template
 
-Check:
-1. Login form displays correctly
-2. Email and password fields are present
-3. Submit button is clickable
-4. Error message shows for invalid credentials
-```
+### Quick Start
 
-**SCAR's workflow**:
-1. Receives webhook from GitHub
-2. Spawns Claude Code instance with Playwright MCP
-3. Claude uses Playwright tools:
-   - Navigate to URL
-   - Take snapshot of page structure
-   - Find email/password inputs
-   - Click submit button
-   - Verify error handling
-4. Posts test results as GitHub comment
+From any Node.js project:
 
-### Example 2: Visual Regression Testing
-
-**User comment**:
-```
-@scar compare the homepage before and after the redesign
-
-Old URL: https://app.openhorizon.cc?version=old
-New URL: https://app.openhorizon.cc
-
-Take screenshots and report differences.
-```
-
-**SCAR's workflow**:
-1. Take screenshot of old version
-2. Take screenshot of new version
-3. Compare visually
-4. Report findings with screenshot links
-
-### Example 3: Feature Verification
-
-**User comment**:
-```
-@scar verify that the working/formal toggle works on /seeds page
-
-Expected behavior:
-- Toggle should be visible in header
-- Clicking toggle should change content
-- Mode should persist across page refreshes
-```
-
-**SCAR's workflow**:
-1. Navigate to /seeds page
-2. Find toggle button using accessibility snapshot
-3. Click toggle
-4. Verify content changes
-5. Reload page and verify persistence
-6. Report results
-
-## Docker Build Considerations
-
-### Critical Fixes Implemented
-
-**Problem 1: Missing System Dependencies**
-- **Before**: Playwright failed with "libnspr4.so not found"
-- **After**: All Chromium dependencies installed as system packages (lines 19-37)
-
-**Problem 2: Permission Issues**
-- **Before**: Browsers installed as root, inaccessible to appuser
-- **After**: Browsers installed as appuser after `USER appuser` (line 97)
-
-### Build Process
-
-```dockerfile
-# 1. Install system deps as root (lines 10-38)
-RUN apt-get install -y libnspr4 libnss3 ...
-
-# 2. Switch to non-root user (line 91)
-USER appuser
-
-# 3. Install browsers as appuser (line 97)
-RUN npx -y playwright install chromium
-```
-
-## Testing the Integration
-
-### Local Testing
-
-**Build the Docker image**:
 ```bash
-docker compose --profile with-db build
+# Run the propagation script
+/home/samuel/scar/scripts/setup-playwright-testing.sh .
+
+# Or from SCAR repo
+./scripts/setup-playwright-testing.sh /path/to/project
 ```
 
-**Start SCAR**:
-```bash
-docker compose --profile with-db up -d
+### What Gets Installed
+
+The script creates:
+
+```
+project/
+├── Dockerfile.test              # Debian-based test image
+├── docker-compose.test.yml      # Test orchestration
+├── playwright.config.ts         # Test configuration
+├── .github/
+│   └── workflows/
+│       └── playwright.yml       # CI/CD automation
+├── TESTING.md                   # Documentation
+├── tests/                       # Test directory
+│   └── example.spec.ts         # Example test (if empty)
+└── package.json                 # Updated with scripts
 ```
 
-**Test via GitHub webhook**:
-1. Create a test issue in your repository
-2. Comment: `@scar navigate to https://example.com and take a screenshot`
-3. SCAR should respond with accessibility snapshot and/or screenshot results
+### Automated Setup
 
-### Verification Steps
+The script automatically:
+- ✅ Validates project structure
+- ✅ Backs up existing files
+- ✅ Copies all templates
+- ✅ Merges package.json scripts
+- ✅ Updates .gitignore
+- ✅ Creates tests/ directory
+- ✅ Detects and suggests baseURL
 
-**Check Playwright is available**:
-```bash
-# Inside running container
-docker compose exec app-with-db bash
-npx playwright --version
-# Should output: Version 1.x.x
+### Manual Verification Checklist
+
+After running the script:
+
+- [ ] Check `playwright.config.ts` - Update `baseURL` to match your app
+- [ ] Check `package.json` - Verify scripts don't conflict
+- [ ] Check `.gitignore` - Ensure test artifacts are ignored
+- [ ] Run `npm install` - Install Playwright dependency
+- [ ] Run `npm run test:e2e:docker` - Verify setup works
+
+## Customization Guide
+
+### Common Customizations
+
+#### 1. Base URL Configuration
+
+**Default:**
+```typescript
+baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000'
 ```
 
-**Check browsers are installed**:
-```bash
-ls -la /home/appuser/.cache/ms-playwright/chromium-*/
-# Should show chromium browser files
+**For Vite projects (port 5173):**
+```typescript
+baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:5173'
 ```
 
-**Check MCP server loads**:
+**For production testing:**
 ```bash
-# Check application logs when it starts
-docker compose logs app-with-db | grep "Playwright MCP"
-# Should show: [Claude] Playwright MCP enabled
+PLAYWRIGHT_TEST_BASE_URL=https://app.example.com npm run test:e2e
+```
+
+#### 2. Script Naming (Avoid Conflicts)
+
+**If project already has `test` script:**
+
+Don't overwrite existing test scripts. Use E2E-specific names:
+
+```json
+{
+  "scripts": {
+    "test": "vitest",              // Existing unit tests
+    "test:ui": "vitest --ui",      // Existing UI
+    "test:e2e": "playwright test",  // NEW: E2E tests
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:docker": "docker-compose -f docker-compose.test.yml up --build"
+  }
+}
+```
+
+#### 3. Monorepo Projects
+
+**For projects with separate frontend/backend:**
+
+Apply to the frontend directory:
+
+```bash
+cd project/frontend
+/home/samuel/scar/scripts/setup-playwright-testing.sh .
+```
+
+**Adjust docker-compose.test.yml if backend is needed:**
+
+```yaml
+services:
+  playwright-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      - backend
+    environment:
+      - API_URL=http://backend:3000
+
+  backend:
+    build: ../backend
+    ports:
+      - "3000:3000"
+```
+
+#### 4. Additional Services (Database, Redis, etc.)
+
+**Add services to docker-compose.test.yml:**
+
+```yaml
+services:
+  playwright-tests:
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - DATABASE_URL=postgres://user:pass@postgres:5432/test
+      - REDIS_URL=redis://redis:6379
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_PASSWORD=test
+      - POSTGRES_DB=test
+
+  redis:
+    image: redis:7-alpine
 ```
 
 ## Troubleshooting
 
-### Issue: "libnspr4.so not found"
+### Tests Still Fail After Setup
 
-**Cause**: System dependencies not installed
-**Fix**: Rebuild Docker image (system deps added to Dockerfile)
+**Check you're using Docker:**
+```bash
+# ✅ Correct (uses Dockerfile.test)
+npm run test:e2e:docker
 
-### Issue: "Executable doesn't exist at /root/.cache/ms-playwright/"
+# ❌ Wrong (requires local Playwright)
+npm run test:e2e
+```
 
-**Cause**: Browsers installed as root, but app runs as appuser
-**Fix**: Rebuild Docker image (browsers now install as appuser)
+**Verify Docker is running:**
+```bash
+docker --version
+docker ps
+```
 
-### Issue: Playwright MCP not available to Claude
+### Port Conflicts
 
-**Cause**: `ENABLE_PLAYWRIGHT_MCP` not set to `true`
-**Fix**: Set environment variable in `.env` file
+**Symptoms:**
+```
+Error: Port 3000 already in use
+```
 
-### Issue: Browser crashes or hangs
+**Solution:**
+```bash
+# Check what's using the port
+lsof -i :3000
 
-**Cause**: Insufficient memory or missing dependencies
-**Fix**:
-1. Increase Docker memory limit (4GB+ recommended)
-2. Verify all system deps are installed
-3. Check logs for specific error messages
+# Kill the process or use different port
+PLAYWRIGHT_TEST_BASE_URL=http://localhost:3001 npm run test:e2e
+```
 
-## Performance Considerations
+### Tests Timeout
 
-### Resource Usage
+**Check baseURL is correct:**
+```bash
+# In playwright.config.ts
+baseURL: 'http://localhost:5173'  // Must match your dev server
+```
 
-- **Memory**: ~500MB per Chromium browser instance
-- **Disk**: ~300MB for Chromium installation
-- **CPU**: Moderate usage during page rendering
+**Increase timeout:**
+```typescript
+use: {
+  baseURL: 'http://localhost:5173',
+  timeout: 60000,  // 60 seconds
+}
+```
 
-### Recommendations
+### CI/CD Failures
 
-- Use headless mode (default in MCP)
-- Limit concurrent browser sessions
-- Close browsers after each test
-- Consider timeout limits for long-running tests
+**Check GitHub workflow branch names:**
+```yaml
+on:
+  push:
+    branches: [main, develop]  # Update to match your branches
+```
 
-## Security Considerations
+**Check Node version matches:**
+```yaml
+- name: Setup Node.js
+  uses: actions/setup-node@v4
+  with:
+    node-version: '20'  # Must match your project
+```
 
-### Sandboxing
+### Docker Build Fails
 
-Chromium runs with reduced privileges inside Docker:
-- Non-root user (`appuser`)
-- No direct host access
-- Network isolation via Docker
+**Clear Docker cache:**
+```bash
+docker-compose -f docker-compose.test.yml build --no-cache
+```
 
-### URL Safety
+**Check disk space:**
+```bash
+df -h
+docker system prune -a
+```
 
-**SCAR will navigate to any URL provided** - ensure:
-- You trust the repositories SCAR has access to
-- Webhook secret is properly configured
-- User whitelist is enabled if needed (`GITHUB_ALLOWED_USERS`)
+## Projects Status
 
-## Related Documentation
+### ✅ Implemented
 
-- [Playwright MCP Documentation](https://github.com/playwright/mcp)
-- [SCAR MCP Configuration](../CLAUDE.md#mcp-server-configuration)
-- [GitHub Adapter Implementation](../src/adapters/github.ts)
-- [Claude Client MCP Setup](../src/clients/claude.ts)
+| Project | Issue | Status | Notes |
+|---------|-------|--------|-------|
+| openhorizon.cc | #13 | ✅ Complete | Original implementation |
+| consilio | #67 | ✅ Complete | Applied via script |
+
+### 📋 Pending
+
+| Project | Priority | Notes |
+|---------|----------|-------|
+| project-manager | Medium | TBD if E2E tests needed |
+| health-agent | Low | Backend-only, may not need E2E |
+| quiculum-monitor | Low | Monitoring tool, TBD |
+
+### 🔍 Audit Required
+
+Run this to find projects that might need Playwright:
+
+```bash
+# Find projects with tests or test directories
+find ~/projects -name "tests" -o -name "*.spec.ts" -o -name "*.test.ts" | grep -v node_modules
+
+# Find projects with package.json mentioning tests
+find ~/projects -name "package.json" -exec grep -l "test" {} \;
+```
+
+## Best Practices
+
+### 1. Always Use Docker for Tests
+
+**✅ DO:**
+```bash
+npm run test:e2e:docker
+```
+
+**❌ DON'T:**
+```bash
+npm run test:e2e  # Requires local Playwright + system deps
+```
+
+### 2. Keep Production Dockerfile Alpine
+
+**✅ DO:**
+```dockerfile
+# Production Dockerfile
+FROM node:20-alpine
+```
+
+**❌ DON'T:**
+```dockerfile
+# DON'T add Playwright deps to production!
+FROM node:20-alpine
+RUN apk add chromium  # ❌ Bloats production image
+```
+
+### 3. Test Locally Before CI
+
+```bash
+# 1. Test Docker setup locally
+npm run test:e2e:docker
+
+# 2. Verify tests pass
+# 3. Then commit and push (CI will use same setup)
+```
+
+### 4. Write Stable Tests
+
+```typescript
+// ✅ Good: Wait for elements
+await page.waitForSelector('button[type="submit"]');
+await page.click('button[type="submit"]');
+
+// ❌ Bad: Race conditions
+await page.click('button[type="submit"]');
+```
+
+### 5. Use Semantic Selectors
+
+```typescript
+// ✅ Good: Semantic, stable
+await page.getByRole('button', { name: 'Submit' });
+await page.getByLabel('Email');
+
+// ❌ Bad: Brittle, breaks with styling changes
+await page.click('.btn-primary');
+await page.fill('#email-input-field-1234');
+```
+
+## Template Maintenance
+
+### Updating the Template
+
+Template location: `.template/playwright-setup/`
+
+**After updating templates:**
+
+```bash
+# Re-run propagation script on affected projects
+./scripts/setup-playwright-testing.sh /path/to/project
+
+# Review changes (script backs up existing files)
+diff package.json package.json.backup-*
+```
+
+### Version Updates
+
+**Playwright version:**
+
+Update in `.template/playwright-setup/package.json.snippet`:
+
+```json
+{
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"  // Update version here
+  }
+}
+```
+
+**GitHub Actions Playwright image:**
+
+Update in `.template/playwright-setup/.github/workflows/playwright.yml`:
+
+```yaml
+container:
+  image: mcr.microsoft.com/playwright:v1.40.0-jammy  # Update version
+```
+
+## References
+
+- [Playwright Documentation](https://playwright.dev/docs/intro)
+- [Alpine vs Debian for Playwright](https://github.com/microsoft/playwright/issues/10000)
+- [Docker Multi-stage Builds](https://docs.docker.com/build/building/multi-stage/)
+- SCAR Issue #27: This implementation
+- openhorizon.cc Issue #13: Original solution
+
+## Support
+
+**For issues:**
+1. Check [Troubleshooting](#troubleshooting) section
+2. Review `TESTING.md` in your project
+3. Check Playwright docs: https://playwright.dev/docs/troubleshooting
+4. Create SCAR issue with full error logs
+
+**For template updates:**
+1. Update `.template/playwright-setup/` in SCAR repo
+2. Test on one project first
+3. Propagate to all projects systematically
+4. Update this documentation
 
 ---
 
-**Status**: ✅ **Fully Implemented and Ready for Use**
-
-Last updated: 2025-12-29
+Last updated: January 2025
+Version: 1.0

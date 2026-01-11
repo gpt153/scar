@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:docker": "docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@types/node": "^20.0.0"
+  }
+}
+
+NOTES:
+- Add these scripts to your existing package.json "scripts" section
+- Add the devDependencies (merge with existing)
+- Adjust versions as needed
+- The test:docker script is the recommended way to run tests (no local dependencies needed)

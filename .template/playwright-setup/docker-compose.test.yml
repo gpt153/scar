@@ -1,0 +1,36 @@
+# Docker Compose configuration for running Playwright E2E tests
+# Usage: docker-compose -f docker-compose.test.yml up --build
+
+version: '3.8'
+
+services:
+  playwright-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    volumes:
+      # Mount test directory for live code updates
+      - ./tests:/app/tests
+      # Mount config for modifications
+      - ./playwright.config.ts:/app/playwright.config.ts
+      # Mount output directories (results persist on host)
+      - ./test-results:/app/test-results
+      - ./playwright-report:/app/playwright-report
+    environment:
+      # Enable CI mode for consistent test behavior
+      - CI=true
+    command: npx playwright test
+
+    # Optional: Add network configuration if tests need to connect to other services
+    # networks:
+    #   - app-network
+
+    # Optional: Add depends_on if tests need other services running
+    # depends_on:
+    #   - database
+    #   - backend
+
+# Optional: Define networks if needed
+# networks:
+#   app-network:
+#     driver: bridge
