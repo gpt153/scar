@@ -433,7 +433,7 @@ docker build -t gcr.io/openhorizon-cc/test:latest .
 ### Issue: "Cloud Run deploy timeout"
 
 **Solution:**
-1. Increase timeout: `CLOUDRUN_TIMEOUT=600` (10 minutes)
+1. Increase timeout: `CLOUDRUN_TIMEOUT=1200` (20 minutes)
 2. Check container startup logs
 3. Verify health check configuration
 
