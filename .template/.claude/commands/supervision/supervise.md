@@ -163,10 +163,15 @@ For each open issue:
 
 For each issue to monitor:
 
-```bash
-# Use Task tool to spawn scar-monitor subagent
-# (Example - actual invocation via Claude Code Task tool)
+**Spawn using Skill tool:**
+
+```markdown
+/supervision:scar-monitor {issue_number} "{scar_command}"
 ```
+
+Example invocation via Skill tool:
+- skill: "supervision:scar-monitor"
+- args: "42 \"/command-invoke plan-feature-github 'Add notifications'\""
 
 Spawn with:
 - Issue number

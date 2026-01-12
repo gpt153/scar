@@ -163,10 +163,15 @@ For each open issue:
 
 For each issue to monitor:
 
-```bash
-# Use Task tool to spawn scar-monitor subagent
-# (Example - actual invocation via Claude Code Task tool)
+**Spawn using Skill tool:**
+
+```markdown
+/supervision:scar-monitor {issue_number} "{scar_command}"
 ```
+
+Example invocation via Skill tool:
+- skill: "supervision:scar-monitor"
+- args: "42 \"/command-invoke plan-feature-github 'Add notifications'\""
 
 Spawn with:
 - Issue number
@@ -466,7 +471,8 @@ for pending_issue in $PENDING; do
     echo "🚀 Issue #$pending_issue now unblocked - spawning monitor"
 
     # Spawn monitor for newly unblocked issue
-    # (Use Task tool to spawn scar-monitor subagent)
+    # Invoke Skill: /supervision:scar-monitor
+    # Example: /supervision:scar-monitor $pending_issue "/command-invoke plan-feature-github 'Feature title'"
 
     # Remove from pending, add to active
     jq ".pending_issues -= [$pending_issue]" project-state.json > tmp.json && mv tmp.json project-state.json
