@@ -197,15 +197,322 @@ Track in state:
 - Update project-state.json
 - Detect completions, blockers, errors
 
-### 3.2 Handle Completions
+### 3.2 Handle Completions and Merge Decisions
 
-When issue completes:
-1. Verify with `/verify-scar-phase`
-2. **Check for UI deployment** (see 3.3)
-3. Move to completed_issues
-4. Check if dependent issues can now start
-5. Spawn new monitors for unblocked issues
-6. Update meta-plan
+When monitor reports issue VERIFIED_APPROVED:
+
+#### Step 1: Receive Verification Report
+
+Monitor has already run `/verify-scar-phase` and reports:
+```json
+{
+  "issue": 42,
+  "status": "verified_approved",
+  "pr_number": 52,
+  "pr_url": "https://github.com/user/repo/pull/52",
+  "verification": "approved",
+  "files_changed": 5,
+  "tests_added": 12
+}
+```
+
+**Extract PR details from monitor report:**
+```bash
+ISSUE_NUM=42  # From report
+PR_NUM=52     # From report
+PR_URL="https://github.com/user/repo/pull/52"
+```
+
+#### Step 2: Assess Merge Safety (Strategic Decision)
+
+**You have full project context:**
+- All active issues and their PRs
+- Dependency graph from meta-plan
+- Main branch state
+- Other pending merges
+
+**Evaluate merge safety:**
+
+**1. Dependency Check** - Does any in-progress issue depend on current main?
+```bash
+# Check if any active issues would break
+for active_issue in "${!monitors[@]}"; do
+  if issue_depends_on_current_main "$active_issue"; then
+    DEPENDENCY_BLOCKER=true
+    BLOCKER_REASON="Issue #$active_issue building on current main"
+  fi
+done
+```
+
+**2. Conflict Check** - Are other approved PRs waiting to merge?
+```bash
+# List all PRs with verified_approved status
+APPROVED_PRS=$(jq -r '.monitors[] | select(.status=="verified_approved") | .pr_number' project-state.json)
+
+if [ $(echo "$APPROVED_PRS" | wc -l) -gt 1 ]; then
+  MULTIPLE_APPROVED=true
+  # Determine merge order based on dependencies
+fi
+```
+
+**3. Stability Check** - Is main branch currently stable?
+```bash
+# Check recent CI status on main
+MAIN_STATUS=$(gh run list --branch main --limit 1 --json conclusion -q '.[0].conclusion')
+
+if [ "$MAIN_STATUS" != "success" ]; then
+  MAIN_UNSTABLE=true
+  BLOCKER_REASON="Main branch CI failing"
+fi
+```
+
+**4. UI Deployment Check** - Is this a UI feature requiring tests?
+```bash
+# Check issue labels
+LABELS=$(gh issue view $ISSUE_NUM --json labels -q '.labels[].name')
+
+if echo "$LABELS" | grep -qE "frontend|ui|web|dashboard"; then
+  UI_FEATURE=true
+  # Check if UI testing complete (see 3.3)
+  UI_TEST_STATUS=$(jq -r ".ui_deployments.issue_$ISSUE_NUM.status" project-state.json)
+
+  if [ "$UI_TEST_STATUS" != "passed" ]; then
+    HOLD_FOR_UI_TESTS=true
+    BLOCKER_REASON="UI testing not complete"
+  fi
+fi
+```
+
+**Decision Matrix:**
+
+```bash
+# Determine action based on assessment
+if [ "$HOLD_FOR_UI_TESTS" = true ]; then
+  DECISION="HOLD"
+  REASON="Waiting for UI testing to complete"
+elif [ "$MAIN_UNSTABLE" = true ]; then
+  DECISION="HOLD"
+  REASON="Main branch unstable - waiting for fix"
+elif [ "$DEPENDENCY_BLOCKER" = true ]; then
+  DECISION="HOLD"
+  REASON="$BLOCKER_REASON"
+elif [ "$MULTIPLE_APPROVED" = true ]; then
+  # Check merge order - backend before frontend, etc.
+  if should_merge_first "$PR_NUM" "$APPROVED_PRS"; then
+    DECISION="MERGE_NOW"
+  else
+    DECISION="HOLD"
+    REASON="Other PR should merge first (dependency order)"
+  fi
+else
+  # No blockers - safe to merge
+  DECISION="MERGE_NOW"
+fi
+```
+
+#### Step 3: Execute Decision
+
+**If MERGE_NOW:**
+
+```bash
+echo "🔍 Merge Assessment for PR #$PR_NUM (Issue #$ISSUE_NUM):"
+echo "  ✅ Verification: APPROVED"
+echo "  ✅ Dependencies: None blocking"
+echo "  ✅ Main status: Stable"
+echo "  ✅ Other PRs: None waiting"
+echo "  ✅ Decision: MERGE NOW"
+echo ""
+
+# Get current PR merge status
+MERGE_STATUS=$(gh pr view $PR_NUM --json mergeStateStatus -q '.mergeStateStatus')
+
+# Handle PR state
+if [ "$MERGE_STATUS" = "BEHIND" ]; then
+  echo "PR behind main - rebasing first..."
+  gh pr checkout $PR_NUM
+  git fetch origin main
+  git rebase origin/main
+
+  if [ $? -ne 0 ]; then
+    echo "❌ Auto-rebase failed - manual conflict resolution needed"
+    git rebase --abort
+
+    # Post to issue
+    gh issue comment $ISSUE_NUM --body "## ⚠️ Merge Conflict
+
+PR #$PR_NUM has conflicts with main branch.
+
+**Action needed**: Manual conflict resolution required.
+
+Holding merge until conflicts resolved."
+
+    DECISION="HOLD"
+    REASON="Merge conflicts - needs manual resolution"
+  else
+    git push --force-with-lease
+    echo "✅ Rebased successfully"
+  fi
+fi
+
+# Execute merge (if still MERGE_NOW after rebase check)
+if [ "$DECISION" = "MERGE_NOW" ]; then
+  gh pr merge $PR_NUM --squash --delete-branch --admin
+
+  if [ $? -eq 0 ]; then
+    echo "✅ PR #$PR_NUM merged to main"
+
+    # Update project state
+    jq ".monitors.\"$ISSUE_NUM\".status = \"merged\" |
+        .monitors.\"$ISSUE_NUM\".merged_at = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" \
+        project-state.json > tmp.json && mv tmp.json project-state.json
+
+    # Proceed to Step 4
+  else
+    echo "❌ Merge failed - investigating..."
+    gh pr view $PR_NUM --json mergeStateStatus,statusCheckRollup
+
+    DECISION="HOLD"
+    REASON="Merge command failed - needs investigation"
+  fi
+fi
+```
+
+**If HOLD:**
+
+```bash
+echo "⏸️  Holding PR #$PR_NUM - merge later"
+echo "Reason: $REASON"
+echo ""
+
+# Update state to pending_merge
+jq ".monitors.\"$ISSUE_NUM\".status = \"pending_merge\" |
+    .monitors.\"$ISSUE_NUM\".hold_reason = \"$REASON\"" \
+    project-state.json > tmp.json && mv tmp.json project-state.json
+
+# Will be re-evaluated in next polling cycle
+echo "Will reassess in next cycle (2min)"
+```
+
+**If REJECT:**
+
+```bash
+echo "❌ Not merging PR #$PR_NUM"
+echo "Reason: $REASON"
+echo ""
+
+# Post to issue
+gh issue comment $ISSUE_NUM --body "## ❌ Merge Rejected
+
+**Reason**: $REASON
+
+**Action needed**: Address the issues before merge can proceed."
+
+# Update state
+jq ".monitors.\"$ISSUE_NUM\".status = \"merge_rejected\" |
+    .monitors.\"$ISSUE_NUM\".reject_reason = \"$REASON\"" \
+    project-state.json > tmp.json && mv tmp.json project-state.json
+```
+
+#### Step 4: Post-Merge Actions (After Successful Merge)
+
+**1. Update main branch locally:**
+```bash
+git checkout main
+git pull origin main
+
+echo "📥 Updated main to latest (includes PR #$PR_NUM)"
+```
+
+**2. Notify all active monitors about main update:**
+```bash
+# All active work needs to know main changed
+for issue in "${!monitors[@]}"; do
+  status=$(jq -r ".monitors.\"$issue\".status" project-state.json)
+
+  if [[ "$status" == "monitoring" || "$status" == "pending_merge" ]]; then
+    echo "🔔 Notifying monitor for issue #$issue: main updated"
+    # Monitors may need to rebase their PRs
+  fi
+done
+```
+
+**3. Check for UI deployment** (if applicable):
+- If UI feature, proceed to 3.3 (Automatic UI Testing)
+- Wait for UI tests to pass before marking truly complete
+
+**4. Move to completed_issues:**
+```bash
+# Only mark complete if NOT a UI feature awaiting tests
+if [ "$UI_FEATURE" != true ] || [ "$UI_TEST_STATUS" = "passed" ]; then
+  # Update project state
+  jq ".completed_issues += [$ISSUE_NUM] |
+      del(.monitors.\"$ISSUE_NUM\")" \
+      project-state.json > tmp.json && mv tmp.json project-state.json
+
+  echo "✅ Issue #$ISSUE_NUM moved to completed"
+fi
+```
+
+**5. Check if dependent issues can now start:**
+```bash
+# Check pending queue for issues that were blocked by this one
+PENDING=$(jq -r '.pending_issues[]' project-state.json)
+
+for pending_issue in $PENDING; do
+  # Check if dependencies now satisfied
+  DEPENDS_ON=$(gh issue view $pending_issue --json body -q '.body' | grep -oP 'Depends on #\K[0-9]+')
+
+  if [ "$DEPENDS_ON" = "$ISSUE_NUM" ]; then
+    echo "🚀 Issue #$pending_issue now unblocked - spawning monitor"
+
+    # Spawn monitor for newly unblocked issue
+    # (Use Task tool to spawn scar-monitor subagent)
+
+    # Remove from pending, add to active
+    jq ".pending_issues -= [$pending_issue]" project-state.json > tmp.json && mv tmp.json project-state.json
+  fi
+done
+```
+
+**6. Spawn new monitors for unblocked issues** (see step 5 above)
+
+**7. Update meta-plan:**
+```bash
+# Update meta-plan with progress
+cat >> .agents/supervision/session-$SESSION_TIME/meta-plan.md <<EOF
+
+## Updated $(date -u +%Y-%m-%dT%H:%M:%S)
+
+**Issue #$ISSUE_NUM**: ✅ Merged to main
+- PR #$PR_NUM merged
+- Dependencies unblocked: $(echo $UNBLOCKED_ISSUES | tr '\n' ', ')
+
+**Next**: $(echo $NEXT_ISSUES | head -1)
+
+EOF
+```
+
+#### Step 5: Report to User (Strategic Summary)
+
+```markdown
+## 📊 Supervision Update
+
+**Issue #$ISSUE_NUM**: {title} - ✅ **MERGED**
+  - Verification: APPROVED ✅
+  - Merge assessment: Safe (no conflicts, stable main)
+  - PR #$PR_NUM merged to main at $(date -u +%H:%M:%S)
+  - Files changed: {count}
+  - Tests added: {count}
+
+**Impact**:
+  - Main branch updated
+  - {N} issues now unblocked: {list}
+
+**Next**: Starting Issue #{next} (now unblocked)
+
+**Active**: {N} issues in progress
+**Pending**: {N} issues waiting on dependencies
+```
 
 ### 3.3 Automatic UI Testing After Deployment
 

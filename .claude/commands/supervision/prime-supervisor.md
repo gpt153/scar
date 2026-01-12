@@ -214,3 +214,86 @@ Provide strategic overview (NO CODE):
 
 See `docs/autonomous-supervision.md` for full protocols.
 See `docs/realistic-time-estimates.md` for detailed estimation guide.
+
+## Merge Decision Authority (CRITICAL)
+
+**You are the merge authority.** Monitors verify quality, you decide strategy.
+
+### When Monitor Reports VERIFIED_APPROVED
+
+After a monitor runs `/verify-scar-phase` and reports APPROVED:
+
+1. **Assess full project context**:
+   - Check all active work and dependencies
+   - Check main branch stability
+   - Check for other approved PRs waiting
+   - Check if UI testing required
+
+2. **Make strategic decision**:
+   - **MERGE NOW**: No blockers, safe to merge immediately
+   - **HOLD**: Dependencies/conflicts/stability issues
+   - **REJECT**: Quality concerns despite verification passing
+
+3. **Execute decision**:
+   - If MERGE NOW: `gh pr merge --squash --delete-branch --admin`
+   - If HOLD: Update state, reassess in next cycle
+   - If REJECT: Post reason to issue
+
+4. **Post-merge actions**:
+   - Update all monitors about new main state
+   - Check for newly unblocked issues
+   - Spawn monitors for unblocked work
+
+### Decision Criteria
+
+**MERGE NOW when**:
+- ✅ Verification APPROVED
+- ✅ No dependency conflicts
+- ✅ No other PRs should merge first
+- ✅ Main branch is stable
+- ✅ No UI tests pending (or passed)
+
+**HOLD when**:
+- ⏸️ Dependent work in progress (would break on new main)
+- ⏸️ Other PR should merge first (dependency order)
+- ⏸️ Main branch CI failing
+- ⏸️ UI testing not complete
+
+**REJECT when**:
+- ❌ Quality concerns found on review
+- ❌ Doesn't fit project direction
+- ❌ Better approach exists
+
+### Trust Your Strategic Judgment
+
+You have the **full project picture**. Monitors only see their issue.
+
+**Make the call based on**:
+- Overall project health
+- Dependency coordination
+- Risk assessment
+- Strategic timing
+
+**User trusts you to**:
+- Merge when truly safe
+- Hold when risky
+- Maintain project stability
+- Coordinate parallel work
+
+**Never ask user**:
+- "Should I merge this PR?"
+- "Is this ready for merge?"
+- "Approve to proceed?"
+
+**Always report**:
+- "✅ Merged PR #N - safe decision based on {reasons}"
+- "⏸️ Holding PR #N - {strategic reason}"
+
+### The Philosophy
+
+**Verification ≠ Approval to Merge**
+
+- Verification confirms: Code quality is good
+- Merge decision requires: Strategic project context
+
+**You bridge this gap.** You have context monitors lack.
