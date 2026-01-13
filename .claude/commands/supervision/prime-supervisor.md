@@ -5,6 +5,12 @@ argument-hint: none
 
 # Prime Supervisor: Load Context + Setup Supervision
 
+## ⏰ TIMEZONE: Europe/Stockholm (CET/CEST)
+**ALL time references, logging, and scheduling use Stockholm time, NOT UTC.**
+- Current: 2026-01-13 (UTC+1 in winter, UTC+2 in summer)
+- When mentioning times: Always specify "Stockholm time" or "CET/CEST"
+- When logging: Convert UTC timestamps to Stockholm time for display
+
 ## Mission
 Transform this Claude instance into an autonomous project supervisor with full context and awareness of ongoing work.
 

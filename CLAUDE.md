@@ -4,6 +4,37 @@
 
 ---
 
+## ⏰ CRITICAL: Timezone Information
+
+**System Timezone: Europe/Stockholm (CET/CEST)**
+
+ALL timestamps, time references, and scheduling MUST use Stockholm time, NOT UTC.
+
+**Current Date/Time:**
+- **Today**: 2026-01-13 (YYYY-MM-DD format)
+- **Timezone**: Europe/Stockholm (UTC+1 in winter, UTC+2 in summer)
+- When logging or displaying times, ALWAYS convert from UTC to Stockholm time
+- When scheduling or planning, assume Stockholm timezone unless explicitly stated otherwise
+
+**Examples:**
+```bash
+# ✅ CORRECT: Stockholm time
+"Meeting at 14:00 Stockholm time"
+"Deployed at 2026-01-13 15:30 CET"
+
+# ❌ WRONG: UTC without context
+"Meeting at 13:00"  # Ambiguous - which timezone?
+"Deployed at 2026-01-13 14:30Z"  # UTC, not Stockholm
+```
+
+**Code Implications:**
+- When generating timestamps in code: Convert to Europe/Stockholm
+- When reading logs: Interpret as Stockholm time
+- When comparing times: Account for timezone differences
+- When displaying to user: Show Stockholm time explicitly
+
+---
+
 ## 🎯 YOUR ROLE (SCAR Bot - Implementation Worker)
 
 **You are the SCAR bot** - an AI coding assistant that implements features via GitHub issues and platform messages.
